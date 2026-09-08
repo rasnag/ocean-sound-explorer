@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeExpedition} from '../lib/expedition.mjs';
 import {OceanAudio} from '../lib/ocean-audio.mjs';
+test('native media starts synchronously in tap and stop cannot award completion',()=>{
+ const e=new OceanAudio();let gesture=true,played=0,done=0;
+ const player={currentTime:0,pause(){},play(){assert.ok(gesture);played++;return Promise.resolve();}};
+ e.player=player;e.clips.set(JSON.stringify([[],10]),'blob:test');
+ const p=e.play([],10,()=>done++);gesture=false;assert.equal(played,1);assert.equal(p.context.currentTime,0);player.currentTime=4;assert.equal(p.context.currentTime,4);
+ const callback=player.onended;e.stop();callback();assert.equal(done,0);
+});
 test('100 expeditions: balanced answers, distinct mixes, real overlapping decoys and valid target timing',()=>{
  for(let k=0;k<100;k++){
   const plans=makeExpedition();assert.equal(plans.length,5);assert.equal(plans.filter(p=>p.present).length,3);

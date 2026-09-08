@@ -7,18 +7,18 @@ import {OceanAudio} from '@/lib/ocean-audio.mjs';
 const story='Captain! Our underwater microphone recorded a whole ocean of sounds. Some animals were close, some far away, and some called at the same time. Learn each animal’s voice, then help us figure out who was in the recording.';
 export default function Home(){
  const [screen,setScreen]=useState('intro'),[index,setIndex]=useState(0),[ready,setReady]=useState(false),[loaded,setLoaded]=useState(0),[error,setError]=useState(''),[playing,setPlaying]=useState(''),[elapsed,setElapsed]=useState(0),[learned,setLearned]=useState(false),[heard,setHeard]=useState(false),[answer,setAnswer]=useState<boolean|null>(null),[score,setScore]=useState(0),[voice,setVoice]=useState(true);
- const engine=useRef<OceanAudio|null>(null),plans=useRef<ReturnType<typeof makeExpedition>>([]),raf=useRef(0),busy=useRef(false),answered=useRef(false),alive=useRef(true);
+ const engine=useRef<OceanAudio|null>(null),plans=useRef<ReturnType<typeof makeExpedition>>([]),raf=useRef(0),busy=useRef(false),answered=useRef(false),alive=useRef(true),utterance=useRef<SpeechSynthesisUtterance|null>(null);
  const a=animals[index];
  const base=()=>new URL('./',window.location.href).pathname;
  function audio(){return engine.current||(engine.current=new OceanAudio());}
- function speak(text:string){if(!voice||!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.87;window.speechSynthesis.speak(u);}
+ function speak(text:string){if(!voice||!('speechSynthesis' in window))return;try{if((navigator as any).audioSession)(navigator as any).audioSession.type='playback';}catch{}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.87;utterance.current=u;window.speechSynthesis.resume();window.speechSynthesis.speak(u);}
  function silence(){if('speechSynthesis' in window)window.speechSynthesis.cancel();}
  function stop(){audio().stop();cancelAnimationFrame(raf.current);busy.current=false;setPlaying('');setElapsed(0);}
  useEffect(()=>{alive.current=true;const hide=()=>{if(document.hidden){engine.current?.interrupt();silence();cancelAnimationFrame(raf.current);busy.current=false;setPlaying('');setElapsed(0);}};document.addEventListener('visibilitychange',hide);return()=>{alive.current=false;document.removeEventListener('visibilitychange',hide);engine.current?.interrupt();cancelAnimationFrame(raf.current);silence();};},[]);
  function load(){
   setError('');
   try{const e=audio();void e.unlock().catch(()=>{if(alive.current)setError('Tap “Load sounds” to try again.');});
-   void e.load(base(),(n:number)=>{if(alive.current)setLoaded(n);}).then(()=>{if(alive.current){setReady(true);setError('');}}).catch(()=>{if(alive.current)setError('The sounds could not load. Check your connection, then try again.');});
+   void e.load(base(),(n:number)=>{if(alive.current)setLoaded(n);}).then(()=>{if(alive.current){e.prepare(plans.current);setReady(true);setError('');}}).catch(()=>{if(alive.current)setError('The sounds could not load. Check your connection, then try again.');});
   }catch{setError('Sound is unavailable. Please try Safari or Chrome.');}
  }
  function start(){plans.current=makeExpedition();setIndex(0);setScore(0);setAnswer(null);answered.current=false;setLearned(false);setHeard(false);setScreen('game');load();speak('Meet the beluga whale! Tap the yellow button to hear its voice.');}
