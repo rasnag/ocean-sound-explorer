@@ -1,0 +1,42 @@
+[
+  {
+    "id": "beluga",
+    "url": "https://www.fisheries.noaa.gov/s3/2023-02/Dele_NOAA_03-Beluga-Whale.jpg",
+    "source": "https://www.fisheries.noaa.gov/national/science-data/sounds-ocean-mammals",
+    "credit": "NOAA, Alaska Fisheries Science Center, Manuel Castellote (2023)",
+    "bytes": 102139,
+    "file": "beluga.jpg"
+  },
+  {
+    "id": "humpback",
+    "url": "https://www.fisheries.noaa.gov/s3/2023-02/Meno_Cholewiak_03-Humpback-Whale_0.jpg",
+    "source": "https://www.fisheries.noaa.gov/national/science-data/sounds-ocean-mammals",
+    "credit": "NOAA Fisheries, Northeast Fisheries Science Center, Danielle Cholewiak (2023)",
+    "bytes": 297600,
+    "file": "humpback.jpg"
+  },
+  {
+    "id": "dolphin",
+    "url": "https://www.fisheries.noaa.gov/s3/2023-02/Tutr_NOAA_Holt_01-Bottlenose-Dolphin.jpg",
+    "source": "https://www.fisheries.noaa.gov/national/science-data/sounds-ocean-mammals",
+    "credit": "NOAA Fisheries, Northeast Fisheries Science Center, Rich Holt (2023)",
+    "bytes": 2741317,
+    "file": "dolphin.jpg"
+  },
+  {
+    "id": "pilot",
+    "url": "https://www.fisheries.noaa.gov/s3/2023-02/Glma_NOAA_Duley_05-PilotWhale.JPG",
+    "source": "https://www.fisheries.noaa.gov/national/science-data/sounds-ocean-mammals",
+    "credit": "NOAA Fisheries, Northeast Fisheries Science Center, Pete Duley (2023)",
+    "bytes": 1458972,
+    "file": "pilot.jpg"
+  },
+  {
+    "id": "sperm",
+    "url": "https://www.fisheries.noaa.gov/s3/2023-02/Phma_NOAA_NEFSC_06-Sperm-Whale.JPG",
+    "source": "https://www.fisheries.noaa.gov/national/science-data/sounds-ocean-mammals",
+    "credit": "NOAA Fisheries, Northeast Fisheries Science Center (2023)",
+    "bytes": 3108652,
+    "file": "sperm.jpg"
+  }
+]
