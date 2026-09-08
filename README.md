@@ -1,6 +1,6 @@
 ﻿# Ocean Sound Explorer
 
-A mobile-first static browser game for young ocean explorers. Five real NOAA animal calls, solo listening, randomized overlapping mystery soundscapes, yes/no answers, spoken help, facts and a five-round replay loop.
+A mobile-first static browser game for young ocean explorers. Five real NOAA animal calls, solo listening, randomized overlapping mystery soundscapes, yes/no answers, on-screen facts and a five-round replay loop.
 
 ## Run
 
