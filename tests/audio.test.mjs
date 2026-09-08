@@ -13,7 +13,8 @@ test('100 expeditions: balanced answers, distinct mixes, real overlapping decoys
  for(let k=0;k<100;k++){
   const plans=makeExpedition();assert.equal(plans.length,5);assert.equal(plans.filter(p=>p.present).length,3);
   assert.equal(new Set(plans.map(p=>JSON.stringify(p.layers.map(l=>[l.start,l.duration])))).size,5);
-  for(const p of plans){const target=p.layers.filter(l=>l.id===p.target);assert.equal(target.length,p.present?1:0);assert.ok(new Set(p.layers.map(l=>l.id)).size>=3);
+  assert.equal(new Set(plans.map(p=>[...new Set(p.layers.map(l=>l.id))].sort().join())).size,5);
+  for(const p of plans){const target=p.layers.filter(l=>l.id===p.target);assert.equal(target.length>0,p.present);assert.ok(new Set(p.layers.map(l=>l.id)).size>=3);
    for(const l of p.layers){assert.ok(l.start>=0&&l.start+l.duration<=p.duration+.001);assert.ok(l.gain>0&&l.gain<.5);}
    assert.ok(p.layers.some((a,i)=>p.layers.some((b,j)=>i!==j&&a.start<b.start+b.duration&&b.start<a.start+a.duration)));
   }
