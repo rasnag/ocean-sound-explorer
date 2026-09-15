@@ -1,4 +1,5 @@
 'use client';
+import './quiz.css';
 import {useEffect,useRef,useState} from 'react';
 import {Anchor,ArrowRight,Check,Headphones,Play,RotateCcw,Square,Volume2} from 'lucide-react';
 import {Progress} from '@/components/ui/progress';
