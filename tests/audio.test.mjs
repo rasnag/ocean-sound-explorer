@@ -16,7 +16,7 @@ test('native media starts synchronously in a tap and stop cannot award completio
 test('the expedition has two confidence rounds followed by three ocean rounds',()=>{
  const plans=makeExpedition();
  assert.equal(plans.length,5);
- assert.deepEqual(plans.map(plan=>plan.target),['owl','horse','dolphin','humpback','sperm']);
+ assert.deepEqual(plans.map(plan=>plan.target),['owl','dog','dolphin','seal','whale']);
  assert.deepEqual(plans.map(plan=>plan.warmup),[true,true,false,false,false]);
  assert.equal(new Set(plans.map(plan=>plan.target)).size,5);
  for(const plan of plans)assert.ok(plan.options.includes(plan.target));
