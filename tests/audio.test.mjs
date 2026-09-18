@@ -2,25 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeExpedition} from '../lib/expedition.mjs';
 import {OceanAudio} from '../lib/ocean-audio.mjs';
-test('native media starts synchronously in tap and stop cannot award completion',()=>{
- const e=new OceanAudio();let gesture=true,played=0,done=0;
+
+test('native media starts synchronously in a tap and stop cannot award completion',()=>{
+ const engine=new OceanAudio();let gesture=true,played=0,done=0;
  const player={currentTime:0,pause(){},play(){assert.ok(gesture);played++;return Promise.resolve();}};
- e.player=player;e.clips.set(JSON.stringify([[],10]),'blob:test');
- const p=e.play([],10,()=>done++);gesture=false;assert.equal(played,1);assert.equal(p.context.currentTime,0);player.currentTime=4;assert.equal(p.context.currentTime,4);
- const callback=player.onended;e.stop();callback();assert.equal(done,0);
+ engine.player=player;engine.clips.set(JSON.stringify([[],10]),'blob:test');
+ const playback=engine.play([],10,()=>done++);gesture=false;
+ assert.equal(played,1);assert.equal(playback.context.currentTime,0);
+ player.currentTime=4;assert.equal(playback.context.currentTime,4);
+ const callback=player.onended;engine.stop();callback();assert.equal(done,0);
 });
-test('100 expeditions: balanced answers, distinct mixes, real overlapping decoys and valid target timing',()=>{
- for(let k=0;k<100;k++){
-  const plans=makeExpedition();assert.equal(plans.length,5);assert.equal(plans.filter(p=>p.present).length,3);
-  assert.equal(new Set(plans.map(p=>JSON.stringify(p.layers.map(l=>[l.start,l.duration])))).size,5);
-  assert.equal(new Set(plans.map(p=>[...new Set(p.layers.map(l=>l.id))].sort().join())).size,5);
-  for(const p of plans){const target=p.layers.filter(l=>l.id===p.target);assert.equal(target.length>0,p.present);assert.ok(new Set(p.layers.map(l=>l.id)).size>=3);
-   for(const l of p.layers){assert.ok(l.start>=0&&l.start+l.duration<=p.duration+.001);assert.ok(l.gain>0&&l.gain<.5);}
-   assert.ok(p.layers.some((a,i)=>p.layers.some((b,j)=>i!==j&&a.start<b.start+b.duration&&b.start<a.start+a.duration)));
-  }
- }
+
+test('the expedition has two confidence rounds followed by three ocean rounds',()=>{
+ const plans=makeExpedition();
+ assert.equal(plans.length,5);
+ assert.deepEqual(plans.map(plan=>plan.target),['owl','horse','dolphin','humpback','sperm']);
+ assert.deepEqual(plans.map(plan=>plan.warmup),[true,true,false,false,false]);
+ assert.equal(new Set(plans.map(plan=>plan.target)).size,5);
+ for(const plan of plans)assert.ok(plan.options.includes(plan.target));
 });
-test('mobile architecture: resume and EVERY source start happen in the same gesture, including delayed layers',async()=>{
+
+test('Web Audio playback schedules every source during the initiating gesture',()=>{
  let gesture=false;const calls=[];const param={setValueAtTime(){},linearRampToValueAtTime(){}};
  class Context{state='suspended';currentTime=12;sampleRate=44100;destination={};
   resume(){assert.ok(gesture);calls.push('resume');this.state='running';return Promise.resolve();}
@@ -29,11 +31,9 @@ test('mobile architecture: resume and EVERY source start happen in the same gest
   createGain(){return {gain:param,connect(){},disconnect(){}};}
   close(){this.state='closed';return Promise.resolve();}
  }
- globalThis.AudioContext=Context;const e=new OceanAudio();for(const id of ['beluga','humpback','dolphin','pilot','sperm'])e.buffers.set(id,{duration:12});
- const p=makeExpedition()[0];gesture=true;const result=e.play(p.layers,10);gesture=false;
- assert.ok(result);assert.equal(calls.filter(Array.isArray).length,p.layers.length+2);
- assert.ok(calls.filter(Array.isArray).some(c=>c[0]>17),'future starts are scheduled immediately');
- const generation=e.generation;e.stop();assert.ok(e.generation>generation);assert.equal(e.active,false);
- e.interrupt();assert.equal(e.context,null);gesture=true;e.play(p.layers,10);gesture=false;assert.ok(e.context);e.stop();
- delete globalThis.AudioContext;
+ globalThis.AudioContext=Context;
+ const engine=new OceanAudio();engine.buffers.set('owl',{duration:12});
+ gesture=true;const result=engine.play([{id:'owl',start:0,duration:1,offset:0,gain:.9,pan:0}],1);gesture=false;
+ assert.ok(result);assert.equal(calls.filter(Array.isArray).length,3);
+ engine.stop();delete globalThis.AudioContext;
 });

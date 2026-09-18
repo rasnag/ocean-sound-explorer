@@ -12,7 +12,7 @@ export default function Home(){
  const round=rounds.current[index];
  const target=animals.find(a=>a.id===round.target)!;
  const byId=(id:string)=>animals.find(a=>a.id===id)!;
- const base=()=>new URL('./',window.location.href).pathname;
+ const base=()=>'/';
  function audio(){return engine.current||(engine.current=new OceanAudio());}
  function pickVoice(){if(!('speechSynthesis' in window))return null;const voices=window.speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));const names=['Samantha','Ava','Serena','Zira','Aria','Jenny','Victoria','Karen','Moira','Tessa'];for(const name of names){const found=voices.find(v=>v.name.toLowerCase().includes(name.toLowerCase()));if(found)return found;}return voices[0]||null;}
  function silence(){if('speechSynthesis' in window){window.speechSynthesis.cancel();speech.current=null;setNarrating(false);}}
