@@ -39,6 +39,7 @@ export default function MakeMoon(){
  const phase=classify(angle),data=rounds[round];
  const radius=29.5,moonX=50+Math.cos(angle)*radius,moonY=50+Math.sin(angle)*radius;
 
+ useEffect(()=>{const previous=document.title;document.title='Make the Moon — Curiosity Loop';return()=>{document.title=previous};},[]);
  useEffect(()=>{if(canvas.current)paintPhase(canvas.current,angle);},[angle]);
  useEffect(()=>{if(!data.target){setSolved(true);return;}const hit=phase.key===data.target;if(hit&&!solved){setSparks(n=>n+1);navigator.vibrate?.(45);}setSolved(hit);},[phase.key,data.target]);
 
