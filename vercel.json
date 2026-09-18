@@ -3,5 +3,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
   "framework": null,
+  "rewrites": [
+    { "source": "/make-the-moon", "destination": "/index.html" }
+  ],
   "alias": ["curiosityloop.me"]
 }
