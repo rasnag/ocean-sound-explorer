@@ -100,17 +100,18 @@ button.go{background:var(--coral);border-color:var(--coral);color:#fff;font-fami
 <div class="wrap">
   <header class="hero">
     <h1>Shark Night</h1>
-    <p>A play-together page for Your child and Grown-up. Your child is the Pokémon expert. Grown-up is the shark detective. Each of you teaches the other one thing.</p>
+    <p>A play-together page for Alex and a grown-up. Alex is the Pokémon expert. The grown-up is the shark detective. Each of you teaches the other one thing.</p>
+    <p class="lead">Alex is our example explorer. Swap in your own name as you play.</p>
     <div class="who"><span class="chip">About 10–15 minutes</span><span class="chip">Hand the phone back and forth</span></div>
   </header>
 
   <section class="station">
-    <div class="tag">Station 1 · Your child teaches</div>
-    <h2>Your child's Pokémon class</h2>
+    <div class="tag">Station 1 · Alex teaches</div>
+    <h2>Alex's Pokémon class</h2>
     <p class="lead">Grown-up, you're the new student. Ask these and really listen. It's fine not to know anything.</p>
     <ul class="qs">
-      <li>What is a Pokémon? Is it an animal?<span>Let him explain it his way.</span></li>
-      <li>Is there a shark one? Can you show me?<span>There is one. Let him find it.</span></li>
+      <li>What is a Pokémon? Is it an animal?<span>Let Alex explain it in their own way.</span></li>
+      <li>Is there a shark one? Can you show me?<span>There is one. Let Alex find it.</span></li>
       <li>How do you know which one is stronger?<span>Follow up: "Can a strong one ever lose?"</span></li>
       <li>Which one would you be, and why?</li>
     </ul>
@@ -119,16 +120,16 @@ button.go{background:var(--coral);border-color:var(--coral);color:#fff;font-fami
   <section class="station">
     <div class="tag">Station 2 · Grown-up's surprise</div>
     <h2>Real or Movie?</h2>
-    <p class="lead">Read each card out loud. Your child guesses first, then tap his guess to see the answer.</p>
+    <p class="lead">Read each card out loud. Alex guesses first, then tap their guess to see the answer.</p>
     <div class="cards" id="cards"></div>
   </section>
 
   <section class="station">
     <div class="tag">Station 3 · Walk it out</div>
     <h2>How long is a megalodon?</h2>
-    <p class="lead">Guess first: how many of Your child's footsteps long is a megalodon? Then reveal and pace it out down the hallway or outside.</p>
+    <p class="lead">Guess first: how many of Alex's footsteps long is a megalodon? Then reveal and pace it out down the hallway or outside.</p>
     <div class="guess">
-      <label for="g">Your child's guess:</label>
+      <label for="g">Alex's guess:</label>
       <input id="g" type="number" min="1" max="500" value="10" inputmode="numeric">
       <span>steps</span>
       <button id="reveal">Reveal sizes</button>
@@ -140,7 +141,7 @@ button.go{background:var(--coral);border-color:var(--coral);color:#fff;font-fami
   <section class="station">
     <div class="tag">Station 4 · Invent together</div>
     <h2>Make a Bird Shark Pokémon</h2>
-    <p class="lead">Take turns. Your child picks one, Grown-up picks the next. Many Pokémon are mash-ups of real animals, so this one can be too.</p>
+    <p class="lead">Take turns. Alex picks one, the grown-up picks the next. Many Pokémon are mash-ups of real animals, so this one can be too.</p>
     <div class="pick"><label for="nm">Its name</label><input id="nm" type="text" value="Sharkbeak" maxlength="24"></div>
     <div class="pick"><label>From a bird, it gets…</label><div class="opts" data-k="bird">
       <button>wings</button><button>a beak</button><button>feathers</button><button>sharp eyes</button></div></div>
@@ -148,7 +149,7 @@ button.go{background:var(--coral);border-color:var(--coral);color:#fff;font-fami
       <button>rows of teeth</button><button>a fin</button><button>gills</button><button>a super sniffer</button></div></div>
     <div class="pick"><label>Its special power</label><div class="opts" data-k="power">
       <button>dive from the sky</button><button>swim up rivers</button><button>super bite</button><button>splash attack</button></div></div>
-    <div class="pick"><label for="wk">Its weakness (Your child decides!)</label><input id="wk" type="text" placeholder="What can beat it?"></div>
+    <div class="pick"><label for="wk">Its weakness (Alex decides!)</label><input id="wk" type="text" placeholder="What can beat it?"></div>
     <div class="creature" aria-live="polite">
       <h3 id="cName">Sharkbeak</h3>
       <dl>
@@ -164,10 +165,10 @@ button.go{background:var(--coral);border-color:var(--coral);color:#fff;font-fami
   <section class="station">
     <div class="tag">Station 5 · Release it</div>
     <h2>Can it survive out there?</h2>
-    <p class="lead">Your child built the creature. Now Grown-up picks where it has to live. Guess first: will it make it?</p>
+    <p class="lead">Alex built the creature. Now the grown-up picks where it has to live. Guess first: will it make it?</p>
     <div class="pick"><label>Grown-up picks the place</label><div class="opts" data-k="place">
       <button>Deep ocean</button><button>River with hippos</button><button>Open sky</button></div></div>
-    <div class="pick"><label>Your child's guess</label><div class="opts" data-k="guess">
+    <div class="pick"><label>Alex's guess</label><div class="opts" data-k="guess">
       <button>It will thrive</button><button>It will just make it</button><button>It will be in trouble</button></div></div>
     <button id="release" class="go">Release it!</button>
     <div id="sim" class="sim" hidden="">
@@ -183,7 +184,7 @@ button.go{background:var(--coral);border-color:var(--coral);color:#fff;font-fami
     <p class="key"><span class="pill realp">Real fact</span> true about real animals &nbsp; <span class="pill gamep">Game rule</span> we made it up for the game</p>
   </section>
 
-  <p class="foot">After you play, discuss two things: one thing Your child said that surprised you, and one thing you said that surprised Your child. Tomorrow, notice if sharks or Pokémon come up again.</p>
+  <p class="foot">After you play, discuss two things: one thing Alex said that surprised you, and one thing you said that surprised Alex. Tomorrow, notice if sharks or Pokémon come up again.</p>
 </div>
 
 <script>
@@ -209,7 +210,7 @@ cards.forEach(([claim,ans,why],i)=>{
 });
 
 const STEP=0.4;
-const items=[["Your child","you",1.1],["Bull shark","",3.0],["Hippo","",4.0],["School bus","",12],["Megalodon","meg",15]];
+const items=[["Alex","you",1.1],["Bull shark","",3.0],["Hippo","",4.0],["School bus","",12],["Megalodon","meg",15]];
 const bars=document.getElementById('bars');
 items.forEach(([n,c,m])=>{
   const r=document.createElement('div');r.className='row';
@@ -219,7 +220,7 @@ items.forEach(([n,c,m])=>{
 function show(){
   bars.querySelectorAll('.bar').forEach(b=>b.style.width=(b.dataset.m/15*100)+'%');
   const g=+document.getElementById('g').value||0, real=Math.round(15/STEP);
-  document.getElementById('scaleNote').textContent=`Your child guessed ${g} steps. A megalodon was about ${real} of his steps (around 15 m; scientists' estimates vary). Now walk it!`;
+  document.getElementById('scaleNote').textContent=`Alex guessed ${g} steps. A megalodon was about ${real} of Alex's steps (around 15 m; scientists' estimates vary). Now walk it!`;
 }
 document.getElementById('reveal').addEventListener('click',show);
 // resting state: show bars at scale but before reveal keep megalodon hidden-ish
@@ -297,7 +298,7 @@ document.getElementById('release').addEventListener('click',()=>{
   const missing=['bird','shark','power'].filter(k=>!state[k]);
   if(missing.length||!state.place){
     out.hidden=false;
-    out.innerHTML=`<p>${missing.length?'Finish building the creature in Station 4 first (pick a bird part, a shark part and a power).':'Grown-up needs to pick a place first.'}</p>`;
+    out.innerHTML=`<p>${missing.length?'Finish building the creature in Station 4 first (pick a bird part, a shark part and a power).':'The grown-up needs to pick a place first.'}</p>`;
     return;
   }
   out.hidden=true;
@@ -310,13 +311,13 @@ function showFinal(res,st,name,weakVal){
   const score=res.filter(r=>r[1]).length;
   const [cls,word]=score===3?['good','It thrived!']:score===2?['mid','It just made it!']:['bad','It’s in trouble!'];
   const state=st;
-  const guessLine=state.guess?`<p>Your child guessed: <b>${state.guess.toLowerCase()}</b>. Was he right?</p>`:'';
-  const weak=weakVal?`<p>Your child said its weakness is <b>${esc(weakVal)}</b>. Did that matter here?</p>`:'';
+  const guessLine=state.guess?`<p>Alex guessed: <b>${state.guess.toLowerCase()}</b>. Were they right?</p>`:'';
+  const weak=weakVal?`<p>Alex said its weakness is <b>${esc(weakVal)}</b>. Did that matter here?</p>`:'';
   out.hidden=false;
   out.innerHTML=`<div class="verdict ${cls}">${esc(name)} in the ${state.place.toLowerCase()}: ${word}</div>`+
     res.map(([t,ok,why,real])=>`<div class="ch"><span class="mk ${ok?'y':'n'}">${ok?'✓':'✗'}</span><div><b>${t}</b>${why}<br><span class="pill ${real?'realp':'gamep'}">${real?'Real fact':'Game rule'}</span></div></div>`).join('')+
     guessLine+weak+
-    `<p class="again">${score===3?'Now Grown-up, pick a harder place. Can it survive there too?':'Change just one thing in Station 4 and release it again. Which part would you swap?'}</p>`;
+    `<p class="again">${score===3?'Now, grown-up, pick a harder place. Can it survive there too?':'Change just one thing in Station 4 and release it again. Which part would you swap?'}</p>`;
   tries.push([name,`${state.bird}, ${state.shark}, ${state.power}`,state.place,state.guess||'–',`${score}/3`]);
   const lb=document.getElementById('log');
   lb.innerHTML=tries.map((t,i)=>`<tr><td>${i+1}</td><td>${esc(t[0])}<br><span class="key">${t[1]}</span></td><td>${t[2]}</td><td>${t[3]}</td><td>${t[4]}</td></tr>`).join('');
