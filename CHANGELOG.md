@@ -16,6 +16,15 @@ Record completed backlog items here only after implementation has been verified.
 - Spoken onboarding and round guidance are present.
 - Practice rounds use simpler answer choices.
 
+## 2026-11-02 — Octopus Escape public demo
+
+Implementation:
+- Added `public/octopus-escape/index.html`, served at `/octopus-escape/`: a de-identified copy of Curiosity Loop GAME-008 (placeholder name "Alex", demo note, play summary shown on screen, rule card before the squeeze rounds). Source and notes: rasnag/Curiosity-Loop `games/public/octopus-escape.html`.
+
+Verification:
+- `npm test` passed; `npm run build` produced `dist/client/octopus-escape/index.html` alongside `shark-night`.
+- Scripted phone-size play-through with misses in every round and a replay: no script errors.
+
 ---
 
 ## Entry template

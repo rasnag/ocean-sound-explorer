@@ -1,0 +1,420 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Octopus Escape</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+/* Layout: one-screen reef game. A tall scene on top, picture controls below, one grown-up prompt strip. Single committed dark-sea look. */
+:root{
+  --abyss:#06202a;
+  --panel:#0f3a47;
+  --glow:#5ef2d6;
+  --coral:#e0593f;
+  --sun:#ffc93c;
+  --foam:#eefaf8;
+  --ink:#0b1a20;
+  --muted:#9fc3c8;
+  --display:"Fredoka", ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--abyss);color:var(--foam);font-family:var(--display);margin:0;overflow-x:hidden}
+.app{min-height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;box-sizing:border-box;gap:12px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px 20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{margin:0;font-size:1.5rem;font-weight:700;line-height:1.1}
+.lvl{font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:var(--panel);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.lvl:empty{display:none}
+.stage{position:relative;border-radius:28px;overflow:hidden;background:#0d4f63;aspect-ratio:9/7;max-width:100%}
+.stage svg.scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bubble{position:absolute;top:10px;left:10px;right:10px;z-index:5;background:var(--foam);color:var(--ink);border-radius:18px;
+  padding:9px 13px;font-size:1.1rem;font-weight:600;line-height:1.25;text-align:center}
+.bubble:empty{visibility:hidden}
+.chip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(6,32,42,.88);border:2px solid var(--glow);
+  border-radius:999px;padding:3px 14px;font-weight:700;white-space:nowrap}
+.chip:empty{display:none}
+.mover{transition:transform 1.5s ease-in-out}
+.octo-g{transition:transform .9s ease-in-out,opacity .6s ease}
+.inkcloud{transition:opacity .5s ease}
+.hint{background:var(--panel);border-radius:16px;padding:9px 12px;font-size:.98rem;font-weight:500;line-height:1.3}
+.hint b{color:var(--sun);letter-spacing:.06em;text-transform:uppercase;font-size:.78rem;margin-right:6px}
+.seg{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.seg-label{font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.seg-row{display:flex;gap:8px}
+.seg-btn{appearance:none;border:0;flex:1 1 0;min-width:0;border-radius:16px;padding:8px 6px;font-family:var(--display);font-size:.98rem;font-weight:600;line-height:1.15;
+  background:var(--panel);color:var(--foam);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.seg-btn span{font-size:1.6rem;line-height:1}
+.seg-btn svg{width:46px;height:46px}
+.seg-btn[aria-pressed="true"]{background:var(--sun);color:var(--ink)}
+.seg-btn:disabled{opacity:.5;cursor:default}
+.seg.flag{outline:3px dashed var(--sun);outline-offset:4px;border-radius:16px}
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.choice{appearance:none;border:0;border-radius:20px;background:var(--foam);color:var(--ink);font-family:var(--display);font-size:2.1rem;line-height:1;
+  padding:12px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:0 5px 0 rgba(0,0,0,.45)}
+.choice small{font-size:.92rem;font-weight:600}
+.choice.right{box-shadow:0 0 0 3px #43c26b,0 5px 0 rgba(0,0,0,.45)}
+.choice.picked{opacity:.55}
+.choice:focus-visible,.seg-btn:focus-visible,.btn:focus-visible{outline:4px solid var(--glow);outline-offset:3px}
+button:disabled{cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.btn{appearance:none;border:0;border-radius:999px;padding:13px 22px;font-family:var(--display);font-size:1.15rem;font-weight:700;background:var(--sun);color:var(--ink);
+  cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.45);flex:1 1 auto;text-align:center;text-decoration:none;display:block}
+.btn:disabled{opacity:.5}
+.btn.ghost{background:transparent;color:var(--foam);box-shadow:inset 0 0 0 2px var(--foam)}
+.btn.ghost.dark{color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink);font-size:1rem}
+.btn.wa{background:#25d366;color:#06301a;font-size:1.25rem;padding:16px 22px}
+.card{background:var(--foam);color:var(--ink);border-radius:20px;padding:14px 16px;font-size:1rem;line-height:1.45;margin-top:12px}
+.card h2{margin:0 0 6px;font-size:1.15rem}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:1px 6px;background:#d8f5ea;color:#11573f}
+.fr{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:start;padding:6px 0;border-bottom:1px solid #d5e6e8}
+.fr:last-child{border-bottom:0}
+.fr .ic{font-size:1.4rem;line-height:1.2}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.steps li{display:grid;grid-template-columns:auto 1fr;gap:10px}
+.steps li span{font-size:1.6rem;line-height:1}
+.opens{margin:6px 0 0;font-size:.8rem;color:#4d6670;text-align:center}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid #d5e6e8;white-space:nowrap}
+th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:#4d6670}
+.note-in{width:100%;box-sizing:border-box;margin-top:8px;border:2px solid #c3d9dc;border-radius:14px;padding:10px 12px;font-family:var(--display);font-size:1rem;color:var(--ink);background:#fff;resize:vertical;min-height:64px}
+.end-label{display:block;font-weight:700}
+.peek summary{cursor:pointer;font-weight:600}
+.plays-info{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px;font-size:.9rem;margin-top:8px;color:var(--muted)}
+.link-btn{appearance:none;border:0;background:none;color:var(--foam);font-family:var(--display);font-size:.9rem;font-weight:600;text-decoration:underline;cursor:pointer;padding:4px 0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app">
+  <header>
+    <h1 id="title">Octopus Escape</h1>
+    <span class="lvl" id="lvl"></span>
+  </header>
+  <div class="stage" id="stage">
+    <svg class="scene" id="scene" viewBox="0 0 360 280" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+    <div class="bubble" id="bubble" aria-live="polite"></div>
+    <div class="chip" id="chip"></div>
+  </div>
+  <div class="hint" id="hint"></div>
+  <div id="controls"></div>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const scene=$("scene"),bubble=$("bubble"),hint=$("hint"),controls=$("controls");
+const CHILD="Alex";
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* ---------- drawing ---------- */
+const SKIN={
+  plain:{body:"#b8654c",mark:"#93452f",name:"Normal"},
+  sand:{body:"#dcc38c",mark:"#b99f63",name:"Sandy and smooth",e:"🟨"},
+  coral:{body:"#e0593f",mark:"#f6a04d",name:"Coral red and spotty",e:"🟥"},
+  rock:{body:"#858a91",mark:"#62666c",name:"Rocky grey and bumpy",e:"⬛"}
+};
+function octo(skin,x,y,k,extra){
+  const c=SKIN[skin];let g='<g class="octo-g" id="octo" style="transform:translate('+x+'px,'+y+'px) scale('+k+');transform-box:view-box">';
+  for(let i=0;i<8;i++){const t=i/7,ax=-38+t*76,cx=-30+t*60,wob=(i%2?1:-1)*10;
+    g+='<path d="M'+cx*.6+' 2 C'+(cx*.9)+' 26 '+(ax+wob)+' 34 '+ax+' 58 q'+(wob*.4)+' 8 '+(wob*.9)+' 4" stroke="'+c.body+'" stroke-width="9" fill="none" stroke-linecap="round"/>'}
+  g+='<ellipse cx="0" cy="-22" rx="32" ry="30" fill="'+c.body+'"/>';
+  if(skin==="coral")[[-14,-34,6],[12,-40,5],[16,-18,6],[-6,-14,4],[-20,-20,4]].forEach(([a,b,r])=>g+='<circle cx="'+a+'" cy="'+b+'" r="'+r+'" fill="'+c.mark+'"/>');
+  if(skin==="rock")[[-16,-36,5],[10,-42,6],[18,-24,5],[-4,-26,4],[-22,-16,4],[6,-12,4]].forEach(([a,b,r])=>g+='<circle cx="'+a+'" cy="'+b+'" r="'+r+'" fill="'+c.mark+'"/><circle cx="'+(a-1)+'" cy="'+(b-1.5)+'" r="'+(r*.4)+'" fill="#a3a8ae"/>');
+  if(skin==="sand")for(let i=0;i<14;i++)g+='<circle cx="'+(-22+((i*37)%44))+'" cy="'+(-44+((i*23)%40))+'" r="1.6" fill="'+c.mark+'"/>';
+  if(skin==="plain")g+='<ellipse cx="-8" cy="-34" rx="10" ry="6" fill="#d27e66" opacity=".7"/>';
+  g+='<ellipse cx="-12" cy="-6" rx="6" ry="7" fill="#fff8e8"/><ellipse cx="12" cy="-6" rx="6" ry="7" fill="#fff8e8"/>'+
+     '<rect x="-15.5" y="-7.5" width="7" height="3" rx="1.5" fill="#1b1b1f"/><rect x="8.5" y="-7.5" width="7" height="3" rx="1.5" fill="#1b1b1f"/>';
+  if(extra==="beak")g+='<path d="M-4 8 l4 7 l4 -7z" fill="#2a2018"/><circle cx="0" cy="11" r="'+BEAK+'" fill="none" stroke="#ffc93c" stroke-width="2" stroke-dasharray="3 3"/>';
+  return g+'</g>';
+}
+function water(){return '<defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a8fa8"/><stop offset="1" stop-color="#0d4f63"/></linearGradient></defs><rect width="360" height="280" fill="url(#w)"/>'+
+  '<path d="M0 30 q30 -8 60 0 t60 0 t60 0 t60 0 t60 0 t60 0" stroke="rgba(255,255,255,.18)" stroke-width="3" fill="none"/>'}
+function seed(n){let s=n;return()=>{s=(s*9301+49297)%233280;return s/233280}}
+function floor(place){
+  const r=seed(place.length*31+7);let g="";
+  if(place==="sand"){g+='<rect y="150" width="360" height="130" fill="#e3cc96"/><path d="M0 150 q90 -12 180 0 t180 0 v10 h-360z" fill="#e8d4a2"/>';
+    for(let i=0;i<120;i++)g+='<circle cx="'+(r()*360)+'" cy="'+(152+r()*128)+'" r="'+(1+r()*2)+'" fill="#bfa569"/>';}
+  if(place==="coral"){g+='<rect y="150" width="360" height="130" fill="#c94f3a"/>';
+    const C=["#e0593f","#f6a04d","#f2b8a0","#d8644a","#ec7b52"];
+    for(let i=0;i<70;i++){const cx=r()*360,cy=140+r()*140,rr=6+r()*16;g+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rr+'" fill="'+C[Math.floor(r()*5)]+'"/>';if(r()<.5)g+='<circle cx="'+(cx+3)+'" cy="'+(cy-3)+'" r="'+(rr*.35)+'" fill="#f6a04d"/>'}}
+  if(place==="rock"){g+='<rect y="150" width="360" height="130" fill="#6f747b"/>';
+    for(let i=0;i<26;i++){const cx=r()*360,cy=150+r()*130,rx=20+r()*30;g+='<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+rx+'" ry="'+(rx*.6)+'" fill="'+(r()<.5?"#858a91":"#7b8087")+'"/>'}
+    for(let i=0;i<60;i++){const cx=r()*360,cy=150+r()*130,rr=3+r()*4;g+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rr+'" fill="#62666c"/><circle cx="'+(cx-1)+'" cy="'+(cy-1.5)+'" r="'+(rr*.4)+'" fill="#a3a8ae"/>'}}
+  return g;
+}
+const HUNTERS={shark:{e:"🦈",name:"shark"},seal:{e:"🦭",name:"seal"}};
+function hunter(kind,x,y,size,flip){return '<g class="mover" id="hunter" style="transform:translate('+x+'px,'+y+'px);transform-box:view-box"><text font-size="'+size+'" text-anchor="middle" dominant-baseline="middle" '+(flip?'transform="scale(-1,1)"':'')+'>'+HUNTERS[kind].e+'</text></g>'}
+
+/* ---------- facts ---------- */
+const SURPRISES=[
+  {key:"hearts",ask:"How many hearts do you think an octopus has?",real:"h3",
+   opts:[{id:"h1",e:"❤️",name:"1 heart"},{id:"h2",e:"❤️❤️",name:"2 hearts"},{id:"h3",e:"❤️❤️❤️",name:"3 hearts"}],
+   fact:"Three hearts! Two push blood through its gills, and one pumps blood around its body."},
+  {key:"blood",ask:"What colour do you think octopus blood is?",real:"blue",
+   opts:[{id:"red",e:"🔴",name:"Red"},{id:"blue",e:"🔵",name:"Blue"},{id:"green",e:"🟢",name:"Green"}],
+   fact:"Blue! Octopus blood has copper in it, which makes it blue. Ours has iron, which makes it red."}
+];
+const WHY={
+  colour:{e:"🎨",t:"An octopus has thousands of tiny colour spots in its skin. In about a second it can change colour, and even make its skin bumpy like a rock."},
+  hole:{e:"🕳️",t:"An octopus has no bones. Its only hard part is its beak, so it can squeeze through any gap bigger than its beak."},
+  ink:{e:"💨",t:"Octopus ink makes a dark cloud. It also stings the hunter's eyes and messes up its sense of smell, so the octopus can zoom away."}
+};
+const REAL={
+  camo:{url:"https://www.sciencefriday.com/videos/wheres-the-octopus-2/",btn:"📷 Watch: where's the real octopus?",cap:"Real video from scientist Roger Hanlon: octopuses hiding on the sea floor. Can you spot one before it moves?"},
+  squeeze:{url:"https://earthsky.org/earth/video-watch-an-octopus-squeeze-though-tiny-hole/",btn:"📷 Watch a real octopus squeeze out",cap:"Real video: an octopus squeezes out of a box through a tiny hole."}
+};
+const BEAK=10;
+
+/* ---------- rounds (one new choice each; new layout every play) ---------- */
+const ROUNDS=[
+  {n:1,key:"hide",name:"Hide!",vars:["colour"]},
+  {n:2,key:"squeeze",name:"Squeeze!",vars:["hole"]},
+  {n:3,key:"escape",name:"Big escape!",vars:["ink","hole"]}
+];
+const HELP_AFTER=2;
+
+/* ---------- play records (every play kept on this phone) ---------- */
+const STORE_KEY="octo-public-plays-v1",CUR_KEY="octo-public-current-v1";
+let plays=[];
+try{plays=JSON.parse(localStorage.getItem(STORE_KEY)||"[]")||[]}catch(e){plays=[]}
+try{const c=JSON.parse(localStorage.getItem(CUR_KEY)||"null");if(c&&c.taps>0){plays.push(c);localStorage.setItem(STORE_KEY,JSON.stringify(plays))}localStorage.removeItem(CUR_KEY)}catch(e){}
+function persist(){try{localStorage.setItem(STORE_KEY,JSON.stringify(plays))}catch(e){}}
+let P,R=null,busy=false;
+function newPlay(){P={at:Date.now(),taps:0,surprises:{},rounds:[],finished:false,watched:{}};}
+function keep(){P.taps++;P.secs=Math.round((Date.now()-P.at)/1000);try{localStorage.setItem(CUR_KEY,JSON.stringify(P))}catch(e){}}
+
+function say(t,tag){bubble.innerHTML="";bubble.append(document.createTextNode(t));if(tag){const d=document.createElement("div");d.innerHTML='<span class="tag">'+tag+'</span>';bubble.appendChild(d)}}
+function setHint(h){hint.innerHTML="<b>Grown-up</b>"+h}
+function mkBtn(id,text,cls,fn){const b=document.createElement("button");b.id=id;b.className="btn"+(cls?" "+cls:"");b.textContent=text;b.onclick=fn;return b}
+function btnRow(items){const r=document.createElement("div");r.className="row";items.forEach(i=>r.appendChild(i));controls.appendChild(r);return r}
+function card(html){const c=document.createElement("div");c.className="card";c.innerHTML=html;controls.appendChild(c);return c}
+function realLink(kind){
+  const r=REAL[kind];const c=card("<p style='margin:0 0 8px'>"+r.cap+"</p><a class='btn' id='real-"+kind+"' href='"+r.url+"' target='_blank' rel='noopener'>"+r.btn+"</a><p class='opens'>Opens in a new tab. Come back here to keep playing.</p>");
+  c.querySelector("a").addEventListener("click",()=>{P.watched[kind]=true;keep()});
+}
+
+/* ---------- start ---------- */
+function startGame(){
+  newPlay();R=null;
+  $("title").textContent="Octopus Escape";$("lvl").textContent="";$("chip").textContent="";
+  scene.innerHTML=water()+floor("sand")+octo("plain",180,200,1.25);
+  say(CHILD+" asked for an octopus game! An octopus has no bones, and it can change colour in a blink.");
+  setHint("Read this aloud together, then tap Start.");
+  controls.innerHTML="";
+  card("<h2>Tonight's adventure</h2><ol class='steps'>"+
+    "<li><span>❓</span><div><b>Octopus surprises</b><br>2 quick guesses about its body.</div></li>"+
+    "<li><span>🦈</span><div><b>Help it escape</b><br>Hide, squeeze and squirt ink to get away from hungry hunters.</div></li>"+
+    "<li><span>🏠</span><div><b>At-home mission</b><br>Play octopus hide-and-seek.</div></li></ol>"+
+    "<p class='demo-note' style='margin:10px 0 0;font-size:.85em;color:#4a6168'>Demo version: “Alex” is a placeholder name. Each real Curiosity Loop game is built from one child's own question and anonymized before sharing.</p>");
+  btnRow([mkBtn("start","Start →","",()=>surprise(0))]);
+}
+function surprise(i){
+  const q=SURPRISES[i];controls.innerHTML="";
+  $("lvl").textContent="Surprise "+(i+1)+" of 2";
+  scene.innerHTML=water()+floor("sand")+octo("plain",180,200,1.25);
+  say(q.ask);
+  setHint("Read the question. Let "+CHILD+" guess, then ask: “Why do you think so?”");
+  const t=document.createElement("div");t.className="tray";
+  q.opts.forEach(o=>{const b=document.createElement("button");b.className="choice";b.id="s-"+o.id;b.innerHTML=o.e+"<small>"+o.name+"</small>";
+    b.onclick=()=>{if(P.surprises[q.key])return;P.surprises[q.key]=o.id;keep();
+      t.querySelectorAll(".choice").forEach(x=>{x.disabled=true;if(x.id==="s-"+q.real)x.classList.add("right");else if(x===b)x.classList.add("picked")});
+      say(q.fact,"Real fact");
+      setHint(o.id===q.real?"Good guess! Ask: “How did you know?”":"Ask: “Did that surprise you?”");
+      btnRow([mkBtn("next-s",i<SURPRISES.length-1?"Next surprise →":"Now help it escape! →","",()=>i<SURPRISES.length-1?surprise(i+1):startRound(1))]);
+    };t.appendChild(b)});
+  const s=document.createElement("div");s.className="seg";s.appendChild(t);controls.appendChild(s);
+}
+
+/* ---------- escape rounds ---------- */
+function holeSet(){const sizes=shuffle([{id:"tiny",r:6+Math.random()*2},{id:"fit",r:15+Math.random()*3},{id:"big",r:32+Math.random()*4}]);return sizes.map((h,i)=>({...h,slot:i}))}
+const HOLE_Y=[128,184,240];
+function startRound(n){
+  const def=ROUNDS[n-1];
+  R={n,def,choice:{},tries:[],help:[],done:false,
+     place:n===1?rnd(["sand","coral","rock"]):n===2?"rock":"sand",
+     hunter:rnd(["shark","seal"]),holes:holeSet()};
+  def.vars.forEach(v=>R.choice[v]=null);
+  $("lvl").textContent="Round "+n+" of 3";$("chip").textContent="";
+  const H=HUNTERS[R.hunter].name;
+  if(n===1)say("A hungry "+H+" is coming! Change the octopus's colour so it can hide.");
+  if(n===2)say("The "+H+" is chasing! Which hole can the octopus squeeze into, where the "+H+" can't follow?");
+  if(n===3)say("The "+H+" already saw it! Make a plan: squirt ink or not, and pick a hole.");
+  setHint(n===1?"Ask: “Which colour matches the floor around it?”":n===2?"Point at the yellow circle round its beak. Ask: “Which hole is bigger than its beak, but too small for the "+H+"?”":"Ask: “What could stop the "+H+" from seeing where it goes?”");
+  drawRound();renderRound();
+}
+function drawRound(state){
+  const n=R.n,c=R.choice;let s=water();
+  if(n===1){
+    s+=floor(R.place)+octo(c.colour||"plain",180,206,1.15)+hunter(R.hunter,-60,100,58,R.hunter==="shark");
+  }else{
+    s+=floor(R.place);
+    s+='<path d="M250 40 h110 v240 h-140 q10 -60 0 -110 q-10 -60 30 -130z" fill="#5c6168"/>';
+    R.holes.forEach(h=>{const y=HOLE_Y[h.slot];s+='<ellipse cx="282" cy="'+y+'" rx="'+h.r+'" ry="'+(h.r*.85)+'" fill="#121518" stroke="#3b3f44" stroke-width="2"/><text x="'+(282+Math.max(h.r,10)+10)+'" y="'+(y+5)+'" font-size="15" font-weight="700" fill="#eefaf8" font-family="Fredoka, sans-serif">'+"ABC"[h.slot]+'</text>'});
+    s+=octo(n===3?"sand":"rock",120,178,1,"beak");
+    s+=hunter(R.hunter,34,140,50,R.hunter==="shark");
+  }
+  s+='<g class="inkcloud" id="ink" style="opacity:0"><ellipse cx="80" cy="120" rx="90" ry="60" fill="#14121a"/><ellipse cx="140" cy="150" rx="70" ry="50" fill="#1b1822"/><ellipse cx="40" cy="160" rx="60" ry="45" fill="#14121a"/></g>';
+  scene.innerHTML=s;
+}
+function holeIcon(h){const r=Math.min(20,h.r*0.6+2);return '<svg viewBox="0 0 46 46"><circle cx="23" cy="23" r="'+r+'" fill="#121518" stroke="#9fc3c8" stroke-width="2"/></svg>'}
+function renderRound(flag){
+  controls.innerHTML="";
+  if(R.n>=2&&!R.done)card("<h2>The rule</h2><div class='fr'><span class='ic'>🕳️</span><span>An octopus has no bones. Its only hard part is its beak (the yellow circle). It can squeeze through any hole bigger than its beak, but a hunter can follow it through a big hole.</span></div>");
+  const rows={
+    colour:{label:"Octopus colour",opts:["sand","coral","rock"].map(k=>({id:k,html:"<span>"+SKIN[k].e+"</span>"+SKIN[k].name}))},
+    ink:{label:"Squirt ink?",opts:[{id:"yes",html:"<span>💨</span>Squirt ink"},{id:"no",html:"<span>⭕</span>No ink"}]},
+    hole:{label:"Which hole? (yellow circle = its beak)",opts:R.holes.slice().sort((a,b)=>a.slot-b.slot).map(h=>({id:h.id,html:holeIcon(h)+"Hole "+"ABC"[h.slot]}))}
+  };
+  R.def.vars.forEach(v=>{
+    const row=rows[v];const w=document.createElement("div");w.className="seg"+(flag===v?" flag":"");
+    w.innerHTML="<div class='seg-label'>"+row.label+"</div>";
+    const r=document.createElement("div");r.className="seg-row";
+    row.opts.forEach(o=>{const b=document.createElement("button");b.className="seg-btn";b.id=v+"-"+o.id;b.disabled=R.done;
+      b.setAttribute("aria-pressed",R.choice[v]===o.id);b.innerHTML=o.html;
+      b.onclick=()=>{if(busy||R.done)return;R.choice[v]=o.id;$("chip").textContent="";drawRound();renderRound()};r.appendChild(b)});
+    w.appendChild(r);controls.appendChild(w);
+  });
+  if(R.done){doneBlock();}
+  else{
+    const ready=R.def.vars.every(v=>R.choice[v]);
+    const go=mkBtn("go",R.n===1?"Hide! 🐙":R.n===2?"Squeeze! 🐙":"Escape! 🐙","",run);go.disabled=!ready;
+    btnRow([go]);
+    if(!ready){const p=document.createElement("p");p.style.margin="6px 0 0";p.style.color="var(--muted)";p.textContent="Pick "+(R.def.vars.length>1?"one in each row":"one")+" first.";controls.appendChild(p)}
+  }
+  if(R.tries.length)controls.appendChild(triesTable());
+}
+function verdict(){
+  const c=R.choice,H=HUNTERS[R.hunter].name;
+  if(R.n===1)return c.colour===R.place?{ok:true,say:"The "+H+" swam right past! It couldn't see the octopus."}:{ok:false,miss:"colour",say:"The "+H+" spotted it! Whoosh, the octopus jetted away. Look at the floor and try another colour."};
+  if(R.n===3&&c.ink==="no")return{ok:false,miss:"ink",say:"The "+H+" was too fast! It could see where the octopus was going."};
+  if(c.hole==="tiny")return{ok:false,miss:"hole",say:"Stuck! That hole is smaller than its beak, the only hard part of an octopus."};
+  if(c.hole==="big")return{ok:false,miss:"hole",say:"Uh oh! That hole was so big the "+H+" followed it in!"};
+  return{ok:true,say:"Squeeeeze! It slipped inside, and the "+H+" is too big to follow!"};
+}
+function run(){
+  if(busy||R.done)return;busy=true;
+  controls.querySelectorAll("button").forEach(b=>b.disabled=true);
+  const v=verdict(),prev=R.tries[R.tries.length-1];
+  const changed=prev?R.def.vars.filter(k=>prev.choice[k]!==R.choice[k]):[];
+  const hu=$("hunter"),oc=$("octo"),ink=$("ink");
+  if(R.n===1){
+    say("Shh... here comes the "+HUNTERS[R.hunter].name+"...");
+    hu.style.transform="translate("+(v.ok?420:170)+"px,"+(v.ok?100:150)+"px)";
+    setTimeout(()=>{if(!v.ok)oc.style.transform="translate(340px,90px) scale(.6)";},1500);
+  }else{
+    say(R.n===3?"Go, go, go!":"Squeeze, squeeze...");
+    if(R.choice.ink==="yes")ink.style.opacity="1";
+    const h=R.holes.find(x=>x.id===R.choice.hole);
+    setTimeout(()=>{
+      if(R.n===3&&R.choice.ink==="no"){hu.style.transform="translate(100px,160px)";return}
+      const y=HOLE_Y[h.slot];
+      oc.style.transform="translate(282px,"+(y+8)+"px) scale("+(h.id==="tiny"?.55:.2)+")";
+      if(h.id!=="tiny")oc.style.opacity=".2";
+      hu.style.transform=h.id==="big"?"translate(282px,"+y+"px)":"translate(220px,"+y+"px)";
+    },R.choice.ink==="yes"?700:200);
+  }
+  setTimeout(()=>{
+    say(v.ok?v.say:v.say);
+    $("chip").textContent=v.ok?"🐙 Escaped!":"Try again";
+    R.tries.push({choice:{...R.choice},ok:v.ok,miss:v.miss||null,changed,place:R.place,hunter:R.hunter});keep();
+    const misses=R.tries.filter(t=>!t.ok).length;
+    let flag=null;
+    if(!v.ok&&misses>=HELP_AFTER){flag=v.miss;if(!R.help.includes("flash "+v.miss))R.help.push("flash "+v.miss);
+      setHint(v.miss==="colour"?"Point at the floor. Ask: “What colour is it? Which octopus colour matches?”":v.miss==="hole"?"Compare each hole with the yellow beak circle. Ask: “Bigger than the beak, but smaller than the "+HUNTERS[R.hunter].name+"?”":"Ask: “What does an octopus squirt to hide?”")}
+    else if(!v.ok)setHint("Ask: “What should we change?” Change one thing and try again.");
+    setTimeout(()=>{
+      busy=false;
+      if(v.ok){roundDone();return}
+      drawRound();renderRound(flag);
+    },1300);
+  },R.n===1?2400:2300);
+}
+function roundDone(){
+  const t=R.tries.length,pace=t===1?"first try":t>=4?"slow":"steady";
+  P.rounds.push({n:R.n,name:R.def.name,place:R.place,hunter:R.hunter,vars:R.def.vars.slice(),tries:R.tries,help:R.help,pace});keep();
+  R.done=true;
+  setHint(R.n<3?"Ask: “Why did that work?”":"Ask: “Which trick do you like best: hiding, squeezing or ink? Why?”");
+  renderRound();
+}
+function doneBlock(){
+  card("<h2>Why it worked</h2>"+R.def.vars.map(v=>"<div class='fr'><span class='ic'>"+WHY[v==="colour"?"colour":v].e+"</span><span>"+WHY[v==="colour"?"colour":v].t+"</span></div>").join(""));
+  if(R.n===1)realLink("camo");
+  if(R.n===2)realLink("squeeze");
+  const r=document.createElement("div");r.className="row";
+  if(R.n<3)r.appendChild(mkBtn("next-round","Next round →","",()=>startRound(R.n+1)));
+  r.appendChild(mkBtn("finish",R.n<3?"Stop here, we're done":"Finish →",R.n<3?"ghost":"",showEnd));
+  controls.appendChild(r);
+}
+function triesTable(){
+  const c=document.createElement("div");c.className="card";
+  const lab=(k,v)=>k==="colour"?SKIN[v].e:k==="ink"?(v==="yes"?"💨":"⭕"):"Hole "+"ABC"[R.holes.find(h=>h.id===v).slot];
+  c.innerHTML="<h2>Tries this round</h2><div class='tbl-wrap'><table><thead><tr><th>#</th><th>Plan</th><th>What happened</th></tr></thead><tbody>"+
+    R.tries.map((t,i)=>"<tr><td>"+(i+1)+"</td><td>"+R.def.vars.map(k=>lab(k,t.choice[k])).join(" + ")+"</td><td>"+(t.ok?"Escaped! 🐙":({colour:"Spotted",ink:"Too fast",hole:t.choice.hole==="tiny"?"Stuck":"Hunter followed"})[t.miss])+"</td></tr>").reverse().join("")+"</tbody></table></div>";
+  return c;
+}
+
+/* ---------- summary ---------- */
+const HOLE_TXT={tiny:"too-small hole",fit:"just-right hole",big:"too-big hole"};
+function choiceTxt(k,v){return k==="colour"?SKIN[v].name.toLowerCase():k==="ink"?(v==="yes"?"ink":"no ink"):HOLE_TXT[v]}
+function playLines(p){
+  const o=[];
+  const sv=SURPRISES.filter(q=>p.surprises[q.key]);
+  if(sv.length)o.push("Surprises: "+sv.map(q=>q.opts.find(x=>x.id===p.surprises[q.key]).name.toLowerCase()+(p.surprises[q.key]===q.real?" ✓":" ✗")).join(", "));
+  p.rounds.forEach(r=>{
+    o.push("Round "+r.n+" "+r.name+" ("+(r.n===1?r.place+" floor, ":"")+r.hunter+") · "+r.tries.length+" tr"+(r.tries.length>1?"ies":"y")+" · "+r.pace+(r.help.length?" · help: "+r.help.join(", "):""));
+    r.tries.forEach((t,i)=>o.push("  "+(i+1)+". "+r.vars.map(k=>choiceTxt(k,t.choice[k])).join(" + ")+": "+(t.ok?"escaped ✓":"no ("+t.miss+") ✗")+(i?(t.changed.length?". Changed "+t.changed.join(" + "):". Changed nothing"):"")));
+  });
+  if(p===P&&R&&!R.done&&R.tries.length){o.push("Round "+R.n+" unfinished · "+R.tries.length+" tries");R.tries.forEach((t,i)=>o.push("  "+(i+1)+". "+R.def.vars.map(k=>choiceTxt(k,t.choice[k])).join(" + ")+": no ("+t.miss+") ✗"))}
+  const w=Object.keys(p.watched||{});if(w.length)o.push("Watched real video: "+w.map(k=>k==="camo"?"camouflage":"squeeze").join(", "));
+  o.push("Rounds finished: "+p.rounds.length+" of 3 · "+p.taps+(p.taps===1?" tap":" taps")+" · about "+Math.max(1,Math.round((p.secs||0)/60))+" min"+(p.finished?"":" · stopped before the end"));
+  return o;
+}
+function whenText(ms){try{const d=new Date(ms);return d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}catch(e){return""}}
+function allPlays(){return P&&P.taps>0?plays.concat([P]):plays.slice()}
+function summaryText(){
+  const ps=allPlays();
+  const o=["🐙 Octopus Escape: "+CHILD+"'s tries"+(ps.length>1?" · played "+ps.length+" times":"")];
+  ps.forEach((p,i)=>o.push("","PLAY "+(i+1)+" ("+whenText(p.at)+")",...playLines(p)));
+  o.push("","Levelling: one new choice per round; floor, hunter and hole sizes change every play; the row to change flashes after "+HELP_AFTER+" misses.");
+  const n=$("dad-note");if(n&&n.value.trim())o.push("","Grown-up's note: "+n.value.trim());
+  return o.join("\n");
+}
+function refreshShare(){const t=summaryText();const s=$("summary");if(s)s.textContent=t;return t}
+
+/* ---------- end ---------- */
+function showEnd(){
+  P.finished=true;P.secs=Math.round((Date.now()-P.at)/1000);try{localStorage.setItem(CUR_KEY,JSON.stringify(P))}catch(e){}
+  $("title").textContent="Octopus Report";$("lvl").textContent="";$("chip").textContent="";
+  scene.innerHTML=water()+floor("coral")+octo("coral",180,200,1.25);
+  say("Great escaping! Now play octopus hide-and-seek at home.");
+  setHint("Do the at-home mission together, then type one thing "+CHILD+" said or asked.");
+  controls.innerHTML="";
+  card("<h2>At-home mission</h2><ol style='margin:0;padding-left:1.2em'>"+
+    "<li>🧸 Hide a toy somewhere it matches the colours around it, like an octopus. Can a grown-up find it?</li>"+
+    "<li>🖐️ Make a small hole with your fingers. Could your arm squeeze through? No, you have bones! An octopus doesn't.</li>"+
+    "<li>🖍️ Draw an octopus with 3 hearts and blue blood.</li></ol>");
+  card("<h2>Real octopus videos</h2><div class='row' style='margin-top:4px'><a class='btn ghost dark' href='"+REAL.camo.url+"' target='_blank' rel='noopener'>📷 Hiding octopus</a><a class='btn ghost dark' href='"+REAL.squeeze.url+"' target='_blank' rel='noopener'>📷 Squeezing octopus</a></div>");
+  const f=card("<h2>What "+CHILD+" did</h2>"+
+    "<div class='fr' style='grid-template-columns:1fr auto'><span>Surprises guessed</span><b>"+SURPRISES.filter(q=>P.surprises[q.key]===q.real).length+" of 2</b></div>"+
+    P.rounds.map(r=>"<div class='fr' style='grid-template-columns:1fr auto'><span>Round "+r.n+": "+r.name+"</span><b>"+r.tries.length+" tr"+(r.tries.length>1?"ies":"y")+"</b></div>").join(""));
+  card("<label for='dad-note' class='end-label'>One thing "+CHILD+" said or asked (optional)</label><textarea id='dad-note' class='note-in' placeholder='e.g. Can octopuses see colours?'></textarea>");
+  $("dad-note").addEventListener("input",refreshShare);
+  const n=allPlays().length;
+  if(n>1){const info=document.createElement("div");info.className="plays-info";info.innerHTML="<span>The summary includes all "+n+" plays saved in this browser.</span>";
+    const clr=document.createElement("button");clr.className="link-btn";clr.id="clear-plays";clr.textContent="Clear old plays";let armed=false;
+    clr.onclick=()=>{if(!armed){armed=true;clr.textContent="Tap again to clear";return}plays=[];persist();clr.remove();info.querySelector("span").textContent="Old plays cleared. The summary shows this play only.";refreshShare()};
+    info.appendChild(clr);controls.appendChild(info)}
+  const det=document.createElement("div");det.className="card";det.innerHTML="<h2>Play summary</h2><p style='margin:0 0 6px;color:#4a6168'>Every guess, try and change is recorded. In the Curiosity Loop pilot, families share this summary with us so the next game can build on it. (Demo: “Alex” is a placeholder name.)</p><pre id='summary' style='white-space:pre-wrap;font-family:inherit;margin:8px 0 0'></pre>";controls.appendChild(det);
+  const c=mkBtn("copy","Copy summary","ghost",()=>{const t=refreshShare();const ok=()=>{c.textContent="Copied ✓"};try{navigator.clipboard.writeText(t).then(ok,()=>fallback(t,ok))}catch(e){fallback(t,ok)}});
+  const a=mkBtn("again","Play again (new hunters!)","ghost",()=>{plays.push(P);persist();try{localStorage.removeItem(CUR_KEY)}catch(e){};startGame()});
+  btnRow([c,a]);refreshShare();window.scrollTo(0,0);
+}
+function fallback(t,ok){const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");ok()}catch(e){}ta.remove()}
+
+startGame();
+})();
+</script>
+
+</body></html>
