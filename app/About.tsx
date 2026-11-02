@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import InterestList from './InterestList';
 import './about.css';
 const steps = [
   ['A question', 'Start with something your child wonders about.'],
@@ -314,10 +315,32 @@ export default function About() {
           We’re exploring this with a small group of families. Future places
           aren’t open yet.
         </p>
-        <p className="pilot-preview-note">
-          An interest list is planned. This preview does not collect contact
-          details or children’s questions.
+        <p>
+          Join the interest list and hear when there’s a next step. No
+          commitment, and no child details needed.
         </p>
+        <InterestList />
+        <details className="interest-data" id="interest-privacy-details">
+          <summary>How we look after your sign-up</summary>
+          <p>
+            Curiosity Loop is run by Rasna. We keep your adult email, sign-up
+            time and contact permission in private Vercel storage to manage
+            interest in future pilot places and occasional project updates. We
+            do not sell the list or use it for advertising.
+          </p>
+          <p>
+            Joining does not enroll your child, reserve a place, or start a paid
+            service. Email addresses are not verified and no automated emails
+            are sent. You can use the private removal link shown after joining
+            to delete your entry; keep that link safe.
+          </p>
+          <p>
+            Only people with access to the project’s private storage can view
+            the list. Hashed network identifiers help limit spam; we do not
+            store raw IP addresses in the list. Hosting providers may keep their
+            own operational logs.
+          </p>
+        </details>
       </section>
       <footer className="about-footer">
         <a className="about-wordmark" href="/">

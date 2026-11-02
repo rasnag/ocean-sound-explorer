@@ -966,3 +966,105 @@
     transition: none;
   }
 }
+.interest-form {
+  max-width: 510px;
+  margin: 30px auto 0;
+  text-align: left;
+  background: white;
+  border: 1px solid #10264120;
+  border-radius: 20px;
+  padding: 28px;
+}
+.interest-form > label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #102641;
+}
+.interest-form > input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #9aaea6;
+  border-radius: 10px;
+  padding: 14px;
+  margin: 10px 0 20px;
+  font: inherit;
+  background: #fff;
+  color: #102641;
+}
+.interest-form .interest-consent {
+  display: flex;
+  gap: 12px;
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.55;
+  align-items: flex-start;
+}
+.interest-consent input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: #087d9b;
+}
+.interest-form .about-cta {
+  width: 100%;
+  justify-content: space-between;
+  border: 0;
+  margin-top: 23px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.interest-form button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.interest-form .interest-privacy {
+  font-size: 0.72rem;
+  line-height: 1.6;
+  margin-top: 22px;
+}
+.interest-form a,
+.interest-data a {
+  color: #0d5c78;
+  text-underline-offset: 3px;
+}
+.interest-form [role='alert'] {
+  color: #9e2a22;
+  font-size: 0.85rem;
+  margin: 12px 0 0;
+}
+.interest-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.interest-data {
+  max-width: 510px;
+  margin: 22px auto 0;
+  text-align: left;
+  font-size: 0.8rem;
+}
+.interest-data summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.interest-data p {
+  line-height: 1.65;
+}
+.interest-form h3 {
+  font-size: 1.3rem;
+}
+.interest-form > p {
+  font-size: 0.9rem;
+}
+.removal-link {
+  overflow-wrap: anywhere;
+}
+.interest-form input:focus-visible {
+  outline: 3px solid #087d9b;
+  outline-offset: 3px;
+}
