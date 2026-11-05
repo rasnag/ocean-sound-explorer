@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Angelfish Adventure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+/* Layout: one-screen river game. Scene on top, picture controls below, one grown-up prompt strip. Single committed dark-river look. */
+:root{
+  --river:#0c2a22;
+  --panel:#16443a;
+  --glow:#7df0c0;
+  --sun:#ffc93c;
+  --foam:#f1faf4;
+  --ink:#0e1b17;
+  --muted:#a3c9bb;
+  --display:"Fredoka", ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--river);color:var(--foam);font-family:var(--display);margin:0;overflow-x:hidden;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{min-height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;gap:12px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px 20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{margin:0;font-size:1.5rem;font-weight:700;line-height:1.1}
+.lvl{font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:var(--panel);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.lvl:empty{display:none}
+.stage{position:relative;border-radius:28px;overflow:hidden;background:#1e5a4a;aspect-ratio:9/7;max-width:100%}
+.stage svg.scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bubble{position:absolute;top:10px;left:10px;right:10px;z-index:5;background:var(--foam);color:var(--ink);border-radius:18px;
+  padding:9px 13px;font-size:1.1rem;font-weight:600;line-height:1.25;text-align:center}
+.bubble:empty{visibility:hidden}
+.chip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(12,42,34,.9);border:2px solid var(--glow);
+  border-radius:999px;padding:3px 14px;font-weight:700;white-space:nowrap}
+.chip:empty{display:none}
+.mv{transition:transform 1.4s ease-in-out}
+.hint{background:var(--panel);border-radius:16px;padding:9px 12px;font-size:.98rem;font-weight:500;line-height:1.3}
+.hint b{color:var(--sun);letter-spacing:.06em;text-transform:uppercase;font-size:.78rem;margin-right:6px}
+.seg{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.seg-label{font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.choice{appearance:none;border:0;border-radius:20px;background:var(--foam);color:var(--ink);font-family:var(--display);font-size:2rem;line-height:1;
+  padding:10px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:0 5px 0 rgba(0,0,0,.45);min-width:0}
+.tray.tray4{grid-template-columns:repeat(4,1fr);gap:8px}
+.tray4 .choice{padding:8px 2px 6px;border-radius:16px}
+.tray4 .choice svg{width:52px;height:52px}
+.tray4 .choice small{font-size:.78rem}
+.choice.picked{box-shadow:0 0 0 3px var(--sun),0 5px 0 rgba(0,0,0,.45)}
+.choice small{font-size:.9rem;font-weight:600;text-align:center}
+.choice svg{width:64px;height:64px}
+.choice.good{box-shadow:0 0 0 3px #43c26b,0 5px 0 rgba(0,0,0,.45)}
+.choice.bad{opacity:.45}
+.choice:focus-visible,.btn:focus-visible{outline:4px solid var(--glow);outline-offset:3px}
+button:disabled{cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.btn:disabled{opacity:.5}
+.btn{appearance:none;border:0;border-radius:999px;padding:13px 22px;font-family:var(--display);font-size:1.15rem;font-weight:700;background:var(--sun);color:var(--ink);
+  cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.45);flex:1 1 auto;text-align:center;text-decoration:none;display:block}
+.btn.ghost{background:transparent;color:var(--foam);box-shadow:inset 0 0 0 2px var(--foam)}
+.btn.wa{background:#25d366;color:#06301a;font-size:1.25rem;padding:16px 22px}
+.card{background:var(--foam);color:var(--ink);border-radius:20px;padding:14px 16px;font-size:1rem;line-height:1.45;margin-top:12px}
+.card h2{margin:0 0 6px;font-size:1.15rem}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:1px 6px;background:#d8f5ea;color:#11573f}
+.fr{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:start;padding:6px 0;border-bottom:1px solid #d6e8df}
+.fr:last-child{border-bottom:0}
+.fr .ic{font-size:1.4rem;line-height:1.2}
+.fr2{display:grid;grid-template-columns:1fr auto;gap:10px;padding:6px 0;border-bottom:1px solid #d6e8df}
+.fr2:last-child{border-bottom:0}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.steps li{display:grid;grid-template-columns:auto 1fr;gap:10px}
+.steps li span{font-size:1.6rem;line-height:1}
+.tummy{position:absolute;bottom:10px;right:10px;z-index:5;background:rgba(241,250,244,.92);color:var(--ink);border-radius:999px;padding:3px 12px;font-weight:700;display:flex;gap:4px;align-items:center}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid #d6e8df;white-space:nowrap}
+th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:#4c6a5f}
+.note-in{width:100%;margin-top:8px;border:2px solid #c3dccf;border-radius:14px;padding:10px 12px;font-family:var(--display);font-size:1rem;color:var(--ink);background:#fff;resize:vertical;min-height:64px}
+.end-label{display:block;font-weight:700}
+.peek summary{cursor:pointer;font-weight:600}
+.plays-info{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px;font-size:.9rem;margin-top:8px;color:var(--muted)}
+.link-btn{appearance:none;border:0;background:none;color:var(--foam);font-family:var(--display);font-size:.9rem;font-weight:600;text-decoration:underline;cursor:pointer;padding:4px 0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="title">Angelfish Adventure</h1>
+    <span class="lvl" id="lvl"></span>
+  </header>
+  <div class="stage" id="stage">
+    <svg class="scene" id="scene" viewBox="0 0 360 280" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+    <div class="bubble" id="bubble" aria-live="polite"></div>
+    <div class="chip" id="chip"></div>
+    <div class="tummy" id="tummy" hidden></div>
+  </div>
+  <div class="hint" id="hint"></div>
+  <div id="controls"></div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const scene=$("scene"),bubble=$("bubble"),hint=$("hint"),controls=$("controls");
+const CHILD="Alex";
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* ---------- the two angelfish ---------- */
+const KINDS={
+  river:{name:"River angelfish",e:"🏞️",where:"Amazon river, fresh water",look:"silver with up-and-down black stripes"},
+  reef:{name:"Reef angelfish",e:"🪸",where:"coral reefs in the sea, salt water",look:"bright blue and yellow"}
+};
+const other=k=>k==="river"?"reef":"river";
+
+/* ---------- drawing ---------- */
+function water(k){
+  const top=k==="reef"?"#3fa3d6":"#3b8a6c",bot=k==="reef"?"#15527a":"#173f34";
+  return '<defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+top+'"/><stop offset="1" stop-color="'+bot+'"/></linearGradient></defs><rect width="360" height="280" fill="url(#w)"/>'+
+  '<path d="M0 26 q30 -8 60 0 t60 0 t60 0 t60 0 t60 0 t60 0" stroke="rgba(255,255,255,.18)" stroke-width="3" fill="none"/>'}
+function floorG(k){
+  if(k==="reef"){let g='<path d="M0 252 q90 -10 180 0 t180 0 V280 H0Z" fill="#e3d2a4"/>';
+    [[20,"#f07a5a"],[70,"#c95fa8"],[300,"#f4a640"],[340,"#e45d6f"]].forEach(([x,c])=>g+='<circle cx="'+x+'" cy="252" r="14" fill="'+c+'"/><circle cx="'+(x+10)+'" cy="244" r="9" fill="'+c+'"/>');return g}
+  return '<path d="M0 252 q90 -10 180 0 t180 0 V280 H0Z" fill="#5a4a33"/>'}
+function fish(k,x,y,s,o){
+  o=o||{};const reef=k==="reef";
+  const body=reef?"#2f6fd8":(o.dim?"#7f8f86":"#e6eae7"),fin=reef?"#ffd23c":(o.dim?"#76857c":"#d7dcd8");
+  let g='<g id="fish" class="mv" style="transform:translate('+x+'px,'+y+'px) scale('+s+');transform-box:view-box">';
+  if(reef){g+='<path d="M-4 -22 C-10 -46 -30 -52 -40 -40 L-20 -18Z" fill="'+fin+'"/><path d="M-4 22 C-10 46 -30 52 -40 40 L-20 18Z" fill="'+fin+'"/>';}
+  else{g+='<path d="M-6 -16 L-18 -78 L18 -22 Z" fill="'+fin+'"/><path d="M-6 16 L-14 84 L16 24 Z" fill="'+fin+'"/>';}
+  g+='<path d="M-30 0 L-52 -18 L-48 0 L-52 18 Z" fill="'+(reef?"#ffd23c":"#cfd5d1")+'"/>';
+  g+='<path d="M34 0 C28 -26 2 -34 -16 -26 C-32 -18 -34 18 -16 26 C2 34 28 26 34 0Z" fill="'+body+'"/>';
+  if(!o.xray){
+    if(reef){[[-6,-10],[4,6],[-14,8],[10,-12],[-2,16]].forEach(([a,b])=>g+='<circle cx="'+a+'" cy="'+b+'" r="2.5" fill="#9fd0ff"/>');
+      g+='<path d="M16 -18 C10 -6 10 6 16 18" stroke="#ffd23c" stroke-width="4" fill="none"/><path d="M16 14 l-9 9 l3 -11z" fill="#ffd23c"/>';}
+    else{[16,-2,-20].forEach((sx,i)=>g+='<path d="M'+sx+' -30 V30" stroke="#1d1f22" stroke-width="'+(i===1?6:5)+'" opacity=".85"/>');
+      g+='<path d="M-14 -40 L-10 -70 M-8 40 L-6 72" stroke="#1d1f22" stroke-width="4" opacity=".8"/>';}
+  }else{
+    g+='<path d="M34 0 C28 -26 2 -34 -16 -26 C-32 -18 -34 18 -16 26 C2 34 28 26 34 0Z" fill="#9fd8e8" opacity=".6"/>';
+    const r=o.air==="lots"?12:o.air==="little"?4:8;
+    g+='<ellipse cx="-4" cy="-6" rx="'+(r*1.6)+'" ry="'+r+'" fill="#fff" stroke="#2a6b80" stroke-width="2"/>';
+    g+='<path d="M14 -10 q-4 10 0 20 M18 -9 q-4 9 0 18 M22 -7 q-3 7 0 14" stroke="#e0505a" stroke-width="2.5" fill="none"/>';
+    g+='<ellipse cx="2" cy="12" rx="9" ry="5" fill="#f2a65a" opacity=".9"/>';
+  }
+  g+='<circle cx="24" cy="-6" r="4.5" fill="#fff"/><circle cx="25" cy="-6" r="2.6" fill="#111"/><path d="M33 2 l-4 1" stroke="#555" stroke-width="2" stroke-linecap="round"/>';
+  if(o.mouth)g+='<circle cx="33" cy="2" r="7" fill="none" stroke="#ffc93c" stroke-width="2" stroke-dasharray="3 3"/>';
+  return g+'</g>';
+}
+function roots(x0,w){let g="";for(let i=0;i<9;i++){const x=x0+i*(w/9)+((i*7)%5);g+='<path d="M'+x+' 30 C'+(x+4)+' 120 '+(x-5)+' 190 '+(x+2)+' 262" stroke="'+(i%2?"#3a2a1c":"#4d3826")+'" stroke-width="'+(5+(i%3)*2)+'" fill="none" stroke-linecap="round"/>'}return g}
+function leaves(x0){let g="";for(let i=0;i<7;i++){const x=x0+24+(i%2)*40+((i*13)%17),y=118+i*20;g+='<ellipse cx="'+x+'" cy="'+y+'" rx="34" ry="8" fill="'+(i%2?"#4f9a3c":"#5fae47")+'"/><path d="M'+(x-28)+' '+y+' h56" stroke="#2f6f24" stroke-width="2"/>'}return g}
+function coralRock(x0){return '<path d="M'+(x0+8)+' 262 C'+(x0+4)+' 180 '+(x0+20)+' 110 '+(x0+60)+' 104 C'+(x0+100)+' 110 '+(x0+114)+' 180 '+(x0+110)+' 262Z" fill="#c9785a"/>'+
+  '<path d="M'+(x0+62)+' 120 l-8 26 l10 18 l-9 24 l8 22 l-6 40" stroke="#3b1f16" stroke-width="13" fill="none" stroke-linejoin="round"/>'+
+  [[20,150],[94,170],[30,220],[90,230],[60,250]].map(([a,b])=>'<circle cx="'+(x0+a)+'" cy="'+b+'" r="7" fill="#f2a08a"/>').join("")}
+function sandPatch(x0){return '<rect x="'+(x0+4)+'" y="226" width="112" height="30" rx="10" fill="#efe0b8"/>'}
+function hunterG(x,y){return '<g id="hunter" class="mv" style="transform:translate('+x+'px,'+y+'px);transform-box:view-box">'+
+  '<path d="M60 0 C40 -26 -30 -24 -50 0 C-30 24 40 26 60 0Z" fill="#5c6b3f"/><path d="M-50 0 L-74 -18 L-70 0 L-74 18Z" fill="#4c5a33"/>'+
+  '<circle cx="42" cy="-6" r="5" fill="#ffd34d"/><circle cx="43" cy="-6" r="2.4" fill="#111"/><path d="M60 2 l-14 5" stroke="#2a2f1c" stroke-width="3"/></g>'}
+
+/* ---------- content (real facts; see repo catalogue for sources) ---------- */
+const FOOD={
+  river:{rule:"A river angelfish gulps its food whole. It can only eat small animals that fit in its mouth: the yellow circle!",sized:true,
+    items:[{id:"shrimp",e:"🦐",name:"Tiny shrimp"},{id:"worm",e:"🪱",name:"Worm"},{id:"larva",e:"🦟",name:"Mosquito baby"},{id:"babyfish",e:"🐟",name:"Little fish"},{id:"beetle",e:"🪲",name:"Water beetle"},{id:"pebble",e:"🪨",name:"Pebble",bad:"It spat out the pebble. It fits, but it isn't food!"},{id:"stick",e:"🪵",name:"Twig",bad:"It spat out the twig. A twig isn't food!"},{id:"bigfish",e:"🐠",name:"Big fish",big:true,bad:"The big fish is much too big for its mouth!"}]},
+  reef:{rule:"A reef angelfish nibbles bites off things that grow on the reef, like sponges and seaweed.",sized:false,
+    items:[{id:"sponge",e:"🧽",name:"Sea sponge",good:"Nibble nibble! Lots of reef angelfish love sea sponges."},{id:"seaweed",e:"🌿",name:"Seaweed",good:"Munch! Some reef angelfish eat seaweed."},{id:"plankton",e:"🦐",name:"Tiny floating animals",good:"Gulp! Some reef angelfish catch tiny floating animals."},
+      {id:"bigfish",e:"🐠",name:"Big fish",bad:"It left the big fish. Angelfish don't hunt big fish."},{id:"mango",e:"🥭",name:"Mango",bad:"It left the mango. Mangoes don't grow in the sea!"},{id:"pebble",e:"🪨",name:"Pebble",bad:"It left the pebble. A pebble isn't food!"},{id:"bread",e:"🍞",name:"Bread",bad:"It left the bread. That's people food, not reef food!"},{id:"treeleaf",e:"🍂",name:"Tree leaf",bad:"It left the tree leaf. Trees don't grow in the sea!"}]}
+};
+const PLACES={
+  river:[{id:"roots",e:"🌿",name:"Up-and-down roots",ok:true},{id:"leaves",e:"🍃",name:"Flat floating leaves",why:"Spotted! The leaves lie flat, but its stripes go up and down."},{id:"open",e:"💧",name:"Open water",why:"Spotted! There's nothing to hide behind in open water."}],
+  reef:[{id:"crack",e:"🪸",name:"Crack in the reef",ok:true},{id:"sand",e:"🏖️",name:"Flat sand",why:"Spotted! Bright blue and yellow on flat sand is easy to see."},{id:"open",e:"💧",name:"Open water",why:"Spotted! There's nothing to hide behind in open water."}]
+};
+const AIR=[{id:"little",e:"🎈",name:"A little air",y:222},{id:"some",e:"🎈🎈",name:"Some air",y:172},{id:"lots",e:"🎈🎈🎈",name:"Lots of air",y:122}];
+const LEVELS={122:"top",172:"middle",222:"bottom"};
+const WHY={
+  feed_river:{e:"👄",t:"River angelfish gulp food whole, so it must fit in their mouth. In the wild they eat small animals like little shrimps, bugs and tiny fish."},
+  feed_reef:{e:"🧽",t:"Reef angelfish nibble food off the reef. Lots of them eat sea sponges; some eat seaweed, and some catch tiny floating animals."},
+  hide_river:{e:"🌿",t:"A river angelfish is very flat, with up-and-down stripes. Among up-and-down roots and plants, the stripes blend in."},
+  hide_reef:{e:"🪸",t:"Reef angelfish hide in cracks and holes in the reef, especially at night. They also have a sharp spine on each cheek."},
+  float:{e:"🎈",t:"Inside is a swim bladder, a balloon of gas. More gas and the fish floats up; less gas and it sinks down."},
+  gills:{e:"🫧",t:"Fish don't have lungs. Water flows over red gills behind the head, and the gills take oxygen out of the water."}
+};
+const REAL={
+  river:{url:"https://amazonasmagazine.com/2022/03/30/video-santa-isabel-angelfish-in-the-wild",btn:"📷 Watch wild river angelfish",cap:"Real video: wild river angelfish swimming in a creek in Brazil, where they live."},
+  reef:{url:"https://livingoceansfoundation.org/video/queen-angelfish-at-andros-island-bahamas",btn:"📷 Watch a real reef angelfish",cap:"Real video: a queen angelfish swimming on a coral reef in the Bahamas."},
+  roots:{url:"https://www.usgs.gov/media/images/queen-angelfish-hides-mangrove-prop-roots",btn:"📷 Photo: a reef angelfish hiding in roots",cap:"Surprise! This reef angelfish is hiding among mangrove roots near the shore."}
+};
+function realLink(k){
+  const r=REAL[k];const c=card("<p style='margin:0 0 8px'>"+r.cap+"</p><a class='btn' id='real-"+k+"' href='"+r.url+"' target='_blank' rel='noopener'>"+r.btn+"</a><p style='margin:6px 0 0;font-size:.8rem;color:#4c6a5f;text-align:center'>Opens in a new tab. Come back here to keep playing.</p>");
+  c.querySelector("a").addEventListener("click",()=>{P.watched=P.watched||{};P.watched[k]=true;keep()});
+}
+const ANSWER={feed:"different",hide:"different",float:"same"};
+const REVEAL={
+  feed:"Different! River angelfish gulp small animals. Reef angelfish nibble sponges and seaweed.",
+  hide:"Different! River angelfish hide in up-and-down roots. Reef angelfish hide in cracks in the reef.",
+  float:"The same! Both kinds have a swim bladder to float up and down, and gills to breathe."
+};
+const ROUND_NAME={feed:"What does it eat?",hide:"How does it escape?",float:"What's inside?"};
+const TUMMY=3;
+
+/* ---------- play records (every play kept on this phone) ---------- */
+const STORE_KEY="angel-public-plays-v1",CUR_KEY="angel-public-current-v1";
+let plays=[];
+try{plays=JSON.parse(localStorage.getItem(STORE_KEY)||"[]")||[]}catch(e){plays=[]}
+try{const c=JSON.parse(localStorage.getItem(CUR_KEY)||"null");if(c&&c.taps>0){plays.push(c);localStorage.setItem(STORE_KEY,JSON.stringify(plays))}localStorage.removeItem(CUR_KEY)}catch(e){}
+function persist(){try{localStorage.setItem(STORE_KEY,JSON.stringify(plays))}catch(e){}}
+let P,R=null,busy=false;
+function newPlay(){P={at:Date.now(),taps:0,first:null,rounds:{feed:{},hide:{},float:{}},predict:{},finished:false};}
+function keep(){P.taps++;P.secs=Math.round((Date.now()-P.at)/1000);try{localStorage.setItem(CUR_KEY,JSON.stringify(P))}catch(e){}}
+function save(){P.secs=Math.round((Date.now()-P.at)/1000);try{localStorage.setItem(CUR_KEY,JSON.stringify(P))}catch(e){}}
+
+function say(t,tag){bubble.innerHTML="";bubble.append(document.createTextNode(t));if(tag){const d=document.createElement("div");d.innerHTML='<span class="tag">'+tag+'</span>';bubble.appendChild(d)}}
+function setHint(h){hint.innerHTML="<b>Grown-up</b>"+h}
+function mkBtn(id,text,cls,fn){const b=document.createElement("button");b.id=id;b.className="btn"+(cls?" "+cls:"");b.textContent=text;b.onclick=fn;return b}
+function btnRow(items){const r=document.createElement("div");r.className="row";items.forEach(i=>r.appendChild(i));controls.appendChild(r);return r}
+function card(html){const c=document.createElement("div");c.className="card";c.innerHTML=html;controls.appendChild(c);return c}
+function whyCard(keys){card("<h2>Why it worked</h2>"+keys.map(k=>"<div class='fr'><span class='ic'>"+WHY[k].e+"</span><span>"+WHY[k].t+"</span></div>").join(""))}
+function setLvl(t){$("lvl").textContent=t}
+function tryTable(title,rows){const c=document.createElement("div");c.className="card";
+  c.innerHTML="<h2>"+title+"</h2><div class='tbl-wrap'><table><tbody>"+rows.slice().reverse().map(r=>"<tr>"+r.map(x=>"<td>"+x+"</td>").join("")+"</tr>").join("")+"</tbody></table></div>";return c}
+
+/* ---------- flow ---------- */
+const ORDER=["feed","hide","float"];
+let first="river",kind="river";
+function next(round,which){
+  // which: 0 = first kind, 1 = second kind
+  kind=which===0?first:other(first);
+  setLvl("Question "+(ORDER.indexOf(round)+1)+" of 3 · "+(kind==="river"?"River":"Reef"));
+  $("title").textContent=ROUND_NAME[round];
+  ({feed:startFeed,hide:startHide,float:startFloat})[round](which);
+}
+function afterRound(round,which){
+  if(which===0){
+    btnRow([mkBtn("to-predict","Now the "+KINDS[other(first)].name.toLowerCase()+" →","",()=>predict(round))]);
+  }else{
+    const pr=P.predict[round];
+    say(REVEAL[round],"Real fact");
+    card("<h2>Same or different?</h2><p style='margin:0'>"+REVEAL[round]+"</p><p style='margin:6px 0 0'><b>"+CHILD+" guessed "+pr+(pr===ANSWER[round]?" ✓":"")+"</b></p>");
+    const i=ORDER.indexOf(round);
+    btnRow([i<2?mkBtn("next-round","Next: "+ROUND_NAME[ORDER[i+1]]+" →","",()=>next(ORDER[i+1],0)):mkBtn("finish","See what "+CHILD+" found out →","",showEnd)]);
+  }
+}
+function predict(round){
+  controls.innerHTML="";$("chip").textContent="";$("tummy").hidden=true;
+  const o=other(first);
+  scene.innerHTML=water(o)+floorG(o)+fish(o,180,150,1.1);
+  say("Here's the "+KINDS[o].name.toLowerCase()+" from the "+KINDS[o].where+". "+({feed:"Will it eat the same food?",hide:"Will it hide in the same kind of place?",float:"Will its inside be the same?"})[round]);
+  setHint("Let "+CHILD+" decide before tapping. Ask: “Why do you think so?”");
+  const t=document.createElement("div");t.className="tray";t.style.gridTemplateColumns="repeat(2,1fr)";
+  [["same","🟰","Same"],["different","↔️","Different"]].forEach(([id,e,tx])=>{const b=document.createElement("button");b.className="choice";b.id="predict-"+round+"-"+id;b.innerHTML=e+"<small>"+tx+"</small>";
+    b.onclick=()=>{P.predict[round]=id;keep();next(round,1)};t.appendChild(b)});
+  const s=document.createElement("div");s.className="seg";s.appendChild(t);controls.appendChild(s);
+}
+
+/* ---------- start ---------- */
+function startGame(){
+  newPlay();R=null;$("tummy").hidden=true;$("chip").textContent="";setLvl("");
+  $("title").textContent="Angelfish Adventure";
+  scene.innerHTML=water("river")+'<rect x="180" width="180" height="280" fill="#2f86bd"/>'+'<path d="M180 0 V280" stroke="#f1faf4" stroke-width="3" stroke-dasharray="6 6"/>'+floorG("river")+fish("river",90,150,.8)+fish("reef",270,150,.95).replace('id="fish"','id="fish2"');
+  say(CHILD+" asked about angelfish! There are two kinds: one lives in rivers, one lives on coral reefs.");
+  setHint("Read this aloud. Let "+CHILD+" pick which one to start with.");
+  controls.innerHTML="";
+  card("<p>Public demo: Alex is an example explorer, not a real child's name.</p>");
+  card("<h2>"+CHILD+"'s three questions</h2><ol class='steps'>"+
+    "<li><span>🍽️</span><div><b>What does it eat?</b></div></li>"+
+    "<li><span>🌿</span><div><b>How does it escape?</b></div></li>"+
+    "<li><span>🔍</span><div><b>What's inside its body?</b></div></li></ol>"+
+    "<p style='margin:8px 0 0'>For each question, try one angelfish, then guess: will the other one be the <b>same</b> or <b>different</b>?</p>");
+  const s=document.createElement("div");s.className="seg";s.innerHTML="<div class='seg-label'>Start with…</div>";
+  const t=document.createElement("div");t.className="tray";t.style.gridTemplateColumns="repeat(2,1fr)";
+  ["river","reef"].forEach(k=>{const b=document.createElement("button");b.className="choice";b.id="first-"+k;b.innerHTML=KINDS[k].e+"<small>"+KINDS[k].name+"<br><span style='font-weight:500;font-size:.8rem'>"+KINDS[k].look+"</span></small>";
+    b.onclick=()=>{first=k;P.first=k;keep();next("feed",0)};t.appendChild(b)});
+  s.appendChild(t);controls.appendChild(s);
+}
+
+/* ---------- 1. feed: build a plate of 3, serve, swap the wrong ones ---------- */
+function startFeed(which){
+  const F=FOOD[kind];
+  let items;
+  if(F.sized){const sizes=shuffle(["fit","fit","fit","big","big"]);const an=shuffle(F.items.filter(i=>!i.bad));
+    items=an.map((f,i)=>({...f,size:sizes[i],ok:sizes[i]==="fit"})).concat(F.items.filter(i=>i.bad).map(f=>({...f,size:f.big?"big":"fit",ok:false})));}
+  else items=F.items.map(f=>({...f,size:"fit",ok:!f.bad}));
+  R={items:shuffle(items),plate:[],locked:[],out:[],serves:[]};
+  P.rounds.feed[kind]={serves:[],done:false};save();
+  scene.innerHTML=water(kind)+floorG(kind)+fish(kind,170,140,1.4,{mouth:F.sized});
+  say(F.rule+" Make it a plate of "+TUMMY+" foods.");
+  setHint(F.sized?"Point at the yellow circle. Before serving ask: “Will each one fit? Is each one food?”":"Before serving ask: “Does each of these grow in the sea? Could it nibble it?”");
+  renderFeed();
+}
+function foodIcon(f,sized){const sz=f.size==="big"?38:(sized?16:30);return '<svg viewBox="0 0 64 64">'+(sized?'<circle cx="32" cy="32" r="12" fill="none" stroke="#c9a227" stroke-width="2" stroke-dasharray="3 3"/>':'')+'<text x="32" y="34" font-size="'+sz+'" text-anchor="middle" dominant-baseline="middle">'+f.e+'</text></svg>'}
+function plateBar(){const t=$("tummy");t.hidden=false;t.innerHTML="Plate "+Array.from({length:TUMMY},(_,i)=>R.plate[i]?R.items.find(x=>x.id===R.plate[i]).e:"⚪").join(" ")}
+function renderFeed(){
+  controls.innerHTML="";plateBar();
+  const sized=FOOD[kind].sized;
+  const s=document.createElement("div");s.className="seg";
+  s.innerHTML="<div class='seg-label'>Pick "+TUMMY+" for the "+KINDS[kind].name.toLowerCase()+(sized?" · dashed circle = its mouth":"")+"</div>";
+  const t=document.createElement("div");t.className="tray tray4";
+  R.items.forEach(f=>{const b=document.createElement("button");b.className="choice";b.id="food-"+f.id;
+    if(R.locked.includes(f.id))b.classList.add("good");
+    else if(R.out.includes(f.id)){b.classList.add("bad");b.disabled=true}
+    else if(R.plate.includes(f.id))b.classList.add("picked");
+    b.innerHTML=foodIcon(f,sized)+"<small>"+f.name+(f.size==="big"?" (big)":"")+"</small>";
+    b.onclick=()=>pick(f);t.appendChild(b)});
+  s.appendChild(t);controls.appendChild(s);
+  const go=mkBtn("serve","Serve the plate! 🍽️","",serve);go.disabled=R.plate.length<TUMMY;btnRow([go]);
+  if(R.serves.length)controls.appendChild(tryTable("Plates served",R.serves.map((sv,i)=>[i+1,sv.plate.map(id=>R.items.find(x=>x.id===id).e).join(" "),sv.good+" of "+TUMMY+" eaten"])));
+}
+function pick(f){
+  if(busy||R.locked.includes(f.id)||R.out.includes(f.id))return;
+  if(R.plate.includes(f.id))R.plate=R.plate.filter(x=>x!==f.id);
+  else if(R.plate.length<TUMMY)R.plate.push(f.id);
+  renderFeed();
+}
+function serve(){
+  if(busy||R.plate.length<TUMMY)return;
+  const prev=R.serves[R.serves.length-1];
+  const res=R.plate.map(id=>R.items.find(x=>x.id===id));
+  const good=res.filter(f=>f.ok),bad=res.filter(f=>!f.ok);
+  const changed=prev?R.plate.filter(id=>!prev.plate.includes(id)).length:null;
+  R.serves.push({plate:R.plate.slice(),good:good.length});
+  P.rounds.feed[kind].serves.push({plate:res.map(f=>f.id+(f.size==="big"?"(big)":"")),good:good.length,changed});keep();
+  good.forEach(f=>{if(!R.locked.includes(f.id))R.locked.push(f.id)});
+  bad.forEach(f=>R.out.push(f.id));
+  R.plate=R.locked.slice();
+  if(!bad.length){
+    P.rounds.feed[kind].done=true;save();
+    $("tummy").hidden=true;say("Yum, yum, yum! Every food on the plate was right. Full tummy!");$("chip").textContent="Tummy full! 😋";
+    setHint("Ask: “What did this angelfish like to eat?”");
+    controls.innerHTML="";whyCard(["feed_"+kind]);
+    controls.appendChild(tryTable("Plates served",R.serves.map((sv,i)=>[i+1,sv.plate.map(id=>R.items.find(x=>x.id===id).e).join(" "),sv.good+" of "+TUMMY+" eaten"])));
+    afterRound("feed",kind===first?0:1);return;
+  }
+  const f=bad[0];
+  say((good.length?"It ate "+good.length+"! ":"")+(f.bad||("The "+f.name.toLowerCase()+" is too big for its mouth."))+(bad.length>1?" And it left "+(bad.length-1)+" more.":""));
+  $("chip").textContent=good.length+" of "+TUMMY+" eaten";
+  setHint("Ask: “Why didn't it eat that one? What could we swap in?”");
+  renderFeed();
+}
+
+/* ---------- 2. hide: real cover drawn in front of the fish ---------- */
+function startHide(){
+  $("tummy").hidden=true;$("chip").textContent="";
+  R={order:shuffle(PLACES[kind]),tries:[]};
+  P.rounds.hide[kind]={tries:[],done:false};save();
+  drawHide();
+  say("A big hungry fish is coming! Where should the "+KINDS[kind].name.toLowerCase()+" hide?");
+  setHint(kind==="river"?"Point at its stripes. Ask: “Which way do they go? Where would they be hard to see?”":"Ask: “It's so bright! Where could it get out of sight?”");
+  renderHide();
+}
+function rootsFront(x0,w){let g="";for(let i=0;i<6;i++){const x=x0+12+i*(w/6);g+='<path d="M'+x+' 40 C'+(x+3)+' 120 '+(x-3)+' 190 '+(x+1)+' 262" stroke="#241912" stroke-width="'+(i%2?5:6)+'" fill="none" stroke-linecap="round"/>'}return g}
+function coralHalf(x0,side){
+  return side==="L"
+    ?'<path d="M'+(x0+8)+' 262 C'+(x0+4)+' 180 '+(x0+20)+' 110 '+(x0+56)+' 104 L'+(x0+54)+' 150 L'+(x0+60)+' 170 L'+(x0+53)+' 200 L'+(x0+58)+' 262Z" fill="#c9785a"/>'+[[22,150],[30,220],[44,250]].map(([a,b])=>'<circle cx="'+(x0+a)+'" cy="'+b+'" r="7" fill="#f2a08a"/>').join("")
+    :'<path d="M'+(x0+66)+' 104 C'+(x0+100)+' 110 '+(x0+114)+' 180 '+(x0+110)+' 262 L'+(x0+70)+' 262 L'+(x0+75)+' 200 L'+(x0+68)+' 170 L'+(x0+74)+' 150Z" fill="#b86a4f"/>'+[[96,170],[92,232]].map(([a,b])=>'<circle cx="'+(x0+a)+'" cy="'+b+'" r="7" fill="#f2a08a"/>').join("")}
+function drawHide(state){
+  // state: {i, place, ok} when showing a result
+  let back=water(kind)+floorG(kind),front="",fishSvg;
+  R.order.forEach((p,i)=>{const x0=i*120;
+    if(p.id==="roots"){back+=roots(x0+8,104);front+=rootsFront(x0+4,108)}
+    if(p.id==="leaves")back+=leaves(x0);
+    if(p.id==="crack"){back+='<path d="M'+(x0+56)+' 104 L'+(x0+74)+' 104 L'+(x0+74)+' 262 L'+(x0+54)+' 262Z" fill="#2b140d"/>';front+=coralHalf(x0,"L")+coralHalf(x0,"R")}
+    if(p.id==="sand")back+=sandPatch(x0);
+    front+='<text x="'+(x0+60)+'" y="274" text-anchor="middle" font-size="13" font-weight="700" fill="#f1faf4" font-family="Fredoka, sans-serif">'+"ABC"[i]+'</text>'});
+  if(!state){scene.innerHTML=back+front+fish(kind,180,236,.42)+hunterG(-90,110);return}
+  const x=state.i*120+60;
+  if(state.place==="crack")fishSvg=fish(kind,x+4,182,.5).replace('class="mv"','class="mv" opacity=".95"');
+  else if(state.place==="roots")fishSvg=fish(kind,x,150,.9,{dim:true});
+  else if(state.place==="sand")fishSvg=fish(kind,x,226,.7);
+  else fishSvg=fish(kind,x,140,.85);
+  // fish sits BEHIND the cover for roots and crack
+  scene.innerHTML=back+((state.place==="roots"||state.place==="crack")?fishSvg+front:front+fishSvg)+hunterG(state.ok?470:x-50,state.ok?100:state.place==="sand"?210:140);
+}
+function hideRows(){return R.tries.map((t,i)=>[i+1,PLACES[kind].find(p=>p.id===t.place).name,t.ok?"Hidden! ✓":"Spotted ✗"])}
+function renderHide(){
+  controls.innerHTML="";
+  const s=document.createElement("div");s.className="seg";s.innerHTML="<div class='seg-label'>Hide the "+KINDS[kind].name.toLowerCase()+" in…</div>";
+  const t=document.createElement("div");t.className="tray";
+  R.order.forEach((p,i)=>{const b=document.createElement("button");b.className="choice";b.id="hide-"+p.id;
+    const tried=R.tries.find(x=>x.place===p.id);if(tried)b.classList.add(p.ok?"good":"bad");
+    b.innerHTML=p.e+"<small>"+"ABC"[i]+": "+p.name+"</small>";b.onclick=()=>hideTap(p,i);t.appendChild(b)});
+  s.appendChild(t);controls.appendChild(s);
+  if(R.tries.length)controls.appendChild(tryTable("Hiding tries",hideRows()));
+}
+function hideTap(p,i){
+  if(busy)return;busy=true;controls.querySelectorAll("button").forEach(b=>b.disabled=true);
+  drawHide();
+  const f=$("fish");
+  requestAnimationFrame(()=>{f.style.transform="translate("+(i*120+60)+"px,150px) scale(.7)"});
+  say("Swim, swim! Now stay still...");
+  setTimeout(()=>{
+    drawHide({i,place:p.id,ok:false});const h=$("hunter");h.style.transition="none";h.style.transform="translate(-90px,110px)";void h.getBoundingClientRect();h.style.transition="";
+    requestAnimationFrame(()=>{h.style.transform=p.ok?"translate(470px,100px)":"translate("+(i*120+10)+"px,"+(p.id==="sand"?210:140)+"px)"});
+    setTimeout(()=>{
+      const misses=R.tries.filter(t=>!t.ok).length+(p.ok?0:1);
+      R.tries.push({place:p.id,ok:!!p.ok});P.rounds.hide[kind].tries.push({place:p.id,ok:!!p.ok});keep();busy=false;
+      if(p.ok){
+        say(kind==="river"?"It swam right past! Can you even see the angelfish? Its stripes look just like the roots.":"It swam right past! Only a tiny bit of the angelfish shows in the crack.");
+        $("chip").textContent="Hidden! 🐠";P.rounds.hide[kind].done=true;save();
+        controls.innerHTML="";setHint("Ask: “Can you find the angelfish? Why is it hard to see?”");whyCard(["hide_"+kind]);realLink(kind);
+        afterRound("hide",kind===first?0:1);
+        controls.appendChild(tryTable("Hiding tries",hideRows()));
+      }else{
+        say(p.why);$("chip").textContent="Spotted! It got away just in time";
+        setHint(misses>=2?(kind==="river"?"Find something with up-and-down stripes, like a fence. Ask: “Which hiding place goes the same way?”":"Ask: “Where could a flat fish squeeze in so it can't be seen?”"):"Ask: “Why was it spotted? Where else could it go?”");
+        setTimeout(()=>{drawHide();renderHide()},1400);
+      }
+    },1600);
+  },1400);
+}
+
+/* ---------- 3. inside: swim bladder ---------- */
+function startFloat(which){
+  $("chip").textContent="";$("tummy").hidden=true;
+  const targets=shuffle([122,172,222]).slice(0,which===0?2:1);
+  R={targets,step:0,tries:[]};
+  P.rounds.float[kind]={tries:[],done:false};save();
+  drawFloat(172,"some");
+  say(which===0?"Inside: a white balloon (swim bladder) and red gills. More air floats it UP, less air sinks it DOWN.":"Here's inside the "+KINDS[kind].name.toLowerCase()+". Can you get it to the shrimp too?");
+  setHint("Point at the white balloon. Ask: “The food is at the "+LEVELS[targets[0]]+". More air or less air?”");
+  renderFloat();
+}
+function drawFloat(fy,air){
+  const ty=R.targets[R.step];
+  let s=water(kind)+floorG(kind);
+  [122,172,222].forEach(y=>s+='<path d="M10 '+y+' h20" stroke="rgba(255,255,255,.35)" stroke-width="2"/>');
+  if(ty)s+='<text x="285" y="'+(ty+6)+'" font-size="26" text-anchor="middle">🦐</text>';
+  s+=fish(kind,140,fy,.62,{xray:true,air});
+  scene.innerHTML=s;
+}
+function floatRows(){return R.tries.map((t,i)=>[i+1,"Food at "+LEVELS[t.target],AIR.find(a=>a.id===t.air).name,t.ok?"Got it ✓":"Missed ✗"])}
+function renderFloat(){
+  controls.innerHTML="";
+  const s=document.createElement("div");s.className="seg";
+  s.innerHTML="<div class='seg-label'>"+(R.targets.length>1?"Food "+(R.step+1)+" of 2":"The food")+" is at the "+LEVELS[R.targets[R.step]]+". How much air?</div>";
+  const t=document.createElement("div");t.className="tray";
+  AIR.forEach(a=>{const b=document.createElement("button");b.className="choice";b.id="air-"+a.id;b.innerHTML="<span style='font-size:1.5rem'>"+a.e+"</span><small>"+a.name+"</small>";
+    b.onclick=()=>floatTap(a);t.appendChild(b)});
+  s.appendChild(t);controls.appendChild(s);
+  if(R.tries.length)controls.appendChild(tryTable("Float tries",floatRows()));
+}
+function floatTap(a){
+  if(busy)return;busy=true;controls.querySelectorAll("button").forEach(b=>b.disabled=true);
+  const target=R.targets[R.step],ok=a.y===target;
+  drawFloat(172,a.id);
+  requestAnimationFrame(()=>{$("fish").style.transform="translate(140px,"+a.y+"px) scale(.62)"});
+  say(a.id==="lots"?"Lots of air... up, up!":a.id==="little"?"Let air out... down it goes!":"Some air... stay in the middle.");
+  setTimeout(()=>{
+    R.tries.push({target,air:a.id,ok});P.rounds.float[kind].tries.push({target:LEVELS[target],air:a.id,ok});keep();
+    if(ok){
+      say("Chomp! It reached the shrimp!");$("chip").textContent="Got it! 🦐";
+      R.step++;
+      if(R.step>=R.targets.length){busy=false;P.rounds.float[kind].done=true;save();controls.innerHTML="";
+        setHint("Ask: “What would happen with NO air at all?”");whyCard(kind===first?["float","gills"]:["float"]);
+        afterRound("float",kind===first?0:1);return}
+      setTimeout(()=>{busy=false;drawFloat(a.y,a.id);$("chip").textContent="";say("Another shrimp! It's at the "+LEVELS[R.targets[R.step]]+" now. How much air?");renderFloat()},1200);
+    }else{
+      busy=false;
+      say(a.y<target?"Too high! It floated over the food. Try less air.":"Too low! It sank under the food. Try more air.");
+      $("chip").textContent="Missed ✗";
+      setHint("Ask: “Did it go too high or too low? So do we need more air or less?”");
+      renderFloat();
+    }
+  },1600);
+}
+
+/* ---------- summary ---------- */
+const FNAME=id=>{for(const k in FOOD){const f=FOOD[k].items.find(x=>x.id===id);if(f)return f.name.toLowerCase()}return id};
+const PNAME=(k,id)=>PLACES[k].find(p=>p.id===id).name.toLowerCase();
+function playLines(p){
+  const o=[];
+  if(p.first)o.push("Started with: "+KINDS[p.first].name.toLowerCase());
+  ORDER.forEach(r=>{
+    const ks=p.first?[p.first,other(p.first)]:[];
+    ks.forEach(k=>{const d=p.rounds[r][k];if(!d||!((d.tries&&d.tries.length)||(d.serves&&d.serves.length)))return;
+      if(r==="feed"&&d.serves&&d.serves.length)o.push(ROUND_NAME[r]+" "+k+": "+d.serves.length+" plate"+(d.serves.length>1?"s":"")+(d.done?"":" · unfinished")+"\n"+d.serves.map((sv,i)=>"    "+(i+1)+". "+sv.plate.map(x=>FNAME(x.replace("(big)",""))+(x.includes("(big)")?" (big)":"")).join(", ")+" → "+sv.good+" of 3 eaten"+(sv.changed!=null?" · swapped "+sv.changed:"")).join("\n"));
+      if(r==="hide")o.push(ROUND_NAME[r]+" "+k+": "+d.tries.map(t=>PNAME(k,t.place)+(t.ok?" ✓":" ✗")).join(" → "));
+      if(r==="float")o.push(ROUND_NAME[r]+" "+k+": "+d.tries.map(t=>"food "+t.target+": "+AIR.find(a=>a.id===t.air).name.toLowerCase()+(t.ok?" ✓":" ✗")).join("; "));
+    });
+    if(p.predict[r])o.push("  Same or different? Guessed "+p.predict[r]+" (answer: "+ANSWER[r]+")"+(p.predict[r]===ANSWER[r]?" ✓":" ✗"));
+  });
+  if(p.watched)o.push("Watched real: "+Object.keys(p.watched).map(k=>({river:"river video",reef:"reef video",roots:"roots photo"})[k]).join(", "));
+  o.push(p.taps+(p.taps===1?" tap":" taps")+" · about "+Math.max(1,Math.round((p.secs||0)/60))+" min"+(p.finished?"":" · stopped before the end"));
+  return o;
+}
+function whenText(ms){try{const d=new Date(ms);return d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}catch(e){return""}}
+function allPlays(){return P&&P.taps>0?plays.concat([P]):plays.slice()}
+function summaryText(){
+  const ps=allPlays();
+  const o=["🐠 Angelfish Adventure: "+CHILD+"'s tries"+(ps.length>1?" · played "+ps.length+" times":"")];
+  ps.forEach((p,i)=>o.push("","PLAY "+(i+1)+" ("+whenText(p.at)+")",...playLines(p)));
+  o.push("","Levelling: each question has one rule, explained first; food sizes, hiding spots and food heights change every play.");
+  const n=$("dad-note");if(n&&n.value.trim())o.push("","Grown-up's note: "+n.value.trim());
+  return o.join("\n");
+}
+function refreshShare(){const t=summaryText();const s=$("summary");if(s)s.textContent=t;const w=$("wa");if(w)w.href="https://wa.me/?text="+encodeURIComponent(t);return t}
+
+/* ---------- end ---------- */
+function showEnd(){
+  P.finished=true;save();
+  $("title").textContent="Angelfish Report";setLvl("");$("chip").textContent="";$("tummy").hidden=true;
+  scene.innerHTML=water("river")+'<rect x="180" width="180" height="280" fill="#2f86bd"/>'+floorG("river")+fish("river",90,150,.8)+fish("reef",270,150,.95).replace('id="fish"','id="fish2"');
+  say("You answered all three of your questions, for both angelfish!");
+  setHint("Do the at-home mission together, then type one thing "+CHILD+" said or asked.");
+  controls.innerHTML="";
+  const g=r=>!P.predict[r]?"–":"guessed "+P.predict[r]+(P.predict[r]===ANSWER[r]?" ✓":" (it's "+ANSWER[r]+")");
+  card("<h2>River vs reef angelfish</h2><div class='tbl-wrap'><table><thead><tr><th></th><th>🏞️ River</th><th>🪸 Reef</th></tr></thead><tbody>"+
+    "<tr><td><b>Lives</b></td><td>Amazon river</td><td>Coral reefs</td></tr>"+
+    "<tr><td><b>Eats</b></td><td>Small animals</td><td>Sponges, seaweed</td></tr>"+
+    "<tr><td><b>Hides</b></td><td>In roots</td><td>In reef cracks</td></tr>"+
+    "<tr><td><b>Inside</b></td><td colspan='2'>Same: swim bladder and gills</td></tr></tbody></table></div>"+
+    "<p style='margin:8px 0 0'><b>"+CHILD+"'s same-or-different guesses</b><br>Food: "+g("feed")+"<br>Hiding: "+g("hide")+"<br>Inside: "+g("float")+"</p>");
+  const rv=card("<h2>Real angelfish</h2><div class='row' style='margin-top:4px'></div>");
+  ["river","reef","roots"].forEach(k=>{const a=document.createElement("a");a.className="btn ghost";a.style.cssText="color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink);font-size:1rem";a.href=REAL[k].url;a.target="_blank";a.rel="noopener";a.textContent=REAL[k].btn;a.addEventListener("click",()=>{P.watched=P.watched||{};P.watched[k]=true;save()});rv.querySelector(".row").appendChild(a)});
+  card("<h2>At-home mission</h2><ol style='margin:0;padding-left:1.2em'>"+
+    "<li>🍶 Put an empty bottle with its lid on in the sink or bath. It floats: lots of air, like a full swim bladder! Fill it with water and it sinks.</li>"+
+    "<li>👕 Find something with up-and-down stripes. Where at home would it be hardest to see?</li>"+
+    "<li>🖍️ Draw both angelfish side by side. What's the same? What's different?</li></ol>");
+  card("<label for='dad-note' class='end-label'>One thing "+CHILD+" said or asked (optional)</label><textarea id='dad-note' class='note-in' placeholder='e.g. Why do they have the same name?'></textarea>");
+  $("dad-note").addEventListener("input",refreshShare);
+  const n=allPlays().length;
+  if(n>1){const info=document.createElement("div");info.className="plays-info";info.innerHTML="<span>The summary includes all "+n+" plays saved in this browser.</span>";
+    const clr=document.createElement("button");clr.className="link-btn";clr.id="clear-plays";clr.textContent="Clear old plays";let armed=false;
+    clr.onclick=()=>{if(!armed){armed=true;clr.textContent="Tap again to clear";return}plays=[];persist();clr.remove();info.querySelector("span").textContent="Old plays cleared. The summary shows this play only.";refreshShare()};
+    info.appendChild(clr);controls.appendChild(info)}
+  const det=document.createElement("div");det.className="card";det.innerHTML="<h2>Play summary</h2><p style='margin:0 0 6px;opacity:.85'>Every guess, try and change is recorded. In the Curiosity Loop pilot, families share this summary with us so the next game can build on it. (Demo: “Alex” is a placeholder name.)</p><pre id='summary' style='white-space:pre-wrap;font-family:inherit;margin:8px 0 0'></pre>";controls.appendChild(det);
+  const c=mkBtn("copy","Copy","ghost",()=>{const t=refreshShare();const ok=()=>{c.textContent="Copied ✓"};try{navigator.clipboard.writeText(t).then(ok,()=>fallback(t,ok))}catch(e){fallback(t,ok)}});
+  const a=mkBtn("again","Play again (new foods and places!)","ghost",()=>{plays.push(P);persist();try{localStorage.removeItem(CUR_KEY)}catch(e){};startGame()});
+  btnRow([c,a]);refreshShare();window.scrollTo(0,0);
+}
+function fallback(t,ok){const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");ok()}catch(e){}ta.remove()}
+
+startGame();
+})();
+
+</script>
+</body>
+</html>
+

@@ -1,0 +1,394 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Poohsticks Night</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&family=Mali:wght@400;600;700&display=swap">
+<style>
+/* Layout: one calm column, a night-time stream in the Hundred Acre Wood. Three short parts, built for bedtime: warm-up, races, goodnight. */
+:root{
+  --night:#161b2b; --panel:#20273d; --panel2:#2a3350; --ink:#f3ecd9; --muted:#aab0c8;
+  --honey:#f2b84b; --water:#244f68; --water2:#2f6a86; --reed:#6f8f4e; --bank:#2c3b2a;
+  --good:#8fd3a0; --lose:#ef9a7f; --rule:#b9a3ec; --line:#36405f;
+  --display:"Sniglet","Trebuchet MS",system-ui,sans-serif;
+  --body:"Mali","Comic Sans MS",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+.wrap{max-width:620px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px;display:flex;flex-direction:column;gap:26px}
+h1,h2,h3{font-family:var(--display);font-weight:800;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:clamp(2.3rem,9vw,3.3rem);color:var(--honey)}
+h2{font-size:1.6rem}
+p{margin:0}
+.hero{display:flex;flex-direction:column;gap:10px}
+.hero p{color:var(--muted);max-width:56ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:.85rem;font-weight:600;padding:3px 12px;border-radius:999px;border:1.5px solid var(--line);color:var(--muted)}
+.part{background:var(--panel);border-radius:22px;padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.tag{font-family:var(--display);font-size:.8rem;letter-spacing:.09em;text-transform:uppercase;color:var(--honey)}
+.lead{color:var(--muted)}
+button{font:inherit;font-weight:700;cursor:pointer;border-radius:999px;border:2px solid var(--line);background:transparent;color:var(--ink);padding:7px 15px}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--honey);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--honey);border-color:var(--honey);color:#2a1d00}
+.card{border:1.5px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.claim{font-family:var(--display);font-size:1.15rem}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.reveal{border-radius:12px;padding:10px 12px;background:var(--panel2)}
+.reveal b{font-family:var(--display);font-weight:800}
+.reveal.real b{color:var(--good)} .reveal.pretend b{color:var(--rule)}
+.pick{display:flex;flex-direction:column;gap:6px}
+.pick > label,.pick > .lbl{font-weight:700}
+.who{font-size:.8rem;font-weight:700;color:var(--honey);margin-left:6px}
+input[type=text],textarea{font:inherit;width:100%;padding:9px 12px;border-radius:12px;border:2px solid var(--line);background:var(--panel2);color:var(--ink)}
+textarea{min-height:64px;resize:vertical}
+#cv{width:100%;height:320px;display:block;border-radius:16px;background:var(--water)}
+.go{background:var(--honey);border-color:var(--honey);color:#2a1d00;font-family:var(--display);font-size:1.25rem;padding:10px 24px;align-self:flex-start}
+.go:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:.9rem;color:var(--muted)}
+.result{border-radius:16px;border:1.5px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px}
+.verdict{font-family:var(--display);font-weight:800;font-size:1.45rem}
+.verdict.win{color:var(--good)} .verdict.lose{color:var(--lose)}
+.why{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.why li{display:flex;flex-direction:column;gap:2px}
+.pill{align-self:flex-start;font-size:.72rem;font-weight:700;padding:1px 9px;border-radius:999px}
+.pill.real{background:var(--good);color:#11301c} .pill.rule{background:var(--rule);color:#24164a}
+.ask{border-radius:12px;padding:10px 12px;background:var(--panel2);font-weight:600}
+.ask span{display:block;font-size:.85rem;font-weight:400;color:var(--muted)}
+.logwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.big{font-family:var(--display);font-size:1.25rem;padding:14px;border-radius:14px;background:var(--honey);color:#2a1d00}
+pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:.85rem;margin:0;padding:12px;border-radius:12px;background:var(--panel2);color:var(--muted);max-height:220px;overflow:auto}
+.send{display:inline-block;text-decoration:none;font-family:var(--display);font-size:1.15rem;padding:10px 22px;border-radius:999px;background:var(--good);color:#11301c}
+.copied{font-size:.85rem;color:var(--good)}
+.scene{width:100%;height:auto;display:block;border-radius:18px;max-width:100%}
+.pic{display:block;width:100%;max-width:240px;height:auto;margin:0 auto}
+.diagram{display:block;width:100%;max-width:260px;height:auto;margin:8px auto 0}
+.tiles button{display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:16px;padding:8px 10px;min-width:86px;font-size:.9rem}
+.tiles svg{width:60px;height:38px;display:block}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <svg class="scene" viewBox="0 0 600 230" role="img" aria-label="A wooden bridge over a stream in a wood at night, with a honey pot on the bridge, two sticks floating below and fireflies in the air">
+      <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2140"/><stop offset="1" stop-color="#223150"/></linearGradient></defs>
+      <rect width="600" height="230" fill="url(#sky)"/>
+      <g fill="#f3ecd9" opacity=".7"><circle cx="60" cy="30" r="1.6"/><circle cx="140" cy="18" r="1.2"/><circle cx="250" cy="34" r="1.4"/><circle cx="330" cy="14" r="1.2"/><circle cx="420" cy="38" r="1.5"/><circle cx="470" cy="16" r="1.1"/><circle cx="200" cy="60" r="1"/></g>
+      <circle cx="530" cy="46" r="24" fill="#f6e7b8"/><circle cx="542" cy="38" r="22" fill="#1d2443"/>
+      <path d="M0 150 L0 90 Q30 40 60 95 Q80 50 105 100 Q125 60 150 120 L170 150 Z" fill="#22301f"/>
+      <path d="M600 150 L600 85 Q575 40 548 92 Q525 55 500 102 Q480 70 455 125 L440 150 Z" fill="#22301f"/>
+      <rect x="0" y="140" width="600" height="90" fill="#2c3b2a"/>
+      <path d="M230 140 Q280 175 250 230 L370 230 Q340 180 380 140 Z" fill="#244f68"/>
+      <path d="M300 145 Q308 185 305 230" stroke="#4d8db0" stroke-width="10" fill="none" opacity=".45"/>
+      <g stroke="#6f8f4e" stroke-width="2.5" fill="none" stroke-linecap="round"><path d="M232 205 q-4 -12 -10 -18"/><path d="M240 214 q-2 -14 -8 -22"/><path d="M372 200 q4 -12 10 -18"/><path d="M364 214 q3 -14 9 -22"/></g>
+      <rect x="292" y="200" width="22" height="6" rx="3" fill="#8a5a33" transform="rotate(-8 303 203)"/>
+      <rect x="320" y="212" width="18" height="5" rx="2.5" fill="#8c8577" transform="rotate(10 329 214)"/>
+      <path d="M170 150 Q305 92 440 150" stroke="#5b4330" stroke-width="18" fill="none"/>
+      <path d="M170 150 Q305 92 440 150" stroke="#7a5a3e" stroke-width="4" fill="none" transform="translate(0 -10)"/>
+      <g stroke="#7a5a3e" stroke-width="4" stroke-linecap="round"><line x1="200" y1="128" x2="200" y2="112"/><line x1="250" y1="112" x2="250" y2="96"/><line x1="305" y1="106" x2="305" y2="90"/><line x1="360" y1="112" x2="360" y2="96"/><line x1="410" y1="128" x2="410" y2="112"/></g>
+      <g transform="translate(330 92)"><path d="M-14 0 Q-16 -18 -10 -22 L10 -22 Q16 -18 14 0 Z" fill="#d98b3a"/><rect x="-12" y="-27" width="24" height="6" rx="2" fill="#b86f2a"/><path d="M-9 -27 Q0 -34 9 -27" fill="#f2b84b"/><text x="0" y="-8" text-anchor="middle" font-family="Sniglet, system-ui, sans-serif" font-size="6.5" font-weight="800" fill="#3a2410">HUNNY</text></g>
+      <g fill="#f2b84b"><circle cx="120" cy="170" r="2.5" opacity=".8"/><circle cx="470" cy="180" r="2.2" opacity=".6"/><circle cx="420" cy="80" r="2" opacity=".7"/><circle cx="190" cy="70" r="2.2" opacity=".6"/><circle cx="545" cy="160" r="2.4" opacity=".75"/></g>
+    </svg>
+    <h1 id="title">Poohsticks Night</h1>
+    <p>Winnie-the-Pooh turned 100 in October 2026. In the book, Pooh invents a game: everyone drops a stick off a bridge, then runs to the other side to see whose stick comes out first. Tonight Alex builds the stick. A grown-up makes the river.</p>
+    <p class="demo-note" style="margin:10px 0 0;font-size:.85em;opacity:.8">Demo version: “Alex” is a placeholder name. Each real Curiosity Loop game is built from one child's own question and anonymized before sharing.</p>
+    <div class="chips"><span class="chip">About 10–15 minutes</span><span class="chip">Play in bed</span><span class="chip" id="nightChip">Night 1</span></div>
+  </header>
+
+  <section class="part" aria-labelledby="h1p">
+    <div class="tag">Part 1 · Warm-up guesses</div>
+    <h2 id="h1p">Real or pretend?</h2>
+    <p class="lead">A grown-up reads each one out loud. Alex says a guess first, then taps it.</p>
+    <div id="cards" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
+  <section class="part" aria-labelledby="h2p">
+    <div class="tag">Part 2 · The races</div>
+    <h2 id="h2p">Beat Eeyore's stick</h2>
+    <p class="lead">Eeyore always races the same plain stick. It's a bit soggy. Can Alex's stick come out from under the bridge first?</p>
+
+    <div class="pick"><div class="lbl">Pick your stick <span class="who">Alex</span></div>
+      <div class="row tiles" data-k="stick">
+        <button data-v="fat"><svg viewBox="0 0 60 38" aria-hidden="true"><rect x="8" y="14" width="44" height="11" rx="5.5" fill="#8a5a33"/><rect x="14" y="17" width="24" height="2.5" fill="#b07a4a"/><circle cx="52" cy="19.5" r="3" fill="#c49466"/></svg><span>Fat stick</span></button>
+        <button data-v="twig"><svg viewBox="0 0 60 38" aria-hidden="true"><g stroke="#a87a4c" stroke-width="3" stroke-linecap="round" fill="none"><path d="M8 22 L52 20"/><path d="M32 21 L41 11"/><path d="M20 22 L15 29"/></g><ellipse cx="42" cy="10" rx="4" ry="2.5" fill="#7fb069" transform="rotate(-30 42 10)"/></svg><span>Thin twig</span></button>
+        <button data-v="leaf"><svg viewBox="0 0 60 38" aria-hidden="true"><path d="M10 20 Q28 2 50 18 Q30 36 10 20 Z" fill="#7fb069"/><path d="M8 20 L50 18" stroke="#4e7a3d" stroke-width="1.6"/><g stroke="#4e7a3d" stroke-width="1"><path d="M22 19.5 L28 13"/><path d="M32 19 L38 13"/><path d="M24 19.5 L30 26"/><path d="M34 19 L40 25"/></g></svg><span>Leaf</span></button>
+        <button data-v="cone"><svg viewBox="0 0 60 38" aria-hidden="true"><ellipse cx="30" cy="20" rx="11" ry="15" fill="#7a4f2c"/><g stroke="#a5703f" stroke-width="1.6" fill="none"><path d="M21 10 L30 14 L39 10"/><path d="M20 16 L30 20 L40 16"/><path d="M20 22 L30 26 L40 22"/><path d="M22 28 L30 32 L38 28"/></g><rect x="28" y="2" width="4" height="5" rx="1" fill="#5b3a1f"/></svg><span>Pinecone</span></button>
+      </div></div>
+    <div class="pick"><label for="nm">Give it a name <span class="who">Alex</span></label>
+      <input id="nm" type="text" maxlength="20" placeholder="Zoomer, Captain Bark…"></div>
+    <div class="pick"><div class="lbl">Where will you drop it? <span class="who">Alex</span></div>
+      <div class="row tiles" data-k="spot">
+        <button data-v="mid"><svg viewBox="0 0 60 38" aria-hidden="true"><rect x="0" y="4" width="60" height="30" rx="6" fill="#244f68"/><rect x="0" y="4" width="9" height="30" fill="#2c3b2a"/><rect x="51" y="4" width="9" height="30" fill="#2c3b2a"/><circle cx="30" cy="19" r="5" fill="#f2b84b"/><path d="M30 8 v4 M30 26 v4" stroke="#f2b84b" stroke-width="2" stroke-linecap="round"/></svg><span>In the middle</span></button>
+        <button data-v="edge"><svg viewBox="0 0 60 38" aria-hidden="true"><rect x="0" y="4" width="60" height="30" rx="6" fill="#244f68"/><rect x="0" y="4" width="9" height="30" fill="#2c3b2a"/><rect x="51" y="4" width="9" height="30" fill="#2c3b2a"/><g stroke="#6f8f4e" stroke-width="2" stroke-linecap="round"><path d="M51 30 l-4 -8"/><path d="M51 20 l-4 -8"/></g><circle cx="44" cy="19" r="5" fill="#f2b84b"/></svg><span>Near the edge</span></button>
+      </div></div>
+    <div class="pick"><div class="lbl">What is the river like tonight? <span class="who">Grown-up</span></div>
+      <div class="row tiles" data-k="river">
+        <button data-v="slow"><svg viewBox="0 0 60 38" aria-hidden="true"><circle cx="24" cy="18" r="11" fill="#f6e7b8"/><circle cx="29" cy="14" r="10" fill="var(--panel)"/><text x="40" y="16" font-family="Sniglet, system-ui, sans-serif" font-size="10" font-weight="800" fill="#aab0c8">z</text><text x="46" y="10" font-family="Sniglet, system-ui, sans-serif" font-size="7" font-weight="800" fill="#aab0c8">z</text><path d="M6 32 q6 -3 12 0 t12 0 t12 0 t12 0" stroke="#4d8db0" stroke-width="2" fill="none"/></svg><span>Slow and sleepy</span></button>
+        <button data-v="fast"><svg viewBox="0 0 60 38" aria-hidden="true"><path d="M16 18 a8 8 0 0 1 14 -6 a7 7 0 0 1 13 3 a6 6 0 0 1 0 11 h-26 a6 6 0 0 1 -1 -8 z" fill="#aab0c8"/><g stroke="#4d8db0" stroke-width="2.2" stroke-linecap="round"><path d="M20 29 l-2 6"/><path d="M29 29 l-2 6"/><path d="M38 29 l-2 6"/></g></svg><span>Fast after rain</span></button>
+        <button data-v="windy"><svg viewBox="0 0 60 38" aria-hidden="true"><g stroke="#f3ecd9" stroke-width="2.4" fill="none" stroke-linecap="round"><path d="M6 13 h30 a5 5 0 1 0 -5 -5"/><path d="M6 21 h42 a5 5 0 1 1 -5 5"/><path d="M10 29 h18"/></g><path d="M46 8 Q52 4 56 10 Q50 14 46 8 Z" fill="#7fb069"/></svg><span>Windy</span></button>
+      </div></div>
+    <div class="pick"><div class="lbl">Guess first: will it beat Eeyore? <span class="who">Alex</span></div>
+      <div class="row" data-k="guess"><button data-v="lot">Yes, by a lot</button><button data-v="barely">Just barely</button><button data-v="lose">No, Eeyore wins</button></div></div>
+
+    <canvas id="cv" aria-label="A stream seen from above, with a bridge across the middle. Two sticks float down and pass under the bridge."></canvas>
+    <button id="drop" class="go" disabled>Drop the sticks!</button>
+    <p class="hint" id="need">Pick a stick, a spot, a river and a guess to start.</p>
+
+    <div id="result" class="result" hidden aria-live="polite"></div>
+
+    <div id="logBox" hidden style="display:flex;flex-direction:column;gap:8px">
+      <h3>Tonight's races</h3>
+      <div class="logwrap"><table><thead><tr><th>#</th><th>Stick</th><th>Spot</th><th>River</th><th>Guess</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="part" aria-labelledby="h3p">
+    <div class="tag">Part 3 · Goodnight</div>
+    <h2 id="h3p">Tomorrow night's challenge</h2>
+    <p class="big" id="tomorrow">Race once tonight to unlock tomorrow's challenge.</p>
+    <div class="pick"><label for="note">One thing Alex said tonight <span class="who">Grown-up, optional</span></label>
+      <textarea id="note" placeholder="Anything they said or asked that surprised you"></textarea></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="lbl" style="font-weight:700">Tonight's play summary</div>
+      <pre id="summary"></pre>
+      <div class="row" style="align-items:center">
+        <button id="copy">Copy text</button><span id="copied" class="copied" hidden>Copied</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+/* ---------- saved across nights (this phone only) ---------- */
+const KEY='poohsticks-public-v1';
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{nights:[]}}catch(e){return{nights:[]}}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
+const store=load();
+const today=new Date().toISOString().slice(0,10);
+let night=store.nights.find(n=>n.date===today);
+if(!night){night={date:today,warm:{},races:[],note:'',start:null};store.nights.push(night);}
+const nightNo=store.nights.indexOf(night)+1;
+document.getElementById('nightChip').textContent='Night '+nightNo;
+const allRaces=()=>store.nights.flatMap(n=>n.races);
+function touch(){if(!night.start){night.start=Date.now();}}
+
+/* ---------- Part 1 ---------- */
+const PIC={
+zoo:`<svg class="pic" viewBox="0 0 240 130" role="img" aria-label="A black bear sitting next to a zoo sign"><rect x="0" y="104" width="240" height="26" rx="8" fill="#2c3b2a"/><rect x="168" y="40" width="6" height="68" fill="#5b4330"/><rect x="146" y="30" width="62" height="28" rx="5" fill="#7a5a3e"/><text x="177" y="48" text-anchor="middle" font-family="Sniglet, system-ui, sans-serif" font-size="11" font-weight="800" fill="#f3ecd9">ZOO</text><ellipse cx="88" cy="88" rx="38" ry="28" fill="#2a2420"/><ellipse cx="66" cy="110" rx="12" ry="7" fill="#2a2420"/><ellipse cx="110" cy="110" rx="12" ry="7" fill="#2a2420"/><circle cx="88" cy="50" r="24" fill="#2a2420"/><circle cx="70" cy="31" r="8" fill="#2a2420"/><circle cx="106" cy="31" r="8" fill="#2a2420"/><circle cx="70" cy="31" r="3.5" fill="#5a4a3e"/><circle cx="106" cy="31" r="3.5" fill="#5a4a3e"/><ellipse cx="88" cy="60" rx="11" ry="8" fill="#9c7d60"/><ellipse cx="88" cy="56" rx="4.5" ry="3" fill="#120e0c"/><circle cx="79" cy="45" r="2.6" fill="#f3ecd9"/><circle cx="97" cy="45" r="2.6" fill="#f3ecd9"/><circle cx="79.5" cy="45.5" r="1.3" fill="#120e0c"/><circle cx="97.5" cy="45.5" r="1.3" fill="#120e0c"/></svg>`,
+bees:`<svg class="pic" viewBox="0 0 240 130" role="img" aria-label="A bee dancing in a figure-eight path, with a flower nearby"><path d="M60 65 C60 30 115 30 115 65 C115 100 170 100 170 65 C170 30 115 30 115 65 C115 100 60 100 60 65 Z" stroke="#f2b84b" stroke-width="2" stroke-dasharray="5 6" fill="none" opacity=".75"/><g transform="translate(115 65) rotate(-20)"><ellipse cx="-4" cy="-13" rx="10" ry="7" fill="#d9e6f2" opacity=".85"/><ellipse cx="8" cy="-13" rx="9" ry="6" fill="#d9e6f2" opacity=".85"/><ellipse cx="0" cy="0" rx="20" ry="12" fill="#f2b84b"/><rect x="-6" y="-11.5" width="5" height="23" fill="#2a1d00"/><rect x="5" y="-11" width="5" height="22" fill="#2a1d00"/><circle cx="-19" cy="-2" r="7" fill="#2a1d00"/><circle cx="-21" cy="-4" r="1.6" fill="#f3ecd9"/><path d="M20 0 l6 0" stroke="#2a1d00" stroke-width="2.5"/></g><g transform="translate(205 92)"><path d="M0 0 v34" stroke="#6f8f4e" stroke-width="3"/><g fill="#ef9a7f"><circle cx="0" cy="-10" r="7"/><circle cx="10" cy="0" r="7"/><circle cx="0" cy="10" r="7"/><circle cx="-10" cy="0" r="7"/></g><circle r="6" fill="#f2b84b"/></g></svg>`,
+stream:`<svg class="pic" viewBox="0 0 240 130" role="img" aria-label="A stream seen from above, with grassy banks and reeds on both sides"><rect x="0" y="0" width="240" height="130" rx="12" fill="#2c3b2a"/><rect x="40" y="0" width="160" height="130" fill="#244f68"/><g stroke="#6f8f4e" stroke-width="2.4" stroke-linecap="round"><path d="M40 20 l8 -10"/><path d="M40 55 l9 -11"/><path d="M40 92 l8 -10"/><path d="M200 30 l-8 -10"/><path d="M200 70 l-9 -11"/><path d="M200 110 l-8 -10"/></g><g stroke="#d9e6f2" stroke-width="1.6" opacity=".35" stroke-linecap="round"><path d="M80 20 v10"/><path d="M120 50 v10"/><path d="M160 30 v10"/><path d="M100 95 v10"/><path d="M145 85 v10"/></g></svg>`,
+streamAfter:`<svg class="diagram" viewBox="0 0 260 120" role="img" aria-label="Arrows on the stream: short arrows near the banks, the longest arrow in the middle"><rect x="0" y="0" width="260" height="120" rx="12" fill="#2c3b2a"/><rect x="34" y="0" width="192" height="120" fill="#244f68"/><defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#f2b84b"/></marker></defs><g stroke="#f2b84b" stroke-width="4" stroke-linecap="round" marker-end="url(#ah)"><path d="M52 30 v24"/><path d="M90 18 v48"/><path d="M130 10 v82"/><path d="M170 18 v48"/><path d="M208 30 v24"/></g><text x="130" y="112" text-anchor="middle" font-family="Mali, system-ui, sans-serif" font-size="11" font-weight="600" fill="#f3ecd9">fastest in the middle</text></svg>`
+};
+const cards=[
+ {id:'zoo',claim:'The real Winnie was a bear who lived at London Zoo.',ans:'real',why:'Christopher Robin named his teddy after Winnie, a black bear at London Zoo. Pooh is named after a real bear.'},
+ {id:'bees',claim:'Bees do a dance to tell other bees where the flowers are.',ans:'real',why:'It’s called the waggle dance. The way a bee wiggles tells the others which way to fly and how far.'},
+ {id:'stream',claim:'In a stream, the water in the middle moves slower than the water at the edge.',ans:'pretend',why:'It’s the other way round. Water at the edge rubs against the bank and slows down. The middle is the fastest. Remember this for the races!'}
+];
+const box=document.getElementById('cards');let restoring=false;
+cards.forEach(c=>{
+  const d=document.createElement('div');d.className='card';
+  d.innerHTML=`${PIC[c.id]}<div class="claim"></div><div class="row"><button data-v="real">Real</button><button data-v="pretend">Pretend</button></div><div class="reveal ${c.ans}" hidden></div>`;
+  d.querySelector('.claim').textContent=c.claim;
+  const r=d.querySelector('.reveal');
+  d.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>{
+    touch();
+    d.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    const ok=b.dataset.v===c.ans;
+    if(!night.warm[c.id]) night.warm[c.id]={first:b.dataset.v,ok};
+    else if(!restoring&&night.warm[c.id].first!==b.dataset.v) night.warm[c.id].changed=true;
+    r.innerHTML=`<b>${c.ans==='real'?'Real!':'Pretend!'}</b> ${ok?'Good guess. ':'Surprise! '}`;
+    r.append(document.createTextNode(c.why));if(c.id==='stream')r.insertAdjacentHTML('beforeend',PIC.streamAfter);r.hidden=false;save();summarize();
+  })});
+  if(night.warm[c.id]){restoring=true;d.querySelector(`[data-v="${night.warm[c.id].first}"]`).click();restoring=false;}
+  box.appendChild(d);
+});
+
+/* ---------- Part 2: choices ---------- */
+const S={stick:null,spot:null,river:null,guess:null};
+const KEYS={stick:{'Fat stick':'fat','Thin twig':'twig','Leaf':'leaf','Pinecone':'cone'},
+  spot:{'In the middle':'mid','Near the edge':'edge'},
+  river:{'Slow and sleepy':'slow','Fast after rain':'fast','Windy':'windy'},
+  guess:{'Yes, by a lot':'lot','Just barely':'barely','No, Eeyore wins':'lose'}};
+const LABEL={fat:'Fat stick',twig:'Thin twig',leaf:'Leaf',cone:'Pinecone',mid:'Middle',edge:'Edge',slow:'Slow',fast:'Fast',windy:'Windy',lot:'Win by a lot',barely:'Win just barely',lose:'Eeyore wins'};
+document.querySelectorAll('[data-k]').forEach(g=>{
+  const k=g.dataset.k;
+  g.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>{
+    touch();
+    g.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    S[k]=b.dataset.v;ready();if(!running)drawScene(0,null);
+  })});
+});
+const nm=document.getElementById('nm');
+nm.addEventListener('input',()=>{if(!running)drawScene(0,null)});
+const dropBtn=document.getElementById('drop'),need=document.getElementById('need');
+function ready(){const ok=S.stick&&S.spot&&S.river&&S.guess;dropBtn.disabled=!ok||running;need.hidden=!!ok;}
+const stickName=()=>nm.value.trim()||'Alex’s stick';
+
+/* ---------- the rules of the stream ---------- */
+function race(c){
+  const base={slow:1,fast:1.6,windy:1}[c.river];
+  const spot=c.spot==='mid'?1:0.65;
+  const typ={fat:{slow:1,fast:1,windy:1},twig:{slow:1,fast:1,windy:1},leaf:{slow:1,fast:1,windy:1.5},cone:{slow:.95,fast:.95,windy:1.2}}[c.stick][c.river];
+  const snag=c.spot==='edge'&&(c.stick==='twig'||c.stick==='leaf');
+  const sink=c.stick==='leaf'&&c.river==='fast';
+  const mine=base*spot*typ, eey=base*0.9, ratio=mine/eey;
+  let outcome; if(snag||sink) outcome='lose'; else outcome=ratio>1.2?'lot':ratio>1?'barely':'lose';
+  const why=[];
+  if(c.spot==='mid') why.push(['real','The middle of the stream is the fastest water.']);
+  else why.push(['real','Water near the edge rubs against the bank, so it moves slower.']);
+  if(snag) why.push(['rule','Light twigs and leaves get caught in the reeds by the edge.']);
+  if(sink) why.push(['rule','The fast, splashy water pushed the leaf under.']);
+  if(c.river==='windy'&&c.stick==='leaf'&&!snag) why.push(['real','Wind pushes light things that float on top, like leaves.']);
+  if(c.river==='windy'&&c.stick==='cone') why.push(['real','A pinecone pokes up out of the water, so the wind gives it a push.']);
+  if(c.river==='windy'&&(c.stick==='fat'||c.stick==='twig')) why.push(['real','A stick lies low in the water, so the wind barely touches it.']);
+  if(c.river!=='windy'&&c.stick==='cone') why.push(['rule','Pinecones bob and spin, which slows them down a tiny bit.']);
+  if(c.river==='fast'&&!sink&&!snag) why.push(['rule','Fast water after rain carries both sticks quicker, but it doesn’t change who wins.']);
+  return {mine,eey,snag,sink,outcome,why};
+}
+
+/* ---------- canvas ---------- */
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let W=0,H=0,running=false,ambient=0;
+const flies=Array.from({length:7},()=>({x:Math.random(),y:Math.random(),p:Math.random()*6}));
+const ripples=Array.from({length:26},()=>({x:.16+Math.random()*.68,y:Math.random(),l:6+Math.random()*12}));
+function size(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);}
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const Y0=.07,BR0=.42,BR1=.62,Y1=.9;
+const yOf=p=>H*(Y0+(Y1-Y0)*p);
+function drawStick(type,x,y,t,label,alpha){
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(Math.sin(t*1.7+x)*.12);
+  if(type==='fat'){ctx.fillStyle='#8a5a33';ctx.beginPath();ctx.roundRect(-20,-5,40,10,5);ctx.fill();ctx.fillStyle='#b07a4a';ctx.fillRect(-14,-2,22,2);}
+  else if(type==='twig'){ctx.strokeStyle='#a87a4c';ctx.lineWidth=3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(20,0);ctx.moveTo(4,0);ctx.lineTo(12,-7);ctx.stroke();}
+  else if(type==='leaf'){ctx.fillStyle='#7fb069';ctx.beginPath();ctx.ellipse(0,0,15,8,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#4e7a3d';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-13,0);ctx.lineTo(13,0);ctx.stroke();}
+  else if(type==='cone'){ctx.fillStyle='#7a4f2c';ctx.beginPath();ctx.ellipse(0,0,10,14,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#a5703f';ctx.lineWidth=1.5;for(let i=-9;i<=9;i+=5){ctx.beginPath();ctx.moveTo(-8,i);ctx.lineTo(0,i+3);ctx.lineTo(8,i);ctx.stroke();}}
+  else {ctx.fillStyle='#8c8577';ctx.beginPath();ctx.roundRect(-17,-3.5,34,7,3.5);ctx.fill();}
+  ctx.restore();
+  if(label){ctx.save();ctx.globalAlpha=alpha;ctx.font='600 12px Mali, system-ui, sans-serif';ctx.textAlign='center';ctx.fillStyle=css('--ink');ctx.fillText(label,x,y+24);ctx.restore();}
+}
+function drawScene(t,st){
+  if(!W) size();
+  const river=st?st.river:(S.river||'slow');
+  ctx.fillStyle=css('--water');ctx.fillRect(0,0,W,H);
+  // middle current, lighter
+  const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(.12,'rgba(47,106,134,0)');g.addColorStop(.5,'rgba(70,140,170,.35)');g.addColorStop(.88,'rgba(47,106,134,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // banks + reeds
+  ctx.fillStyle=css('--bank');ctx.fillRect(0,0,W*.12,H);ctx.fillRect(W*.88,0,W*.12,H);
+  ctx.strokeStyle=css('--reed');ctx.lineWidth=2;
+  for(let i=0;i<22;i++){const yy=(i/22)*H+6;[[W*.12,1],[W*.88,-1]].forEach(([bx,s])=>{ctx.beginPath();ctx.moveTo(bx,yy);ctx.quadraticCurveTo(bx+s*8,yy-8,bx+s*(10+Math.sin(t*1.2+i)*2),yy-15);ctx.stroke();});}
+  // ripples, speed by river
+  const sp={slow:.04,fast:.13,windy:.05}[river];
+  ctx.strokeStyle='rgba(220,235,245,.22)';ctx.lineWidth=1.5;
+  ripples.forEach(r=>{const mid=1-Math.abs(r.x-.5)*1.6;const y=((r.y+t*sp*(.5+mid))%1)*H;ctx.beginPath();ctx.moveTo(W*r.x,y);ctx.lineTo(W*r.x,y+r.l);ctx.stroke();});
+  if(river==='windy'){ctx.strokeStyle='rgba(243,236,217,.28)';ctx.lineWidth=1.2;for(let i=0;i<8;i++){const x=((i*.13+t*.18)%1.2-.1)*W,y=(i*.117%1)*H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+26,y-4);ctx.stroke();}}
+  // sticks under / around the bridge
+  if(st){
+    const draw=(type,lane,p,label,alpha)=>{const y=yOf(p);if(y>H*BR0-6&&y<H*BR1+6)return;drawStick(type,lane+Math.sin(t*1.3+lane)*3,y,t,label,alpha);};
+    draw('eey',W*.4,st.pe,'Eeyore',1);
+    draw(st.stick,st.lane,st.pm,st.name,st.alpha);
+  } else {
+    drawStick('eey',W*.4,yOf(0),t,'Eeyore',1);
+    if(S.stick) drawStick(S.stick,S.spot==='edge'?W*.8:W*.6,yOf(0),t,stickName(),1);
+  }
+  // bridge
+  ctx.fillStyle='#5b4330';ctx.fillRect(W*.04,H*BR0,W*.92,H*(BR1-BR0));
+  ctx.strokeStyle='#3f2e20';ctx.lineWidth=2;for(let x=W*.04;x<W*.96;x+=14){ctx.beginPath();ctx.moveTo(x,H*BR0);ctx.lineTo(x,H*BR1);ctx.stroke();}
+  ctx.fillStyle='#7a5a3e';ctx.fillRect(W*.04,H*BR0-5,W*.92,5);ctx.fillRect(W*.04,H*BR1,W*.92,5);
+  ctx.font='800 13px Sniglet, system-ui, sans-serif';ctx.fillStyle=css('--ink');ctx.textAlign='center';ctx.fillText('Poohsticks Bridge',W/2,H*(BR0+BR1)/2+4);
+  // fireflies
+  flies.forEach(f=>{const a=.35+.35*Math.sin(t*1.5+f.p);ctx.fillStyle=`rgba(242,184,75,${a})`;ctx.beginPath();ctx.arc(W*f.x,H*f.y,2.2,0,Math.PI*2);ctx.fill();});
+}
+function idle(ts){if(!running){drawScene(ts/1000,null);}if(!reduce)ambient=requestAnimationFrame(idle);}
+size();drawScene(0,null);if(!reduce)ambient=requestAnimationFrame(idle);
+addEventListener('resize',()=>{size();if(!running)drawScene(0,null)});
+
+/* ---------- run a race ---------- */
+const resEl=document.getElementById('result');
+dropBtn.addEventListener('click',()=>{
+  if(running) return;touch();
+  const c={...S,name:stickName()};
+  const r=race(c);
+  running=true;ready();resEl.hidden=true;
+  const fastest=Math.max(r.mine,r.eey), K=6/(1/fastest); // fastest stick takes ~6s
+  const tMine=K/r.mine, tEey=K/r.eey;
+  const stopAt=r.snag?.28:null, sinkAt=r.sink?.3:null;
+  const lane=c.spot==='edge'?W*.8:W*.6;
+  const end=Math.min(Math.max(tMine,tEey),9)+.6;
+  const t0=performance.now();
+  function frame(now){
+    const s=(now-t0)/1000;
+    let pm=Math.min(s/tMine,1),alpha=1;
+    if(stopAt!==null) pm=Math.min(pm,stopAt);
+    if(sinkAt!==null){pm=Math.min(pm,sinkAt+.08);alpha=pm<sinkAt?1:Math.max(0,1-(s-tMine*sinkAt)/1.2);}
+    const pe=Math.min(s/tEey,1);
+    drawScene(now/1000,{river:c.river,stick:c.stick,lane,pm,pe,name:c.name,alpha});
+    if(s<end) requestAnimationFrame(frame); else finish(c,r);
+  }
+  if(reduce){drawScene(0,{river:c.river,stick:c.stick,lane,pm:r.snag?.28:r.sink?.3:1,pe:1,name:c.name,alpha:r.sink?0:1});finish(c,r);}
+  else requestAnimationFrame(frame);
+});
+
+function finish(c,r){
+  running=false;ready();
+  const prev=night.races[night.races.length-1];
+  const changed=prev?['stick','spot','river','name'].filter(k=>(k==='name'?prev.name:prev[k])!==(k==='name'?c.name:c[k])):[];
+  const entry={stick:c.stick,name:c.name,spot:c.spot,river:c.river,guess:c.guess,outcome:r.outcome,snag:r.snag,sink:r.sink,changed,at:Date.now()};
+  night.races.push(entry);save();
+  const win=r.outcome!=='lose';
+  const head=win?(r.outcome==='lot'?`${c.name} won by a lot!`:`${c.name} won, just barely!`):(r.snag?`${c.name} got stuck in the reeds. Eeyore wins.`:r.sink?`${c.name} sank! Eeyore wins.`:`Eeyore's stick came out first.`);
+  const right=c.guess===r.outcome;
+  resEl.innerHTML='';
+  const v=document.createElement('div');v.className='verdict '+(win?'win':'lose');v.textContent=head;resEl.append(v);
+  const g=document.createElement('p');g.textContent=`Alex guessed: ${LABEL[c.guess]}. ${right?'Great prediction!':'Surprise! That’s not what you guessed.'}`;resEl.append(g);
+  const ul=document.createElement('ul');ul.className='why';
+  r.why.forEach(([k,t])=>{const li=document.createElement('li');li.innerHTML=`<span class="pill ${k}">${k==='real'?'Real fact':'Game rule'}</span>`;li.append(document.createTextNode(t));ul.append(li)});
+  resEl.append(ul);
+  const ask=document.createElement('div');ask.className='ask';
+  ask.innerHTML=`Grown-up asks: Why do you think that happened?<span>Then: what will you change for the next race? Alex decides. Change one thing and drop again.</span>`;
+  resEl.append(ask);
+  resEl.hidden=false;
+  renderLog();summarize();
+}
+
+/* ---------- log, tomorrow, summary ---------- */
+function resultText(e){return e.outcome==='lot'?'Won by a lot':e.outcome==='barely'?'Won barely':e.snag?'Stuck in reeds':e.sink?'Sank':'Lost'}
+function renderLog(){
+  const tb=document.getElementById('log');tb.innerHTML='';
+  night.races.forEach((e,i)=>{const tr=document.createElement('tr');[i+1,`${LABEL[e.stick]} “${e.name}”`,LABEL[e.spot],LABEL[e.river],LABEL[e.guess],resultText(e)].forEach(x=>{const td=document.createElement('td');td.textContent=x;tr.append(td)});tb.append(tr)});
+  document.getElementById('logBox').hidden=!night.races.length;
+  const all=allRaces(),rivers=new Set(all.map(e=>e.river)),tm=document.getElementById('tomorrow');
+  if(!all.length){tm.textContent='Race once tonight to unlock tomorrow’s challenge.';return;}
+  const untried=['windy','fast','slow'].find(x=>!rivers.has(x));
+  const wonBy=new Set(all.filter(e=>e.outcome!=='lose').map(e=>e.stick+'|'+e.spot+'|'+e.river));
+  if(untried) tm.textContent=`Tomorrow night, the grown-up makes the river ${untried==='windy'?'windy':untried==='fast'?'fast after rain':'slow and sleepy'}. Which stick will you bring?`;
+  else if(!all.some(e=>e.outcome==='lot')) tm.textContent='Tomorrow night’s puzzle: find a stick that beats Eeyore by a LOT.';
+  else tm.textContent='Tomorrow night’s puzzle: find one stick and one spot that beat Eeyore on all three rivers.';
+}
+const note=document.getElementById('note');note.value=night.note||'';
+let nt;note.addEventListener('input',()=>{clearTimeout(nt);nt=setTimeout(()=>{night.note=note.value;save();summarize()},400)});
+function summarize(){
+  const L=[];L.push(`Poohsticks Night ${nightNo} (${today})`);
+  if(night.start){const m=Math.max(1,Math.round((Date.now()-night.start)/60000));L.push(`Played about ${m} min`);}
+  const w=cards.filter(c=>night.warm[c.id]);
+  if(w.length){L.push('');L.push(`Warm-up: ${w.filter(c=>night.warm[c.id].ok).length}/${w.length} right`);
+    w.forEach(c=>{const x=night.warm[c.id];L.push(`- ${c.id==='zoo'?'Real bear at zoo':c.id==='bees'?'Bee dance':'Stream middle slower'}: guessed ${x.first}${x.ok?' ✓':' ✗'}${x.changed?' (then tried the other)':''}`)});}
+  if(night.races.length){L.push('');L.push(`Races: ${night.races.length}`);
+    night.races.forEach((e,i)=>{L.push(`${i+1}. ${LABEL[e.stick]} "${e.name}", ${LABEL[e.spot].toLowerCase()}, ${LABEL[e.river].toLowerCase()} river. Guess: ${LABEL[e.guess].toLowerCase()}. Result: ${resultText(e).toLowerCase()}${e.guess===e.outcome?' (guessed right)':''}${i&&e.changed.length?'. Changed: '+e.changed.join(', '):i?'. Changed: nothing':''}`)});}
+  else {L.push('');L.push('No races yet.');}
+  if(note.value.trim()){L.push('');L.push(`Grown-up's note: ${note.value.trim()}`);}
+  const txt=L.join('\n');
+  document.getElementById('summary').textContent=txt;
+  return txt;
+}
+document.getElementById('copy').addEventListener('click',()=>{
+  const txt=summarize(),ok=document.getElementById('copied');
+  const sel=()=>{const r=document.createRange();r.selectNodeContents(document.getElementById('summary'));const s=getSelection();s.removeAllRanges();s.addRange(r);};
+  try{navigator.clipboard.writeText(txt).then(()=>{ok.hidden=false;setTimeout(()=>ok.hidden=true,2000)},sel)}catch(e){sel()}
+});
+renderLog();summarize();
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,779 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Feed the White Tiger</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<style>
+/* Layout: one-screen game. Jungle-night stage on top with the tiger; a tray of picture choices below; a slim grown-up prompt strip. Single deliberate look. */
+:root{
+  --jungle:#0f3b33;
+  --jungle-deep:#0a2925;
+  --leaf:#1e5a4a;
+  --saffron:#f6a623;
+  --cream:#fff8ec;
+  --ink:#1b1b1f;
+  --stripe:#2a2630;
+  --blush:#f4a7a3;
+  --display:"Baloo 2", ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--jungle-deep);color:var(--cream);font-family:var(--display);margin:0;overflow-x:hidden}
+.app{min-height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px 16px;gap:12px;box-sizing:border-box}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{margin:0;font-size:1.5rem;font-weight:800;line-height:1.1;text-wrap:balance}
+.dots{display:flex;gap:6px}
+.dots span{width:10px;height:10px;border-radius:50%;background:var(--leaf)}
+.dots span.on{background:var(--saffron)}
+.stage{position:relative;border-radius:28px;overflow:hidden;min-height:300px;flex:1 1 auto;
+  background:radial-gradient(120% 80% at 50% 100%, var(--leaf) 0%, var(--jungle) 55%, var(--jungle-deep) 100%);
+  display:flex;align-items:center;justify-content:center;transition:background .6s}
+.stage.snow{background:linear-gradient(#cfe3f2,#f2f7fb)}
+.stage.desert{background:linear-gradient(#f9c46b,#e8873a)}
+.stage.river{background:linear-gradient(#1e5a4a 0%,#2b7a63 60%,#3f9fc4 60%,#2f7fa6 100%)}
+.bubble{position:absolute;top:14px;left:14px;right:14px;background:var(--cream);color:var(--ink);
+  border-radius:20px;padding:10px 14px;font-size:1.2rem;font-weight:700;line-height:1.25;text-align:center;min-height:1.5em}
+.bubble:empty{visibility:hidden}
+#tiger{width:min(260px,70%);margin-top:56px;transform-origin:50% 90%}
+#tiger.yum{animation:yum .7s ease}
+#tiger.no{animation:no .6s ease}
+#tiger.shiver{animation:shiver .12s linear 8}
+#tiger.hot{animation:hot 1.2s ease}
+#tiger.splash{animation:splash .9s ease}
+@keyframes yum{0%,100%{transform:scale(1)}30%{transform:scale(1.12) translateY(-10px)}60%{transform:scale(.97)}}
+@keyframes no{0%,100%{transform:rotate(0)}20%{transform:rotate(-10deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-8deg)}80%{transform:rotate(6deg)}}
+@keyframes shiver{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+@keyframes hot{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.9) translateY(10px)}}
+@keyframes splash{0%,100%{transform:translateY(0)}40%{transform:translateY(-24px) rotate(-4deg)}70%{transform:translateY(6px)}}
+.xp{opacity:0;transition:opacity .15s}
+.eyes-open,.mouth-closed{transition:opacity .15s}
+#tiger:is(.yum,.no,.hot,.splash) .eyes-open{opacity:0}
+#tiger:is(.yum,.no,.confused,.shiver,.hot,.splash) .mouth-closed{opacity:0}
+#tiger.yum :is(.eyes-happy,.mouth-open,.hearts){opacity:1}
+#tiger.no :is(.eyes-squint,.mouth-bleh,.stink){opacity:1}
+#tiger.confused :is(.brows-confused,.mouth-wonky,.qmark){opacity:1}
+#tiger.shiver :is(.brows-worried,.mouth-chatter,.snowflakes){opacity:1}
+#tiger.shiver .frost{opacity:.35}
+#tiger.hot :is(.eyes-droopy,.mouth-pant,.sweat,.cheeks){opacity:1}
+#tiger.hot .cheeks{opacity:.55}
+#tiger.splash :is(.eyes-happy,.mouth-grin,.drops){opacity:1}
+#tiger.confused{animation:tilt .6s ease forwards}
+@keyframes tilt{to{transform:rotate(-12deg)}}
+#tiger.hot{animation:hot 1.2s ease forwards}
+.plate{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:4px;font-size:1.6rem;
+  background:rgba(255,248,236,.18);border-radius:999px;padding:2px 12px;min-height:2.2rem}
+.plate:empty{display:none}
+.stage.hide{min-height:380px;background:linear-gradient(#f3eee2,#d9cfb8)}
+.stage.hide.grass{background:linear-gradient(#f1d68e,#c99a3e)}
+.stage.hide.jungle{background:linear-gradient(#3a6e33,#24502a)}
+.stage.hide.rocks{background:linear-gradient(#cfd6dc,#a8a39b)}
+.scenery{display:none}
+.seg{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.seg-label{font-size:.85rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+.seg-row{display:flex;gap:8px;flex-wrap:wrap}
+.seg-btn{appearance:none;border:0;flex:1 1 0;min-width:0;border-radius:16px;padding:8px 6px;font-family:var(--display);font-size:1rem;font-weight:700;background:var(--leaf);color:var(--cream);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.seg-btn span{font-size:1.7rem;line-height:1}
+.seg-btn[aria-pressed="true"]{background:var(--saffron);color:var(--ink)}
+.seg-btn:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+button:disabled{opacity:.55;cursor:default}
+.tries{margin-top:12px}
+.tbl-wrap{overflow-x:auto}
+.tries table{border-collapse:collapse;width:100%;font-size:.95rem;font-variant-numeric:tabular-nums}
+.tries th,.tries td{text-align:left;padding:5px 6px;border-bottom:1px solid #e6dfd0}
+.tries th{font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;color:#5a5a62}
+.stage.hide #tiger{display:none!important}
+#approach{display:none;position:absolute;left:50%;bottom:0;width:min(250px,60%);z-index:1;transform-origin:50% 100%;
+  transform:translateX(-50%) translateY(-38%) scale(.42);transition:transform 1.8s ease-in-out}
+.stage.hide #approach{display:block}
+#approach.stopped{transform:translateX(-50%) translateY(-30%) scale(.56)}
+#approach.close{transform:translateX(-50%) translateY(6%) scale(1.12)}
+#stalker{display:block;width:100%;height:auto}
+#stalker .fur{fill:#fbfbf8}#stalker .fur-s{stroke:#fbfbf8}#stalker .iris{fill:#4aa3d8}
+.stage.orange-tiger #stalker .fur{fill:#f08a24}
+.stage.orange-tiger #stalker .fur-s{stroke:#f08a24}
+.stage.orange-tiger #stalker .iris{fill:#e8b923}
+#stalker .tail{transform-box:fill-box;transform-origin:0% 100%;animation:sway 2.4s ease-in-out infinite alternate}
+@keyframes sway{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
+#approach.walking #stalker{animation:bob .4s ease-in-out infinite alternate}
+@keyframes bob{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-4%) rotate(2deg)}}
+#approach.walking .paw-l{animation:pawstep .4s ease-in-out infinite alternate}
+#approach.walking .paw-r{animation:pawstep .4s ease-in-out infinite alternate-reverse}
+@keyframes pawstep{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+#approach.spotted .head{transform-box:fill-box;transform-origin:50% 60%;animation:huff .5s ease forwards}
+@keyframes huff{to{transform:rotate(-10deg) translateY(4px)}}
+#approach.spotted .brows{transform-box:fill-box;transform-origin:50% 50%;transform:translateY(-4px) rotate(0)}
+.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none}
+.stage.hide .layer{display:block}
+.layer.back{z-index:0}.layer.mid{z-index:2}.layer.front{z-index:2;top:auto;bottom:0;height:45%}
+.bubble{z-index:3}
+.stage.deer-view{filter:url(#deer-eyes)}
+.lens-badge{display:none;position:absolute;right:12px;bottom:12px;z-index:3;background:var(--ink);color:var(--cream);border-radius:999px;padding:4px 12px;font-weight:800;font-size:.95rem}
+.stage.deer-view .lens-badge{display:block}
+.eyes-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.eye-btn{appearance:none;border:0;border-radius:16px;padding:10px 8px;font-family:var(--display);font-size:1.05rem;font-weight:800;line-height:1.1;
+  background:var(--leaf);color:var(--cream);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.eye-btn span{font-size:1.6rem}
+.eye-btn[aria-pressed="true"]{background:var(--saffron);color:var(--ink)}
+.eye-btn:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+.eye-btn:disabled{opacity:.55}
+/* camouflage realism: no cartoon outline, ears in fur tones */
+#stalker .fur{stroke:none}
+#stalker ellipse[fill="#fff8ec"]{stroke:none}
+#stalker circle[fill="#f4a7a3"]{fill:#d8d4cc}
+.stage.orange-tiger #stalker circle[fill="#f4a7a3"]{fill:#c96f1f}
+#stalker .fur-s{stroke-width:14}
+.stage.end{min-height:210px;flex:0 0 auto}
+.stage.end #tiger{width:min(150px,42%);margin-top:64px}
+.btn.big{font-size:1.25rem;padding:16px 22px}
+.end-label{display:block;font-weight:800;margin-bottom:2px}
+.peek summary{cursor:pointer;font-weight:700}
+.stage.coat-orange #tiger .fur{fill:#f08a24}
+.stage.coat-orange #tiger .iris-b{fill:#e8b923}
+.tray.tray4{grid-template-columns:repeat(4,1fr);gap:8px}
+.tray4 .choice{font-size:2.1rem;padding:10px 2px 6px;border-radius:18px}
+.tray4 .choice small{font-size:.8rem}
+.choice.good{box-shadow:0 0 0 3px #3fae5a,0 5px 0 rgba(0,0,0,.35);opacity:1}
+.choice.bad{opacity:.5}
+.tummy{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(255,248,236,.92);color:var(--ink);
+  border-radius:999px;padding:4px 14px;font-weight:800;font-size:1rem;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.tummy i{font-style:normal;font-size:1.4rem;line-height:1}
+.stage.build .layer.back{display:block}
+.stage.build #tiger{position:relative;z-index:1}
+.stage.warm{background:linear-gradient(#8fcf8a,#3f8a4e)}
+.big-q{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.found{margin-bottom:12px}
+.found .fr{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid #e6dfd0}
+.found .fr:last-child{border-bottom:0}
+.found .fr span{font-size:1.05rem}
+.found .fr b{font-size:1.15rem;font-weight:800;text-align:right}
+.found .fr small{grid-column:1/-1;text-align:right;font-size:.85rem;color:#5a5a62}
+.plays-info{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px;font-size:.9rem;margin-top:8px;opacity:.9}
+.link-btn{appearance:none;border:0;background:none;color:var(--cream);font-family:var(--display);font-size:.9rem;font-weight:700;text-decoration:underline;cursor:pointer;padding:4px 0}
+.link-btn:focus-visible{outline:2px solid var(--saffron);outline-offset:2px}
+.pick-first{font-size:1rem;font-weight:700;opacity:.85;padding:8px 2px}
+@media (prefers-reduced-motion:reduce){#approach,#approach *,#stalker,#stalker *{animation:none!important;transition:none!important}}
+.hint{background:var(--leaf);border-radius:16px;padding:8px 12px;font-size:.95rem;font-weight:500;line-height:1.3}
+.hint b{color:var(--saffron);letter-spacing:.04em;text-transform:uppercase;font-size:.8rem;margin-right:6px}
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.choice{appearance:none;border:0;border-radius:22px;background:var(--cream);color:var(--ink);font-family:var(--display);
+  font-size:2.6rem;line-height:1;padding:14px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+  box-shadow:0 5px 0 rgba(0,0,0,.35);transition:transform .1s}
+.choice small{font-size:.95rem;font-weight:700}
+.choice:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.choice:focus-visible,.btn:focus-visible{outline:4px solid var(--saffron);outline-offset:3px}
+.choice.tried{opacity:.6}
+.home{font-size:2.2rem;min-height:110px;justify-content:center;color:var(--ink)}
+.home.snow{background:linear-gradient(#e6f1fa,#ffffff)}
+.home.desert{background:linear-gradient(#fbd38a,#f0a057)}
+.home.river{background:linear-gradient(#5fae6e 55%,#5bb6dc 55%)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{appearance:none;border:0;border-radius:999px;padding:12px 22px;font-family:var(--display);font-size:1.15rem;font-weight:800;
+  background:var(--saffron);color:var(--ink);cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.35);flex:1 1 auto}
+a.btn{text-decoration:none;text-align:center;display:block}
+.btn.wa{background:#25d366;color:#08301a}
+.note-in{width:100%;box-sizing:border-box;margin-top:10px;border:2px solid #d9d2c3;border-radius:14px;padding:10px 12px;font-family:var(--display);font-size:1rem;color:var(--ink);background:#fff;resize:vertical;min-height:64px}
+.note-in:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+.btn.ghost{background:transparent;color:var(--cream);box-shadow:inset 0 0 0 2px var(--cream)}
+.log{background:var(--cream);color:var(--ink);border-radius:20px;padding:14px 16px;font-size:1rem;line-height:1.45}
+.log h2{margin:0 0 6px;font-size:1.15rem}
+.log ol{margin:0;padding-left:1.3em;font-variant-numeric:tabular-nums}
+.log .note{font-size:.9rem;color:#4a4a52;margin-top:8px}
+.saved{font-size:.85rem;opacity:.8;text-align:center}
+@media (prefers-reduced-motion:reduce){#tiger{animation:none!important}}
+</style>
+
+<div class="app">
+  <header>
+    <h1 id="title">Feed the White Tiger</h1>
+    <div class="dots" aria-label="Progress"><span id="d1" class="on"></span><span id="d2"></span><span id="d3"></span><span id="d4"></span></div>
+  </header>
+
+  <div class="eyes-toggle" id="eyes" role="group" aria-label="Whose eyes" hidden>
+    <button id="eyes-mine" class="eye-btn" aria-pressed="true"><span>👦</span>See with my eyes</button>
+    <button id="eyes-deer" class="eye-btn" aria-pressed="false"><span>🦌</span>See with deer eyes</button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="bubble" id="bubble" aria-live="polite"></div>
+    <svg id="tiger" viewBox="0 0 240 230" role="img" aria-label="A white tiger">
+      <!-- ears -->
+      <circle cx="58" cy="58" r="30" class="fur" fill="#fbfbf8" stroke="#2a2630" stroke-width="4"/>
+      <circle cx="182" cy="58" r="30" class="fur" fill="#fbfbf8" stroke="#2a2630" stroke-width="4"/>
+      <circle cx="58" cy="60" r="15" fill="#f4a7a3"/>
+      <circle cx="182" cy="60" r="15" fill="#f4a7a3"/>
+      <!-- head -->
+      <ellipse cx="120" cy="125" rx="92" ry="84" class="fur" fill="#fbfbf8" stroke="#2a2630" stroke-width="4"/>
+      <!-- stripes -->
+      <g fill="#2a2630">
+        <path d="M120 42 q-8 18 0 30 q8-12 0-30z"/>
+        <path d="M98 46 q-4 14 4 22 q2-12-4-22z"/>
+        <path d="M142 46 q4 14-4 22 q-2-12 4-22z"/>
+        <path d="M30 112 q22 2 32 12 q-20 2-32-12z"/>
+        <path d="M32 140 q20-2 30 6 q-18 6-30-6z"/>
+        <path d="M210 112 q-22 2-32 12 q20 2 32-12z"/>
+        <path d="M208 140 q-20-2-30 6 q18 6 30-6z"/>
+      </g>
+      <g class="eyes-open">
+      <!-- eyes: blue, like real white tigers -->
+      <ellipse cx="88" cy="112" rx="14" ry="16" fill="#fff" stroke="#2a2630" stroke-width="3"/>
+      <ellipse cx="152" cy="112" rx="14" ry="16" fill="#fff" stroke="#2a2630" stroke-width="3"/>
+      <circle class="iris-b" cx="90" cy="115" r="9" fill="#4aa3d8"/><circle class="iris-b" cx="154" cy="115" r="9" fill="#4aa3d8"/>
+      <circle cx="91" cy="116" r="4.5" fill="#1b1b1f"/><circle cx="155" cy="116" r="4.5" fill="#1b1b1f"/>
+      <circle cx="93" cy="112" r="2" fill="#fff"/><circle cx="157" cy="112" r="2" fill="#fff"/>
+      </g>
+      <g class="xp eyes-happy" fill="none" stroke="#2a2630" stroke-width="5" stroke-linecap="round"><path d="M74 118 q14 -18 28 0"/><path d="M138 118 q14 -18 28 0"/></g>
+      <g class="xp eyes-squint" fill="none" stroke="#2a2630" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M76 103 l22 10 l-22 10"/><path d="M164 103 l-22 10 l22 10"/></g>
+      <g class="xp eyes-droopy" stroke="#2a2630" stroke-width="3"><path d="M74 110 h28 q-1 16 -14 16 q-13 0 -14 -16z" fill="#fff"/><path d="M138 110 h28 q-1 16 -14 16 q-13 0 -14 -16z" fill="#fff"/><circle class="iris-b" cx="89" cy="118" r="5" fill="#4aa3d8" stroke="none"/><circle class="iris-b" cx="153" cy="118" r="5" fill="#4aa3d8" stroke="none"/><path d="M70 110 h36 M134 110 h36" stroke-width="5" stroke-linecap="round"/></g>
+      <g class="xp brows-worried" fill="none" stroke="#2a2630" stroke-width="5" stroke-linecap="round"><path d="M72 94 l28 -10"/><path d="M168 94 l-28 -10"/></g>
+      <g class="xp brows-confused" fill="none" stroke="#2a2630" stroke-width="5" stroke-linecap="round"><path d="M74 92 h26"/><path d="M138 86 q14 -14 30 -4"/></g>
+      <!-- muzzle -->
+      <ellipse cx="120" cy="160" rx="40" ry="30" fill="#ffffff" stroke="#2a2630" stroke-width="3"/>
+      <path d="M108 142 h24 l-12 12z" fill="#f4a7a3" stroke="#2a2630" stroke-width="3" stroke-linejoin="round"/>
+      <g class="mouth-closed" fill="none" stroke="#2a2630" stroke-width="3" stroke-linecap="round">
+        <path d="M120 154 v10 q-10 10-20 2"/><path d="M120 164 q10 10 20 2"/>
+      </g>
+      <g class="xp mouth-open">
+        <path d="M100 162 q20 30 40 0z" fill="#c2414b" stroke="#2a2630" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M110 172 q10 10 20 0" fill="#f4a7a3"/>
+      </g>
+      <g class="xp mouth-bleh"><path d="M102 164 q9 -7 18 0 q9 7 18 0" fill="none" stroke="#2a2630" stroke-width="3" stroke-linecap="round"/><path d="M122 166 q2 20 13 16 q7 -4 1 -18z" fill="#f4a7a3" stroke="#2a2630" stroke-width="3" stroke-linejoin="round"/></g>
+      <g class="xp mouth-wonky"><ellipse cx="126" cy="170" rx="7" ry="6" fill="#c2414b" stroke="#2a2630" stroke-width="3"/></g>
+      <g class="xp mouth-chatter"><rect x="100" y="159" width="40" height="15" rx="5" fill="#fff" stroke="#2a2630" stroke-width="3"/><polyline points="100,166 107,160 113,173 120,160 127,173 133,160 140,166" fill="none" stroke="#2a2630" stroke-width="2.5" stroke-linejoin="round"/></g>
+      <g class="xp mouth-pant"><path d="M102 158 q18 18 36 0z" fill="#c2414b" stroke="#2a2630" stroke-width="3" stroke-linejoin="round"/><path d="M112 164 h16 v16 q-8 12 -16 0z" fill="#f4a7a3" stroke="#2a2630" stroke-width="3" stroke-linejoin="round"/></g>
+      <g class="xp mouth-grin"><path d="M92 154 q28 40 56 0z" fill="#c2414b" stroke="#2a2630" stroke-width="3" stroke-linejoin="round"/><path d="M98 156 h44 l-3 6 h-38z" fill="#fff"/><path d="M110 176 q10 8 20 0" fill="#f4a7a3"/></g>
+      <g fill="#2a2630"><circle cx="98" cy="160" r="2"/><circle cx="92" cy="166" r="2"/><circle cx="142" cy="160" r="2"/><circle cx="148" cy="166" r="2"/></g>
+      <!-- reaction extras -->
+      <g class="xp sweat" fill="#7cc4ec"><path d="M200 80 q8 12 0 18 q-8-6 0-18z"/><path d="M40 86 q7 10 0 15 q-7-5 0-15z"/></g>
+      <g class="xp drops" fill="#7cc4ec"><circle cx="30" cy="40" r="7"/><circle cx="214" cy="34" r="6"/><circle cx="120" cy="20" r="5"/><circle cx="60" cy="210" r="6"/><circle cx="190" cy="206" r="7"/></g>
+      <g class="xp snowflakes" font-size="22" fill="#ffffff"><text x="14" y="34">❄</text><text x="200" y="40">❄</text><text x="190" y="210">❄</text><text x="22" y="200">❄</text></g>
+      <g class="xp hearts" font-size="30" fill="#e2556a"><text x="18" y="52">♥</text><text x="196" y="40">♥</text><text x="206" y="88" font-size="20">♥</text></g>
+      <g class="xp stink" fill="none" stroke="#7bae4a" stroke-width="4" stroke-linecap="round"><path d="M196 150 q8 -8 0 -16 q-8 -8 0 -16"/><path d="M212 160 q8 -8 0 -16 q-8 -8 0 -16"/><path d="M28 150 q8 -8 0 -16 q-8 -8 0 -16"/></g>
+      <g class="xp qmark" font-size="52" font-weight="800" fill="#f6a623" stroke="#2a2630" stroke-width="2"><text x="192" y="44">?</text></g>
+      <g class="xp cheeks" fill="#ff6b6b" opacity=".55"><circle cx="66" cy="142" r="13"/><circle cx="174" cy="142" r="13"/></g>
+      <ellipse class="xp frost" cx="120" cy="125" rx="90" ry="82" fill="#9fd3ff"/>
+    </svg>
+    <svg id="back" class="layer back" viewBox="0 0 400 300" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div id="approach"><svg id="stalker" viewBox="0 0 240 214" role="img" aria-label="A tiger creeping toward you">
+      <g class="tail"><path class="fur-s" d="M188 96 q40 -26 28 -72" fill="none" stroke-width="14" stroke-linecap="round"/>
+        <path d="M206 70 l12 2 M212 50 l12 -2" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="5"/><circle cx="214" cy="24" r="8" fill="#2a2630"/></g>
+      <ellipse class="fur" cx="120" cy="92" rx="80" ry="44" stroke="#2a2630" stroke-width="3"/>
+      <path d="M62 70 q10 10 8 24 M82 56 q6 12 2 26 M158 56 q-6 12 -2 26 M178 70 q-10 10 -8 24" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="6"/>
+      <ellipse cx="120" cy="150" rx="40" ry="34" fill="#fff8ec" stroke="#2a2630" stroke-width="3"/>
+      <g class="paw-l"><rect class="fur" x="70" y="118" width="34" height="78" rx="15" stroke="#2a2630" stroke-width="3"/><ellipse class="fur" cx="86" cy="196" rx="24" ry="13" stroke="#2a2630" stroke-width="3"/>
+        <path d="M72 146 h14 M72 162 h12 M78 196 v8 M88 196 v9 M98 196 v8" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="4"/></g>
+      <g class="paw-r"><rect class="fur" x="136" y="118" width="34" height="78" rx="15" stroke="#2a2630" stroke-width="3"/><ellipse class="fur" cx="154" cy="196" rx="24" ry="13" stroke="#2a2630" stroke-width="3"/>
+        <path d="M168 146 h-14 M168 162 h-12 M144 196 v8 M154 196 v9 M164 196 v8" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="4"/></g>
+      <g class="head">
+        <circle class="fur" cx="78" cy="60" r="17" stroke="#2a2630" stroke-width="3"/><circle cx="78" cy="60" r="8" fill="#f4a7a3"/>
+        <circle class="fur" cx="162" cy="60" r="17" stroke="#2a2630" stroke-width="3"/><circle cx="162" cy="60" r="8" fill="#f4a7a3"/>
+        <circle class="fur" cx="120" cy="104" r="52" stroke="#2a2630" stroke-width="3"/>
+        <path d="M120 56 v18 M104 58 q5 12 0 22 M136 58 q-5 12 0 22 M70 98 q14 4 20 14 M72 118 q12 0 18 8 M170 98 q-14 4 -20 14 M168 118 q-12 0 -18 8" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="5"/>
+        <ellipse cx="103" cy="132" rx="21" ry="16" fill="#fff8ec"/><ellipse cx="137" cy="132" rx="21" ry="16" fill="#fff8ec"/>
+        <path d="M109 118 h22 l-11 12z" fill="#f4a7a3" stroke="#2a2630" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M120 130 v6 q-8 9 -17 3 M120 136 q8 9 17 3" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="2.5"/>
+        <g fill="#2a2630"><circle cx="98" cy="132" r="1.8"/><circle cx="92" cy="138" r="1.8"/><circle cx="142" cy="132" r="1.8"/><circle cx="148" cy="138" r="1.8"/></g>
+        <ellipse cx="99" cy="98" rx="12" ry="9" fill="#fff" stroke="#2a2630" stroke-width="2.5"/><ellipse cx="141" cy="98" rx="12" ry="9" fill="#fff" stroke="#2a2630" stroke-width="2.5"/>
+        <circle class="iris" cx="100" cy="98" r="7"/><circle class="iris" cx="140" cy="98" r="7"/>
+        <ellipse cx="100" cy="98" rx="2" ry="5.5" fill="#1b1b1f"/><ellipse cx="140" cy="98" rx="2" ry="5.5" fill="#1b1b1f"/>
+        <g class="brows"><path d="M86 84 l22 6 M154 84 l-22 6" stroke="#2a2630" stroke-linecap="round" fill="none" stroke-width="4.5"/></g>
+      </g>
+    </svg></div>
+    <div class="plate" id="plate"></div>
+    <svg id="mid" class="layer mid" viewBox="0 0 400 300" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <svg id="front" class="layer front" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="lens-badge" id="lens">🦌 Deer eyes</div>
+    <div class="scenery" id="scenery" aria-hidden="true"></div>
+  </div>
+
+  <div class="hint" id="hint"></div>
+  <div id="controls"></div>
+  <div class="saved" id="saved"></div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="deer-eyes"><feColorMatrix type="matrix" values="0.29 0.71 0 0 0  0.29 0.71 0 0 0  -0.02 0.02 1 0 0  0 0 0 1 0"/></filter></svg>
+
+<script>
+const FOODS=[
+  {id:"deer",e:"🦌",name:"Deer",ok:1,r:"yum",say:"Yum! Deer is a tiger's favourite dinner in the jungle."},
+  {id:"grass",e:"🌿",name:"Grass",ok:0,r:"no",say:"Grass? That's what deer eat. I eat the deer!"},
+  {id:"pig",e:"🐗",name:"Wild pig",ok:1,r:"yum",say:"Chomp! A wild pig is a big tiger meal."},
+  {id:"elephant",e:"🐘",name:"Elephant",ok:0,r:"confused",say:"Whoa, too big! A grown-up elephant is much bigger than me."},
+  {id:"fish",e:"🐟",name:"Fish",ok:1,r:"yum",say:"Splash and grab! Tigers catch fish in the river."},
+  {id:"mango",e:"🥭",name:"Mango",ok:0,r:"no",say:"Mango? I'm a meat eater. Leave it for the monkeys!"},
+  {id:"porcupine",e:"🦔",name:"Porcupine",ok:1,r:"no",say:"Ouch, spiky! Tigers do eat porcupines, but the spikes hurt their paws."},
+  {id:"bamboo",e:"🎋",name:"Bamboo",ok:0,r:"confused",say:"Bamboo? That's panda food!"}
+];
+const TUMMY=3;
+const HOME_ROWS=[
+  {key:"weather",label:"Weather",opts:[{id:"snowy",e:"❄️",name:"Snowy"},{id:"dry",e:"☀️",name:"Hot and dry"},{id:"warm",e:"🌦️",name:"Warm and rainy"}]},
+  {key:"water",label:"Water",opts:[{id:"none",e:"🏜️",name:"No water"},{id:"river",e:"🏞️",name:"River"}]},
+  {key:"cover",label:"Places to hide",opts:[{id:"bare",e:"🟫",name:"Bare ground"},{id:"grass",e:"🌾",name:"Tall grass"}]}
+];
+function homeVerdict(h){
+  if(h.weather==="snowy")return{ok:false,r:"shiver",miss:"weather",say:"Brrr, too cold! I'm from warm India."};
+  if(h.weather==="dry")return{ok:false,r:"hot",miss:"weather",say:"Phew, too hot and dry!"};
+  if(h.water==="none")return{ok:false,r:"hot",miss:"water",say:"I'm thirsty! Where do I drink and swim?"};
+  if(h.cover==="bare")return{ok:false,r:"no",miss:"cover",say:"Nowhere to hide! The deer will see me coming."};
+  return{ok:true,r:"splash",miss:null,say:"Splash! This is home!"};
+}
+const COATS={white:{e:"🤍",name:"White tiger"},orange:{e:"🧡",name:"Orange tiger"}};
+const SAME={
+  feed:{q:"Will the other tiger like the same food?",reveal:"Same! White or orange, every tiger is a meat eater. The colour is only on the outside."},
+  home:{q:"Will the other tiger want the same home?",reveal:"Same home! White and orange tigers are the same kind of tiger, from the same jungles."},
+  hide:{q:"Last test! Will both tigers hide in the same places?"}
+};
+let coat="white",firstCoat=null,results={},feedRun={coat:null,eaten:[],tried:[]},feedRuns=[],homeTries=[],homeBuild={weather:null,water:null,cover:null},homeCoats=[];
+const HIDE={
+  hidden:{orange:{grass:true,jungle:true,rocks:false},white:{grass:false,jungle:false,rocks:true}},
+  tigers:[{id:"white",e:"🤍",name:"White tiger"},{id:"orange",e:"🧡",name:"Orange tiger"}],
+  places:[{id:"grass",e:"🌾",name:"Tall grass",sc:"🌾🌾🌾🌾🌾🌾🌾🌾🌾"},{id:"jungle",e:"🌿",name:"Green jungle",sc:"🌿🌳🌿🌿🌳🌿🌿🌳"},{id:"rocks",e:"🪨",name:"Grey rocks",sc:"🪨🪨🪨🪨🪨🪨🪨"}]
+};
+let hide={tiger:"white",place:null,deerEyes:false,usedDeerEyes:false,tries:[],busy:false};
+const $=id=>document.getElementById(id);
+const tiger=$("tiger"),stalker=$("approach"),bubble=$("bubble"),stage=$("stage"),controls=$("controls"),hint=$("hint");
+const sessionId="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const t0=Date.now();
+const log=[];
+let scene="feed",yums=0;
+
+function speak(text){
+  try{const s=window.speechSynthesis;if(!s)return;s.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=.9;u.pitch=1.15;s.speak(u)}catch(e){}
+}
+function react(cls,text){
+  tiger.setAttribute("class","");void tiger.getBoundingClientRect();tiger.setAttribute("class",cls);
+  bubble.textContent=text;
+}
+function record(choice,reaction){
+  log.push({sec:Math.round((Date.now()-t0)/1000),scene,choice,reaction});
+  save();
+}
+function setDots(n){[1,2,3,4].forEach(i=>$("d"+i).classList.toggle("on",i<=n))}
+
+function setCoat(c){coat=c;stage.classList.toggle("coat-orange",c==="orange")}
+function other(c){return c==="white"?"orange":"white"}
+function coatPicker(onPick){
+  const wrap=document.createElement("div");wrap.className="seg";
+  wrap.innerHTML="<div class='seg-label'>Which tiger?</div>";
+  const r=document.createElement("div");r.className="seg-row";
+  Object.entries(COATS).forEach(([id,c])=>{const b=document.createElement("button");b.className="seg-btn";b.id="coat-"+id;
+    b.setAttribute("aria-pressed",coat===id);b.innerHTML="<span>"+c.e+"</span>"+c.name;
+    b.onclick=()=>{setCoat(id);onPick()};r.appendChild(b)});
+  wrap.appendChild(r);return wrap;
+}
+function askSame(key,onDone){
+  bubble.textContent=SAME[key].q;tiger.setAttribute("class","confused");
+  hint.innerHTML="<b>Grown-up</b>Let your child decide before tapping. Ask: “Why do you think so?”";
+  controls.innerHTML="";
+  const g=document.createElement("div");g.className="big-q";
+  [["same","🟰","Same"],["different","↔️","Different"]].forEach(([id,e,t])=>{
+    const b=document.createElement("button");b.className="choice";b.id="same-"+key+"-"+id;b.innerHTML=e+"<small>"+t+"</small>";
+    b.onclick=()=>{results[key]={guess:id};log.push({sec:Math.round((Date.now()-t0)/1000),scene:key,choice:"Predicted "+t.toLowerCase(),reaction:"prediction"});save();onDone()};
+    g.appendChild(b)});
+  controls.appendChild(g);
+}
+function tummyBar(){
+  let t=$("tummy");if(!t){t=document.createElement("div");t.id="tummy";t.className="tummy";stage.appendChild(t)}
+  t.hidden=false;
+  t.innerHTML="Tummy "+Array.from({length:TUMMY},(_,i)=>"<i>"+(feedRun.eaten[i]?FOODS.find(f=>f.id===feedRun.eaten[i]).e:"⚪")+"</i>").join("");
+}
+function hideTummy(){const t=$("tummy");if(t)t.hidden=true}
+function showFeed(){
+  scene="feed";setDots(1);$("eyes").hidden=true;stage.className="stage";$("back").innerHTML="";
+  setCoat(coat);
+  $("title").textContent="Feed the Tiger";
+  feedRun={coat:null,eaten:[],tried:[]};
+  hint.innerHTML="<b>Grown-up</b>Let your child choose which tiger to feed first.";
+  react("","I'm a hungry tiger in the Indian jungle! Which tiger am I?");
+  controls.innerHTML="";hideTummy();
+  controls.appendChild(coatPicker(startFeedRun));
+}
+function startFeedRun(){
+  if(!firstCoat)firstCoat=coat;
+  feedRun={coat,eaten:[],tried:[]};
+  hint.innerHTML="<b>Grown-up</b>Before each tap, ask: “Will he eat this? Why?” He needs "+TUMMY+" good foods to fill his tummy.";
+  react("","I'm hungry! Fill my tummy with "+TUMMY+" good foods.");
+  tummyBar();renderFeedTray();
+}
+function renderFeedTray(){
+  controls.innerHTML="";
+  const tray=document.createElement("div");tray.className="tray tray4";
+  FOODS.forEach(f=>{
+    const b=document.createElement("button");b.className="choice";b.id="food-"+f.id;
+    if(feedRun.tried.includes(f.id))b.classList.add(f.ok?"good":"bad");
+    b.innerHTML=f.e+"<small>"+f.name+"</small>";
+    b.onclick=()=>feedTap(f,b);
+    tray.appendChild(b);
+  });
+  controls.appendChild(tray);
+}
+function feedTap(f,b){
+  if(feedRun.eaten.length>=TUMMY||feedRun.tried.includes(f.id))return;
+  feedRun.tried.push(f.id);b.classList.add(f.ok?"good":"bad");
+  react(f.r,f.say);
+  log.push({sec:Math.round((Date.now()-t0)/1000),scene:"feed",choice:f.name,reaction:f.ok?"ate it":"said no",coat:feedRun.coat});save();
+  if(f.ok){feedRun.eaten.push(f.id);tummyBar()}
+  if(feedRun.eaten.length>=TUMMY){
+    feedRuns.push(feedRun);
+    setTimeout(()=>{
+      if(feedRuns.length===1){
+        react("yum","Full tummy! Thank you, chef!");
+        const row=document.createElement("div");row.className="row";row.style.marginTop="12px";
+        const n=document.createElement("button");n.className="btn";n.id="feed-other";n.textContent="Now the "+COATS[other(coat)].name.toLowerCase()+" →";
+        n.onclick=()=>askSame("feed",()=>{setCoat(other(coat));startFeedRun()});
+        row.appendChild(n);controls.appendChild(row);
+      }else{
+        results.feed.actual="same";
+        react("yum",SAME.feed.reveal);
+        hint.innerHTML="<b>Grown-up</b>Ask: “So does the colour change what a tiger eats?”";
+        const row=document.createElement("div");row.className="row";row.style.marginTop="12px";
+        const n=document.createElement("button");n.className="btn";n.id="next-home";n.textContent="Next: Build his home →";n.onclick=showHome;
+        row.appendChild(n);controls.appendChild(row);
+      }
+    },900);
+  }
+}
+function paintHome(){
+  const b=homeBuild;let g="";
+  if(b.weather==="snowy")g+='<path d="M0 250 Q100 236 200 248 T400 244 V302 H0Z" fill="#ffffff"/>';
+  if(b.cover==="grass"){const r=rng(77);const C=["#d4ab52","#c9983b","#b88730","#e2c171"];for(let i=0;i<90;i++)g+=blade(r()*410-5,40+r()*55,2+r()*2.5,(r()-.5)*24,C[Math.floor(r()*4)])}
+  if(b.cover==="bare")g+='<path d="M0 262 Q200 250 400 262 V302 H0Z" fill="#9b7653"/>';
+  if(b.water==="river")g+='<path d="M0 272 Q100 262 200 272 T400 270 V302 H0Z" fill="#3f9fc4"/><path d="M30 284 q20 -6 40 0 M170 288 q20 -6 40 0 M300 282 q20 -6 40 0" stroke="#bfe6f5" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  $("back").innerHTML=g;$("mid").innerHTML="";$("front").innerHTML="";
+  stage.className="stage build"+(b.weather==="snowy"?" snow":b.weather==="dry"?" desert":b.weather==="warm"?" warm":"")+(coat==="orange"?" coat-orange":"");
+}
+function showHome(){
+  scene="home";setDots(2);hideTummy();
+  $("title").textContent="Build the Tiger's Home";
+  homeBuild={weather:null,water:null,cover:null};
+  if(!homeCoats.length)setCoat(firstCoat||coat);
+  paintHome();
+  react("","What does a tiger need in a home? Build it for me!");
+  renderHome();
+}
+function renderHome(){
+  const ready=HOME_ROWS.every(r=>homeBuild[r.key]);
+  const last=homeTries[homeTries.length-1];
+  hint.innerHTML=last&&!last.ok&&last.build.weather==="snowy"
+    ?"<b>Grown-up</b>Fun fact to share: some tigers in Russia do live in snow. They grow extra-thick fur! Then ask: “What should we change for this tiger?”"
+    :last&&!last.ok
+    ?"<b>Grown-up</b>Ask: “What was wrong? What should we change?” Change one thing and test again."
+    :"<b>Grown-up</b>Ask: “What does a tiger need?” Let your child pick one from each row, then guess before testing.";
+  controls.innerHTML="";
+  HOME_ROWS.forEach(row=>{
+    const wrap=document.createElement("div");wrap.className="seg";
+    wrap.innerHTML="<div class='seg-label'>"+row.label+"</div>";
+    const r=document.createElement("div");r.className="seg-row";
+    row.opts.forEach(o=>{const b=document.createElement("button");b.className="seg-btn";b.id="home-"+row.key+"-"+o.id;
+      b.setAttribute("aria-pressed",homeBuild[row.key]===o.id);b.innerHTML="<span>"+o.e+"</span>"+o.name;
+      b.onclick=()=>{homeBuild[row.key]=o.id;paintHome();renderHome()};r.appendChild(b)});
+    wrap.appendChild(r);controls.appendChild(wrap);
+  });
+  const g=document.createElement("div");g.className="seg";
+  if(!ready){g.innerHTML="<div class='pick-first'>Pick one from each row to test the home.</div>"}
+  else{
+    g.innerHTML="<div class='seg-label'>Will he like this home?</div>";
+    const gr=document.createElement("div");gr.className="tray";gr.style.gridTemplateColumns="repeat(2,1fr)";
+    [["yes","👍","He'll love it"],["no","👎","Something's missing"]].forEach(([id,e,t])=>{
+      const b=document.createElement("button");b.className="choice";b.id="home-guess-"+id;b.innerHTML=e+"<small>"+t+"</small>";
+      b.onclick=()=>testHome(id);gr.appendChild(b)});
+    g.appendChild(gr);
+  }
+  controls.appendChild(g);
+  if(homeTries.length)controls.appendChild(homeTable());
+}
+function testHome(guess){
+  const v=homeVerdict(homeBuild);
+  const prev=homeTries[homeTries.length-1];
+  const changed=prev&&prev.coat===coat?HOME_ROWS.map(r=>r.key).filter(k=>prev.build[k]!==homeBuild[k]):[];
+  const t={build:{...homeBuild},guess,ok:v.ok,miss:v.miss,coat,changed};
+  homeTries.push(t);
+  const label=HOME_ROWS.map(r=>r.opts.find(o=>o.id===homeBuild[r.key]).name).join(", ");
+  log.push({sec:Math.round((Date.now()-t0)/1000),scene:"home",choice:label,reaction:v.ok?"home!":"missing "+v.miss,guess,coat});save();
+  renderHome();react(v.r,v.say);
+  if(v.ok){
+    if(!homeCoats.includes(coat))homeCoats.push(coat);
+    const row=document.createElement("div");row.className="row";row.style.marginTop="12px";
+    const n=document.createElement("button");n.className="btn";
+    if(homeCoats.length===1){
+      n.id="home-other";n.textContent="Now the "+COATS[other(coat)].name.toLowerCase()+" →";
+      n.onclick=()=>askSame("home",()=>{setCoat(other(coat));paintHome();react("","I'm the "+COATS[coat].name.toLowerCase()+". Will I like this home too?");renderHome()});
+    }else{
+      results.home.actual="same";bubble.textContent=SAME.home.reveal;
+      n.id="to-hide";n.textContent="Next: Hide and seek →";n.onclick=showHide;
+    }
+    row.appendChild(n);controls.insertBefore(row,controls.querySelector(".tries"));
+  }
+}
+function homeTable(){
+  const box=document.createElement("div");box.className="log tries";
+  const ic=(k,id)=>HOME_ROWS.find(r=>r.key===k).opts.find(o=>o.id===id).e;
+  box.innerHTML="<h2>Homes tested</h2><div class='tbl-wrap'><table><thead><tr><th>#</th><th>Tiger</th><th>Home</th><th>Guessed</th><th>Tiger said</th></tr></thead><tbody>"+
+    homeTries.map((t,i)=>"<tr><td>"+(i+1)+"</td><td>"+COATS[t.coat].e+"</td><td>"+ic("weather",t.build.weather)+ic("water",t.build.water)+ic("cover",t.build.cover)+"</td><td>"+(t.guess==="yes"?"👍":"👎")+"</td><td>"+(t.ok?"Home! ✓":({weather:"Wrong weather",water:"No water",cover:"Can't hide"})[t.miss])+"</td></tr>").reverse().join("")+
+    "</tbody></table></div>";
+  return box;
+}
+function nameOf(list,id){return list.find(x=>x.id===id).name}
+function showHide(){
+  scene="hide";setDots(3);$("plate").textContent="";hideTummy();
+  $("title").textContent="You Are the Deer";
+  hide.tiger=coat;
+  if(results.hide){renderHide();return}
+  stage.className="stage"+(coat==="orange"?" coat-orange":"");$("back").innerHTML="";
+  askSame("hide",renderHide);
+}
+function setHint(){
+  if(hide.deerEyes) hint.innerHTML="<b>Grown-up</b>Ask: “Can you still find him? Easier or harder?” Then switch the tiger and look again.";
+  else if(!hide.place) hint.innerHTML="<b>Grown-up</b>Say: “You are the deer! A tiger is coming.” Let your child pick the tiger and where it hides.";
+  else if(hide.tries.length>=2&&!hide.usedDeerEyes) hint.innerHTML="<b>Grown-up</b>Tap “See with deer eyes” at the top together. Ask: “What does the orange tiger look like to a deer?”";
+  else if(hide.tries.length>=1) hint.innerHTML="<b>Grown-up</b>Ask: “What could we change so you don't see him coming?” Let your child pick.";
+  else hint.innerHTML="<b>Grown-up</b>Before they tap, ask: “Will you see the tiger coming?”";
+}
+function placeTiger(state){
+  stalker.style.transition="none";
+  stalker.className=state||"";
+  void stalker.getBoundingClientRect();stalker.style.transition="";
+}
+function renderHide(){
+  hide.busy=false;
+  stage.className="stage hide"+(hide.place?" "+hide.place:"")+(hide.tiger==="orange"?" orange-tiger":"")+(hide.deerEyes?" deer-view":"");
+  paintScene(hide.place,$("back"),$("front"));sizeCover();
+  tiger.setAttribute("class","");placeTiger("");
+  bubble.textContent=hide.deerEyes?"These are your deer eyes. Can you still find the tiger?":
+    (hide.place?"Will you spot the tiger before he gets close?":"You're a deer. A tiger is out there! Where should he hide?");
+  setHint();
+  $("eyes").hidden=false;$("eyes-mine").setAttribute("aria-pressed",!hide.deerEyes);$("eyes-deer").setAttribute("aria-pressed",hide.deerEyes);
+  controls.innerHTML="";
+  const seg=(label,list,key)=>{
+    const wrap=document.createElement("div");wrap.className="seg";
+    const l=document.createElement("div");l.className="seg-label";l.textContent=label;wrap.appendChild(l);
+    const r=document.createElement("div");r.className="seg-row";
+    list.forEach(o=>{const b=document.createElement("button");b.id=key+"-"+o.id;b.className="seg-btn";
+      b.setAttribute("aria-pressed",hide[key]===o.id);b.innerHTML="<span>"+o.e+"</span>"+o.name;
+      b.onclick=()=>{if(hide.busy)return;hide[key]=o.id;renderHide()};r.appendChild(b)});
+    wrap.appendChild(r);return wrap;
+  };
+  controls.appendChild(seg("Tiger",HIDE.tigers,"tiger"));
+  controls.appendChild(seg("Tiger hides in",HIDE.places,"place"));
+  const g=document.createElement("div");g.className="seg";
+  if(!hide.place){
+    g.innerHTML="<div class='pick-first'>Pick a hiding place to start.</div>";
+  }else{
+    g.innerHTML="<div class='seg-label'>Will you see him coming?</div>";
+    const gr=document.createElement("div");gr.className="tray";gr.style.gridTemplateColumns="repeat(2,1fr)";
+    [["seen","👀","Yes, I'll spot him"],["hidden","🙈","No, he'll sneak close"]].forEach(([id,e,t])=>{
+      const b=document.createElement("button");b.className="choice";b.id="guess-"+id;b.innerHTML=e+"<small>"+t+"</small>";
+      b.onclick=()=>sneak(id);gr.appendChild(b)});
+    g.appendChild(gr);
+  }
+  controls.appendChild(g);
+  const row=document.createElement("div");row.className="row";row.style.marginTop="12px";
+  if(hide.tries.length>=1){
+    const n=document.createElement("button");n.className="btn";n.id="to-end";n.textContent="All done →";n.onclick=showEnd;row.appendChild(n);
+  }
+  if(row.children.length)controls.appendChild(row);
+  if(hide.tries.length)controls.appendChild(triesTable());
+}
+function setEyes(deer){
+  if(hide.busy||hide.deerEyes===deer)return;
+  hide.deerEyes=deer;
+  if(deer&&!hide.usedDeerEyes){hide.usedDeerEyes=true;log.push({sec:Math.round((Date.now()-t0)/1000),scene,choice:"Deer eyes",reaction:"looked"});save()}
+  renderHide();
+}
+$("eyes-mine").onclick=()=>setEyes(false);
+$("eyes-deer").onclick=()=>setEyes(true);
+function sneak(guess){
+  if(hide.busy||!hide.place)return;hide.busy=true;
+  controls.querySelectorAll("button").forEach(b=>b.disabled=true);$("eyes-mine").disabled=$("eyes-deer").disabled=true;
+  const hidden=HIDE.hidden[hide.tiger][hide.place];
+  const prev=hide.tries[hide.tries.length-1];
+  const changed=prev?[prev.tiger!==hide.tiger?"tiger":null,prev.place!==hide.place?"place":null].filter(Boolean):[];
+  bubble.textContent="Shh... the tiger is creeping closer...";
+  placeTiger("");
+  requestAnimationFrame(()=>{stalker.className="walking "+(hidden?"close":"stopped")});
+  setTimeout(()=>{
+    stalker.className=hidden?"close":"stopped spotted";
+    bubble.textContent=hidden?"Pounce! 🐾 He got so close and you never saw him!":"You spotted him! Run, little deer! 🦌💨";
+    const t={tiger:hide.tiger,place:hide.place,guess,result:hidden?"hidden":"seen",changed};
+    hide.tries.push(t);
+    log.push({sec:Math.round((Date.now()-t0)/1000),scene,choice:nameOf(HIDE.tigers,t.tiger)+" in "+nameOf(HIDE.places,t.place).toLowerCase(),reaction:t.result,guess,changed});
+    save();
+    setTimeout(()=>{
+      const keep=bubble.textContent,cls=stalker.className;
+      $("eyes-mine").disabled=$("eyes-deer").disabled=false;renderHide();bubble.textContent=keep;placeTiger(cls);
+    },1200);
+  },1900);
+}
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function blade(x,h,w,lean,c,B){B=B||302;return '<path d="M'+(x-w).toFixed(1)+' '+B+' Q'+(x+lean*.4).toFixed(1)+' '+(B-h*.6).toFixed(1)+' '+(x+lean).toFixed(1)+' '+(B-h).toFixed(1)+' Q'+(x+lean*.4+w*.6).toFixed(1)+' '+(B-h*.55).toFixed(1)+' '+(x+w).toFixed(1)+' '+B+'Z" fill="'+c+'"/>'}
+function leaf(x,y,len,wid,ang,c){return '<g transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+ang.toFixed(1)+')"><path d="M0 0 C'+(wid)+' '+(-len*.3)+' '+(wid)+' '+(-len*.75)+' 0 '+(-len)+' C'+(-wid)+' '+(-len*.75)+' '+(-wid)+' '+(-len*.3)+' 0 0Z" fill="'+c+'"/><path d="M0 0 V'+(-len*.92)+'" stroke="rgba(0,0,0,.2)" stroke-width="2"/></g>'}
+function boulder(r,x,base,w,h,tone,floor){
+  const n=9,pts=[];
+  for(let k=0;k<=n;k++){const a=Math.PI*(1-k/n),j=.78+r()*.3;
+    pts.push([x+Math.cos(a)*w/2*(.9+r()*.15),base-Math.sin(a)*h*j]);}
+  const ext=(floor||302)-base+2;pts.push([x+w/2,base+ext],[x-w/2,base+ext]);
+  const P=a=>a.map(q=>q[0].toFixed(1)+","+q[1].toFixed(1)).join(" ");
+  const L=["#ecebe7","#e2e0db","#d6d3cd","#f3f2ef"][tone],D="#aaa59d",K="#5f5b56";
+  let o='<polygon points="'+P(pts)+'" fill="'+L+'" stroke="#8e8a83" stroke-width="2" stroke-linejoin="round"/>';
+  const top=pts.slice(2,8).map(q=>[x+(q[0]-x)*.75,base-(base-q[1])*.92]);top.push([x,base-h*.35]);
+  o+='<polygon points="'+P(top)+'" fill="rgba(255,255,255,.45)"/>';
+  o+='<polygon points="'+P([pts[7],pts[8],pts[9],[x+w/2,base+ext],[x+w*.18,base+ext],[x+w*.22,base-h*.4]])+'" fill="'+D+'" opacity=".55"/>';
+  for(let c=0;c<3;c++){const cx=x+(r()-.5)*w*.6,cy=base-h*(.25+r()*.45),len=12+r()*22;
+    o+='<path d="M'+cx.toFixed(1)+' '+cy.toFixed(1)+' l'+((r()-.5)*10).toFixed(1)+' '+(len*.5).toFixed(1)+' l'+((r()-.5)*12).toFixed(1)+' '+(len*.5).toFixed(1)+'" stroke="'+K+'" stroke-width="3" fill="none" stroke-linecap="round"/>';}
+  return o;
+}
+function sizeCover(){
+  const w=stalker.offsetWidth;if(!w)return;
+  $("front").style.height=Math.round(w*214/240*0.76)+"px";
+}
+window.addEventListener("resize",sizeCover);
+function paintScene(place,back,front){
+  let b="",f="",m="";
+  if(place){
+    const r=rng(place.length*7919+13);
+    if(place==="grass"){
+      const C=["#dcaa48","#cf9a35","#c48a2c","#e6bb5c","#b07a24","#5c3f14"];
+      for(let i=0;i<120;i++){const x=r()*410-5;b+=blade(x,150+r()*110,2+r()*3,(r()-.5)*40,C[Math.floor(r()*4)])}
+      for(let i=0;i<70;i++){const x=r()*410-5;m+=blade(x,150+r()*120,1.2+r()*1.8,(r()-.5)*30,r()<.3?C[5]:C[Math.floor(r()*5)])}
+      for(let i=0;i<170;i++){const x=r()*410-5,dark=r()<.18;f+=blade(x,(r()<.85?80:50)+r()*22,2+r()*3.5,(r()-.5)*14,dark?C[5]:C[Math.floor(r()*5)],102)}
+    }else if(place==="jungle"){
+      const BG=["#3f7a33","#4d8c3a","#336a2b"],FG=["#7fb043","#94bf4c","#6a9f3a","#a6c95a","#5a8c32"];
+      for(let i=0;i<14;i++)m+=leaf(r()*400,302,170+r()*90,7+r()*5,(r()-.5)*24,FG[Math.floor(r()*5)]);
+      for(let i=0;i<34;i++)b+=leaf(r()*400,300,140+r()*130,18+r()*14,(r()-.5)*60,BG[Math.floor(r()*3)]);
+      for(let i=0;i<38;i++)f+=leaf(r()*420-10,104,80+r()*24,11+r()*8,(r()-.5)*36,FG[Math.floor(r()*5)]);
+    }else{
+      for(let i=0;i<7;i++)b+=boulder(r,i*64+r()*20-10,200+r()*20,130+r()*50,60+r()*35,Math.floor(r()*4));
+      for(let i=0;i<6;i++)f+=boulder(r,i*78+r()*20-20,102,150+r()*40,82+r()*14,Math.floor(r()*4),102);
+    }
+  }
+  $("mid").innerHTML=m;back.innerHTML=b;front.innerHTML=f;
+}
+function triesTable(){
+  const box=document.createElement("div");box.className="log tries";
+  box.innerHTML="<h2>Tries</h2><div class='tbl-wrap'><table><thead><tr><th>#</th><th>Tiger</th><th>Hid in</th><th>Guessed</th><th>What happened</th></tr></thead><tbody>"+
+    hide.tries.map((t,i)=>"<tr><td>"+(i+1)+"</td><td>"+HIDE.tigers.find(x=>x.id===t.tiger).e+"</td><td>"+HIDE.places.find(x=>x.id===t.place).e+" "+nameOf(HIDE.places,t.place)+"</td><td>"+(t.guess==="seen"?"👀 I'll spot him":"🙈 Sneaks close")+"</td><td>"+(t.result==="seen"?"Spotted him":"Tiger snuck close")+(t.guess===t.result?" ✓":"")+"</td></tr>").reverse().join("")+
+    "</tbody></table></div>";
+  return box;
+}
+/* Every play is kept: Play again archives the current play instead of wiping it.
+   Plays are also kept in this browser, so a reload doesn't lose them. */
+const STORE_KEY="tiger-public-plays-v1";
+let plays=[];
+const CUR_KEY="tiger-public-current-v1";
+try{plays=JSON.parse(localStorage.getItem(STORE_KEY)||"[]")||[]}catch(e){plays=[]}
+try{const c=JSON.parse(localStorage.getItem(CUR_KEY)||"null");if(c&&c.taps>0){plays.push(c);localStorage.setItem(STORE_KEY,JSON.stringify(plays))}localStorage.removeItem(CUR_KEY)}catch(e){}
+let playStartLog=0,playStartAt=Date.now();
+function persistPlays(){try{localStorage.setItem(STORE_KEY,JSON.stringify(plays))}catch(e){}}
+function snapshot(){
+  const runs=feedRuns.concat(feedRun.coat&&!feedRuns.includes(feedRun)&&feedRun.tried.length?[feedRun]:[]);
+  const taps=log.length-playStartLog;
+  return JSON.parse(JSON.stringify({at:playStartAt,feedRuns:runs,results,homeTries,hideTries:hide.tries,usedDeerEyes:hide.usedDeerEyes,
+    taps,secs:taps?Math.round((Date.now()-playStartAt)/1000):0,finished:scene==="end"}));
+}
+function archivePlay(){const p=snapshot();if(p.taps>0){plays.push(p);persistPlays()}try{localStorage.removeItem(CUR_KEY)}catch(e){}}
+function keepCurrent(){try{localStorage.setItem(CUR_KEY,JSON.stringify(snapshot()))}catch(e){}}
+function whenText(ms){try{const d=new Date(ms);return d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}catch(e){return""}}
+function playLines(p){
+  const L=[];const R=p.results||{};
+  const pred=k=>R[k]?"guessed "+R[k].guess+(k==="hide"?" (answer: different)":R[k].actual?" (answer: same)":""):null;
+  if(p.feedRuns.length){L.push("Feed:");
+    p.feedRuns.forEach(r=>L.push("  "+COATS[r.coat].e+" "+r.tried.map(id=>{const f=FOODS.find(x=>x.id===id);return f.name+(f.ok?" ✓":" ✗")}).join(", ")));
+    if(pred("feed"))L.push("  Same food for both? "+pred("feed"));}
+  if(p.homeTries.length){L.push("Home ("+p.homeTries.length+" tests):");
+    p.homeTries.forEach((t,i)=>{const lab=HOME_ROWS.map(r=>r.opts.find(o=>o.id===t.build[r.key]).name.toLowerCase()).join(", ");
+      const prev=p.homeTries[i-1];
+      L.push("  "+(i+1)+". "+COATS[t.coat].e+" "+lab+". Guessed "+(t.guess==="yes"?"yes":"no")+", "+(t.ok?"home!":"missing "+t.miss)+(((t.guess==="yes")===t.ok)?" ✓":" ✗")+(prev&&prev.coat===t.coat?(t.changed.length?". Changed "+t.changed.join(" + "):". Changed nothing"):""))});
+    if(pred("home"))L.push("  Same home for both? "+pred("home"));}
+  if(pred("hide"))L.push("Same hiding for both? "+pred("hide"));
+  if(p.hideTries.length){L.push("Hide and seek ("+p.hideTries.length+" tries):");
+    p.hideTries.forEach((t,i)=>L.push("  "+(i+1)+". "+(t.tiger==="white"?"🤍":"🧡")+" "+nameOf(HIDE.places,t.place).toLowerCase()+". Guessed "+(t.guess==="seen"?"spot him":"sneaks close")+", "+(t.result==="seen"?"spotted":"snuck close")+(t.guess===t.result?" ✓":" ✗")+(i?(t.changed.length?". Changed "+t.changed.join(" + "):". Changed nothing"):"")));
+    L.push("  Deer eyes: "+(p.usedDeerEyes?"used":"not used"));}
+  L.push(p.taps+(p.taps===1?" tap":" taps")+" · about "+Math.max(1,Math.round(p.secs/60))+" min"+(p.finished?"":" · stopped before the end"));
+  return L;
+}
+function allPlays(){const cur=snapshot();return cur.taps>0?plays.concat([cur]):plays.slice()}
+function summaryText(){
+  const ps=allPlays();
+  const L=["🐯 Tiger game: Alex's tries"+(ps.length>1?" · played "+ps.length+" times":"")];
+  ps.forEach((p,i)=>{L.push("");L.push("PLAY "+(i+1)+(whenText(p.at)?" ("+whenText(p.at)+")":""));L.push(...playLines(p))});
+  if(ps.length>1){
+    const hg=ps.filter(p=>p.results&&p.results.hide).map(p=>p.results.hide.guess);
+    if(hg.length>1)L.push("","Hiding prediction across plays: "+hg.join(" → "));
+  }
+  const n=document.getElementById("dad-note");
+  if(n&&n.value.trim()){L.push("");L.push("Grown-up's note: "+n.value.trim());}
+  return L.join("\n");
+}
+function refreshShare(){
+  const txt=summaryText();
+  const s=document.getElementById("summary");if(s)s.textContent=txt;
+  const w=document.getElementById("wa");if(w)w.href="https://wa.me/?text="+encodeURIComponent(txt);
+  return txt;
+}
+function showEnd(){
+  scene="end";setDots(4);$("eyes").hidden=true;$("plate").textContent="";hideTummy();$("back").innerHTML="";stage.className="stage end"+(coat==="orange"?" coat-orange":"");
+  $("title").textContent="Thank you, Chef!";
+  react("yum","Thank you, chef! You found out what my colour is for. Roar!");
+  hint.innerHTML="<b>Grown-up</b>Ask: “Why does the colour only matter for hiding?” Type the answer, then tap the green button.";
+  controls.innerHTML="";
+  const found=document.createElement("div");found.className="log found";
+  const fr=(label,ans,k)=>"<div class='fr'><span>"+label+"</span><b>"+ans+"</b>"+(results[k]?"<small>"+(results[k].guess===ans.toLowerCase()?"Guessed right ✓":"Guessed "+results[k].guess)+"</small>":"")+"</div>";
+  found.innerHTML="<h2>White tiger vs orange tiger</h2>"+fr("🍖 Food","Same","feed")+fr("🏞️ Home","Same","home")+fr("🙈 Hiding","Different","hide");
+  controls.appendChild(found);
+  const box=document.createElement("div");box.className="log";
+  box.innerHTML="<label for='dad-note' class='end-label'>One thing Alex said or asked (optional)</label>"+
+    "<textarea id='dad-note' class='note-in' placeholder='e.g. Why is the tiger white?'></textarea>";
+  controls.appendChild(box);
+  box.querySelector("#dad-note").addEventListener("input",refreshShare);
+  const n=allPlays().length;
+  if(n>1||plays.length){
+    const info=document.createElement("div");info.className="plays-info";
+    info.innerHTML="<span>The summary includes all "+n+" play"+(n>1?"s":"")+" saved in this browser.</span>";
+    const clr=document.createElement("button");clr.className="link-btn";clr.id="clear-plays";clr.textContent="Clear old plays";
+    let armed=false;
+    clr.onclick=()=>{if(!armed){armed=true;clr.textContent="Tap again to clear";return}
+      plays=[];persistPlays();clr.remove();info.querySelector("span").textContent="Old plays cleared. The summary shows this play only.";refreshShare()};
+    info.appendChild(clr);controls.appendChild(info);
+  }
+  const det=document.createElement("div");det.className="log";
+  det.innerHTML="<h2>Play summary</h2><p style='margin:0 0 6px;opacity:.85'>Every guess, try and change is recorded. In the Curiosity Loop pilot, families share this summary with us so the next game can build on it. (Demo: “Alex” is a placeholder name.)</p><pre id='summary' style='white-space:pre-wrap;font-family:inherit;margin:8px 0 0'></pre>";
+  controls.appendChild(det);
+  const row=document.createElement("div");row.className="row";row.style.marginTop="12px";
+  const c=document.createElement("button");c.className="btn ghost";c.id="copy";c.textContent="Copy";
+  c.onclick=()=>{
+    const txt=refreshShare();
+    const done=()=>{c.textContent="Copied ✓"};
+    try{navigator.clipboard.writeText(txt).then(done,()=>fallback(txt,done))}catch(e){fallback(txt,done)}
+  };
+  const a=document.createElement("button");a.className="btn ghost";a.id="again";a.textContent="Play again";
+  a.onclick=()=>{archivePlay();playStartLog=log.length;playStartAt=Date.now();yums=0;hide.tries=[];hide.place=null;hide.deerEyes=false;hide.usedDeerEyes=false;results={};feedRuns=[];homeTries=[];homeCoats=[];firstCoat=null;setCoat("white");showFeed()};
+  row.append(c,a);controls.appendChild(row);window.scrollTo(0,0);
+  refreshShare();
+  save(true);
+}
+function fallback(txt,done){
+  const ta=document.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";
+  document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done()}catch(e){}ta.remove();
+}
+
+/* Public copy: plays are kept only in this browser; nothing is sent anywhere. */
+let dbRef=null,saving=false,pending=false,pendingFinished=false;
+async function save(finished){
+  keepCurrent();
+  if(!dbRef)return;
+  if(finished)pendingFinished=true;
+  if(saving){pending=true;return}
+  saving=true;
+  try{
+    await dbRef.collection("plays").doc(sessionId).set({
+      game:"white-tiger",startedAt:new Date(t0).toISOString(),updatedAt:new Date().toISOString(),
+      finished:!!pendingFinished,taps:log
+    });
+    
+  }catch(e){$("saved").textContent=""}
+  saving=false;
+  if(pending){pending=false;save()}
+}
+showFeed();
+</script>
+
+</body></html>

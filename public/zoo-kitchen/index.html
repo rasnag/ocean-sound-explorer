@@ -1,0 +1,270 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chef Alex's Zoo Kitchen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700&display=swap">
+<style>
+/* Layout: one column like a kitchen order rail: pick a guest, read the clues, cook the plate, read the review */
+:root{
+  --bg:#e4f1ec; --card:#ffffff; --ink:#22302c; --muted:#5b6d67; --line:#c6ddd4;
+  --tomato:#e2533a; --butter:#ffd66b; --mint:#2f8f6f; --plate:#f3f6f5;
+  --display:"Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body:"Nunito", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10201b; --card:#182c26; --ink:#e7f2ee; --muted:#9db8ae; --line:#2b4a40;
+  --tomato:#ff7a5f; --butter:#ffd978; --mint:#5cc79f; --plate:#21382f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10201b; --card:#182c26; --ink:#e7f2ee; --muted:#9db8ae; --line:#2b4a40;
+  --tomato:#ff7a5f; --butter:#ffd978; --mint:#5cc79f; --plate:#21382f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+.wrap{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:28px 60px;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--display);font-weight:700;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:clamp(2.1rem,8vw,3rem);color:var(--tomato)}
+h2{font-size:1.5rem}
+p{margin:0}
+.lead{color:var(--muted)}
+.hero{display:flex;flex-direction:column;gap:10px}
+.roles{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-weight:700;font-size:.85rem;padding:4px 12px;border-radius:999px;background:var(--card);border:2px solid var(--line)}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.tag{font-family:var(--display);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mint)}
+button{font:inherit;font-weight:700;cursor:pointer;border-radius:999px;border:2px solid var(--ink);background:transparent;color:var(--ink);padding:8px 16px}
+button:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
+button:disabled{opacity:.4;cursor:default}
+.guests{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+.guest{display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:16px;border-color:var(--line);padding:10px 6px}
+.guest .em{font-size:2.2rem;line-height:1.1}
+.guest.on{border-color:var(--tomato);background:var(--plate)}
+.guest small{font-size:.75rem;color:var(--muted)}
+.who{display:flex;align-items:center;gap:14px}
+.who .big{font-size:3.4rem;line-height:1}
+.clues{display:flex;flex-direction:column;gap:8px}
+.clue{display:flex;gap:10px;align-items:flex-start;text-align:left;border-radius:14px;border:2px dashed var(--line);padding:10px 12px;font-weight:400}
+.clue b{font-family:var(--display);color:var(--tomato);white-space:nowrap}
+.clue.shut{color:var(--muted)}
+.mguess{display:flex;flex-wrap:wrap;gap:8px}
+.mguess button{padding:6px 12px}
+.mguess button.on{background:var(--ink);color:var(--card)}
+.pantry{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.food{display:flex;flex-direction:column;align-items:center;gap:0;border-radius:14px;border-color:var(--line);padding:8px 4px;font-size:.8rem}
+.food .em{font-size:1.7rem}
+.food.on{border-color:var(--mint);background:var(--plate)}
+.plate{display:flex;align-items:center;justify-content:center;gap:12px;min-height:110px;border-radius:50%;aspect-ratio:2.2/1;max-width:100%;width:340px;align-self:center;background:var(--plate);border:6px double var(--line);font-size:2.2rem}
+.plate .empty{font-size:.95rem;color:var(--muted);font-family:var(--body)}
+.dish{display:flex;flex-direction:column;gap:6px}
+.dish label{font-weight:700}
+input[type=text]{font:inherit;width:100%;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--plate);color:var(--ink)}
+.serve{background:var(--tomato);border-color:var(--tomato);color:#fff;font-family:var(--display);font-size:1.25rem;padding:10px 24px;align-self:flex-start}
+.review{border-radius:18px;padding:16px;background:var(--plate);display:flex;flex-direction:column;gap:10px}
+.stars{font-size:1.6rem;color:var(--butter);letter-spacing:2px;-webkit-text-stroke:1px var(--ink)}
+.verdict{font-family:var(--display);font-size:1.35rem}
+.line{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start}
+.line .em{font-size:1.5rem;line-height:1.2}
+.line b{display:block}
+.pill{display:inline-block;font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:999px;margin-left:4px;vertical-align:middle}
+.love{background:var(--mint);color:#fff} .like{background:var(--butter);color:#3d2e00} .wont{background:var(--tomato);color:#fff}
+.next{font-weight:700;padding:10px 12px;border-radius:12px;background:var(--card)}
+.logscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:700}
+.foot{font-size:.92rem;color:var(--muted)}
+.disc{padding:10px 12px;border-radius:12px;background:var(--butter);color:#3d2e00}
+.disccount{font-family:var(--display);font-size:1.3rem;color:var(--mint)}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <h1>Chef Alex's Zoo Kitchen</h1>
+    <p class="lead">The zoo's animals are hungry, and every one of them is a picky eater. Read their clues, work out what they eat, and cook them the perfect plate.</p>
+    <p class="demo-note" style="margin:10px 0 0;font-size:.85em;opacity:.8">Demo version: “Alex” is a placeholder name. Each real Curiosity Loop game is built from one child's own question and anonymized before sharing.</p>
+    <div class="roles"><span class="chip">Alex: head chef</span><span class="chip">Grown-up: zookeeper who reads the clues</span><span class="chip">About 15 minutes</span></div>
+  </header>
+
+  <section class="panel">
+    <div class="tag">Step 1 · Who's hungry?</div>
+    <h2>Pick tonight's guest</h2>
+    <div class="guests" id="guests"></div>
+  </section>
+
+  <section class="panel" id="cluePanel" hidden>
+    <div class="tag">Step 2 · Zookeeper reads the clues</div>
+    <div class="who"><span class="big" id="whoEm"></span><div><h2 id="whoName"></h2><p class="lead" id="whoSub"></p></div></div>
+    <div class="clues" id="clues"></div>
+    <div id="mysteryBox" hidden>
+      <p><b>Chef, who do you think it is?</b></p>
+      <div class="mguess" id="mguess"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="kitchen" hidden>
+    <div class="tag">Step 3 · Cook it</div>
+    <h2>Pick up to 3 things for the plate</h2>
+    <div class="pantry" id="pantry"></div>
+    <div class="plate" id="plate"><span class="empty">Empty plate</span></div>
+    <div class="dish"><label for="dishName">Name your dish, Chef</label><input id="dishName" type="text" maxlength="40" placeholder="e.g. Crunchy Jungle Salad"></div>
+    <button class="serve" id="serve" disabled>Serve it!</button>
+    <div class="review" id="review" hidden></div>
+  </section>
+
+  <section class="panel" id="logPanel" hidden>
+    <div class="tag">Chef's notebook</div>
+    <h2>Every plate we served</h2>
+    <p class="disccount" id="discCount"></p>
+    <p class="lead">Every plate teaches you something, even the ones the animals don't eat.</p>
+    <div class="logscroll"><table><thead><tr><th>#</th><th>Guest</th><th>Dish</th><th>Stars</th></tr></thead><tbody id="log"></tbody></table></div>
+    <p class="next">Big-chef question: which animals eat only one thing, and which ones eat lots of different things? How can you tell from their teeth?</p>
+  </section>
+
+  <p class="foot">Tomorrow in your real kitchen: open the fridge together. What in there would a panda eat? A lion? A hedgehog? Grown-ups: what did Alex say that surprised you?</p>
+</div>
+
+<script>
+const FOODS={
+  bamboo:["🎋","Bamboo"], leaves:["🌿","Acacia leaves"], euc:["🍃","Eucalyptus leaves"], hay:["🌾","Hay"],
+  carrot:["🥕","Carrots"], apple:["🍎","Apples"], fish:["🐟","Fish"], meat:["🥩","Meat"], bugs:["🐜","Bugs & worms"]
+};
+const ANIMALS={
+  panda:{em:"🐼",name:"Panda",sub:"Visiting from the bamboo forest",
+    clues:["I have big, flat back teeth for crunching tough plants.","I live in cool, misty mountain forests in China.","I spend about half of every day eating."],
+    love:["bamboo"],like:["carrot","apple"],
+    loveWhy:"Bamboo is almost all a wild panda eats. It munches for hours every day.",
+    likeWhy:"Zoos give pandas apples and carrots as treats, but bamboo is the main meal.",
+    wontWhy:"Pandas skip that. They stick to bamboo.",
+    special:{meat:"Funny fact: pandas have a meat-eater's tummy, but they almost never eat meat. Bamboo all the way."}},
+  penguin:{em:"🐧",name:"Penguin",sub:"Waddled in from the cold ocean",
+    clues:["I have no teeth. My tongue has little backward spikes to grip slippery food.","I'm a bird that can't fly, but I'm a super-fast swimmer.","I swallow my dinner whole."],
+    love:["fish"],like:[],
+    loveWhy:"Penguins catch fish underwater and swallow them whole. Perfect!",
+    likeWhy:"",
+    wontWhy:"No teeth for chewing plants! Penguins eat sea animals like fish, krill and squid.",
+    special:{meat:"Not this kind. Penguins only eat animals from the sea, like fish, krill and squid."}},
+  giraffe:{em:"🦒",name:"Giraffe",sub:"Peeking over the fence",
+    clues:["My tongue is so long it can wrap around branches.","I'm the tallest animal in the world, so I eat way up high.","I chew my food, swallow it, then burp it back up to chew again."],
+    love:["leaves"],like:["hay","carrot","euc","bamboo","apple"],
+    loveWhy:"Giraffes wrap their long tongues around acacia branches and pull off the leaves, thorns and all.",
+    likeWhy:"Giraffes eat lots of different plants. Zoo giraffes get hay, and carrots as a treat.",
+    wontWhy:"Giraffes are plant-eaters. Their flat teeth are made for grinding leaves, not meat."},
+  koala:{em:"🐨",name:"Koala",sub:"Sleepy, up in a tree",
+    clues:["I'm super picky. I eat leaves from almost only one kind of tree.","That tree grows in Australia and smells minty.","I sleep up to 18 hours a day."],
+    love:["euc"],like:[],
+    loveWhy:"Eucalyptus leaves! Koalas eat almost nothing else.",
+    likeWhy:"",
+    wontWhy:"Koalas are the pickiest eaters in the zoo. Eucalyptus leaves only, please."},
+  hedgehog:{em:"🦔",name:"Hedgehog",sub:"Snuffling around after dark",
+    clues:["I come out at night and snuffle along with my nose to the ground.","I have small, sharp teeth for crunching beetles.","When I'm scared, I roll into a spiky ball."],
+    love:["bugs"],like:["apple"],
+    loveWhy:"Hedgehogs love crunchy beetles, caterpillars and worms. They sniff them out at night.",
+    likeWhy:"A tiny bit of fruit is fine, but bugs and worms are the main meal.",
+    wontWhy:"Hedgehogs mostly eat bugs and worms, not that."},
+  lion:{em:"🦁",name:"Lion",sub:"Yawning in the sunshine",
+    clues:["My back teeth work like scissors.","I'm a hunter who sleeps most of the day.","I live on the grasslands of Africa."],
+    love:["meat"],like:[],
+    loveWhy:"Lions are hunters. Their scissor teeth slice meat.",
+    likeWhy:"",
+    wontWhy:"Lions don't eat plants. They don't have the flat teeth needed to grind them up.",
+    special:{fish:"Not really. Lions mostly hunt land animals like zebras and antelope."}}
+};
+const ORDER=["panda","penguin","giraffe","koala","hedgehog","lion"];
+let cur=null,mystery=false,revealed=0,mguess=null,plate=[];const log=[];
+const $=id=>document.getElementById(id);
+
+function buildGuests(){
+  const g=$('guests');
+  [...ORDER,"mystery"].forEach(k=>{
+    const b=document.createElement('button');b.className='guest';b.dataset.k=k;
+    b.innerHTML=k==="mystery"?`<span class="em">❓</span>Mystery guest<small>Who could it be?</small>`:`<span class="em">${ANIMALS[k].em}</span>${ANIMALS[k].name}`;
+    b.addEventListener('click',()=>pick(k));g.appendChild(b);
+  });
+}
+function pick(k){
+  document.querySelectorAll('.guest').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  mystery=k==="mystery";cur=mystery?ORDER[Math.floor(Math.random()*ORDER.length)]:k;
+  revealed=0;mguess=null;plate=[];$('dishName').value='';
+  const a=ANIMALS[cur];
+  $('whoEm').textContent=mystery?"❓":a.em;
+  $('whoName').textContent=mystery?"Mystery guest":a.name;
+  $('whoSub').textContent=mystery?"Someone's hiding behind the kitchen door…":a.sub;
+  $('mysteryBox').hidden=!mystery;
+  if(mystery){$('mguess').innerHTML='';ORDER.forEach(o=>{const b=document.createElement('button');b.textContent=ANIMALS[o].em+' '+ANIMALS[o].name;
+    b.addEventListener('click',()=>{mguess=o;[...$('mguess').children].forEach(x=>x.classList.toggle('on',x===b))});$('mguess').appendChild(b)})}
+  renderClues();renderPantry();renderPlate();
+  $('cluePanel').hidden=false;$('kitchen').hidden=false;$('review').hidden=true;
+  $('cluePanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderClues(){
+  const a=ANIMALS[cur],box=$('clues');box.innerHTML='';
+  a.clues.forEach((c,i)=>{
+    const b=document.createElement('button');b.className='clue'+(i<revealed?'':' shut');
+    b.innerHTML=i<revealed?`<b>Clue ${i+1}</b><span>${c}</span>`:`<b>Clue ${i+1}</b><span>${i===revealed?'Tap to read the next clue':'Locked'}</span>`;
+    b.disabled=i>revealed;
+    b.addEventListener('click',()=>{if(i===revealed){revealed++;renderClues()}});
+    box.appendChild(b);
+  });
+}
+function renderPantry(){
+  const p=$('pantry');p.innerHTML='';
+  Object.entries(FOODS).forEach(([k,[em,n]])=>{
+    const b=document.createElement('button');b.className='food'+(plate.includes(k)?' on':'');
+    b.innerHTML=`<span class="em">${em}</span>${n}`;
+    b.addEventListener('click',()=>{
+      if(plate.includes(k))plate=plate.filter(x=>x!==k);else if(plate.length<3)plate.push(k);
+      renderPantry();renderPlate();
+    });
+    p.appendChild(b);
+  });
+}
+function renderPlate(){
+  $('plate').innerHTML=plate.length?plate.map(k=>`<span title="${FOODS[k][1]}">${FOODS[k][0]}</span>`).join(''):'<span class="empty">Empty plate</span>';
+  $('serve').disabled=!plate.length;
+}
+function verdictFor(a,items){
+  const loved=items.filter(i=>i.kind==='love').length,liked=items.filter(i=>i.kind==='like').length,wont=items.filter(i=>i.kind==='wont').length;
+  if(loved&&!wont)return[3,`Licked the plate clean!`];
+  if(loved&&wont)return[2,`Ate the good part, pushed the rest away. Great experiment!`];
+  if(liked&&!wont)return[2,`Yummy snack… but where's the main meal?`];
+  if(liked)return[1,`Nibbled a bit, then wandered off. You learned something new!`];
+  return[0,`Sniffed it and turned away. Great experiment, Chef. Now you know what it doesn't eat!`];
+}
+const found=new Set(),tries={};
+$('serve').addEventListener('click',()=>{
+  const a=ANIMALS[cur];
+  const items=plate.map(k=>{
+    const kind=a.love.includes(k)?'love':a.like.includes(k)?'like':'wont';
+    const why=(a.special&&a.special[k])||(kind==='love'?a.loveWhy:kind==='like'?a.likeWhy:a.wontWhy);
+    return{k,kind,why};
+  });
+  const [stars,word]=verdictFor(a,items);
+  const dish=$('dishName').value.trim()||'Chef’s special';
+  let reveal='';
+  if(mystery){
+    reveal=`<p class="verdict">The mystery guest was… ${a.em} ${a.name}!</p>`+
+      (mguess?`<p>Chef guessed ${ANIMALS[mguess].em} ${ANIMALS[mguess].name}. ${mguess===cur?'Spot on!':'Not this time. Which clue gave it away?'}</p>`:'');
+    $('whoEm').textContent=a.em;$('whoName').textContent=a.name;$('whoSub').textContent=a.sub;
+  }
+  const lbl={love:'Favourite',like:'Treat',wont:'No thanks'};
+  tries[cur]=(tries[cur]||0)+1;
+  const fresh=items.filter(i=>{const key=cur+':'+i.k;if(found.has(key))return false;found.add(key);return true});
+  const disc=fresh.length?`<p class="disc"><b>New discover${fresh.length>1?'ies':'y'}!</b> `+
+    fresh.map(i=>`${a.name}s ${i.kind==='love'?'love':i.kind==='like'?'like a little':'don’t eat'} ${FOODS[i.k][1].toLowerCase()} ${FOODS[i.k][0]}`).join(' · ')+`</p>`:'';
+  const tryLine=tries[cur]>1?`<p class="lead">Try #${tries[cur]} for the ${a.name.toLowerCase()}. Real chefs test their recipes again and again.</p>`:'';
+  const nextTip=stars===3?`Perfect plate! Try a different guest, or a Mystery guest.`:
+    `Swap just one thing and serve it again. Which one would you change, and why?`;
+  $('discCount').textContent=`${found.size} discover${found.size===1?'y':'ies'} so far`;
+  $('review').innerHTML=reveal+tryLine+
+    `<div class="stars" aria-label="${stars} out of 3 stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>`+
+    `<p class="verdict">${esc(dish)}: ${word}</p>`+
+    items.map(i=>`<div class="line"><span class="em">${FOODS[i.k][0]}</span><div><b>${FOODS[i.k][1]}<span class="pill ${i.kind}">${lbl[i.kind]}</span></b>${i.why}</div></div>`).join('')+
+    disc+`<p class="next">${nextTip}</p>`;
+  $('review').hidden=false;
+  log.push([a.em+' '+a.name+(mystery?' (mystery)':''),dish,plate.map(k=>FOODS[k][0]).join(' '),stars]);
+  $('log').innerHTML=log.map((r,i)=>`<tr><td>${i+1}</td><td>${r[0]}</td><td>${esc(r[1])}<br>${r[2]}</td><td>${'★'.repeat(r[3])}${'☆'.repeat(3-r[3])}</td></tr>`).join('');
+  $('logPanel').hidden=false;
+  if(mystery){mystery=false;$('mysteryBox').hidden=true}
+  $('review').scrollIntoView({behavior:'smooth',block:'nearest'});
+});
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+buildGuests();
+</script>
+
+</body></html>

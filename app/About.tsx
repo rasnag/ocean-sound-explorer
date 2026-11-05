@@ -1,6 +1,7 @@
 import {useEffect} from 'react';
-import {ArrowRight,Eye,Sparkles} from 'lucide-react';
+import {ArrowRight,Sparkles} from 'lucide-react';
 import './about.css';
+import {games} from '../lib/games.mjs';
 
 const loop=['Notice','Wonder','Explore','Notice more'];
 
@@ -9,14 +10,14 @@ export default function About(){
  return <main className="about-site">
   <nav className="about-nav" aria-label="Main navigation">
    <a className="about-wordmark" href="/" aria-label="Curiosity Loop home"><span>✦</span> Curiosity Loop</a>
-   <a href="#experiments">Experiments</a>
+   <a href="#experiments">All games</a>
   </nav>
 
   <section className="about-hero">
    <div className="about-kicker"><Sparkles size={16}/> Experiments in childhood curiosity</div>
    <h1>Can technology make kids more curious about the <em>real world?</em></h1>
    <p>We’re building small experiments that begin on a screen—and end with a child noticing, wondering, listening, or looking more closely at the world around them.</p>
-   <a className="about-cta" href="#experiments">Try an experiment <ArrowRight aria-hidden="true"/></a>
+   <a className="about-cta" href="#experiments">Explore all games <ArrowRight aria-hidden="true"/></a>
    <div className="about-orbit" aria-hidden="true"><span>🌍</span><i>🌙</i></div>
   </section>
 
@@ -36,16 +37,13 @@ export default function About(){
   </section>
 
   <section className="experiments" id="experiments" aria-labelledby="experiments-heading">
-   <div className="experiments-heading"><div><p className="about-section-label">Try it</p><h2 id="experiments-heading">Current experiments</h2></div><p>Made for curious kids and the grown-ups exploring with them.</p></div>
-   <div className="experiment-grid">
-    <article className="experiment-card ocean-card">
-     <div className="experiment-image"><img src="/animals/dolphin.webp" alt="A dolphin leaping from the ocean"/><span>Experiment 01</span></div>
-     <div className="experiment-copy"><p>Listen · Guess · Discover</p><h3>Ocean Sound Explorer</h3><div className="experiment-question"><Eye size={18}/><span>Can animal sounds make a child want to know more about the animals behind them?</span></div><a href="/ocean-sound-explorer">Start listening <ArrowRight aria-hidden="true"/></a></div>
-    </article>
-    <article className="experiment-card moon-card">
-     <div className="experiment-image"><div className="moon-art" aria-hidden="true"><span>☀️</span><i>🌍</i><b>🌙</b></div><span>Experiment 02</span></div>
-     <div className="experiment-copy"><p>Move · Observe · Look up</p><h3>Make the Moon</h3><div className="experiment-question"><Eye size={18}/><span>Can a tiny simulation inspire a child to look for the real Moon later?</span></div><a href="/make-the-moon">Move the Moon <ArrowRight aria-hidden="true"/></a></div>
-    </article>
+   <div className="experiments-heading"><div><p className="about-section-label">Try it</p><h2 id="experiments-heading">Choose an adventure</h2></div><p>Made for curious kids and the grown-ups exploring with them.</p></div>
+   <p className="game-library-note">10 playable games · Ages 5–8 · Explore together with a grown-up. Public demos use generic player names.</p>
+   <div className="experiment-grid game-library">
+    {games.map(game=><article className="experiment-card" key={game.slug}>
+     <div className="game-art" style={{background:game.color}} aria-hidden="true">{game.icon}</div>
+     <div className="experiment-copy"><p>{game.action}</p><h3>{game.title}</h3><p className="game-description">{game.description}</p><a href={'/'+game.slug+(game.slug==='ocean-sound-explorer'||game.slug==='make-the-moon'?'':'/')}>Play {game.title} <ArrowRight aria-hidden="true"/></a></div>
+    </article>)}
    </div>
   </section>
 

@@ -1,0 +1,195 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Alex's Z Hunt</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grandstander:wght@600;800&family=Nunito:wght@400;700&display=swap">
+<style>
+/* Layout: one column of detective steps; everything is tap-only for a 5-year-old, with the grown-up reading aloud */
+:root{
+  --bg:#f1eefb; --card:#ffffff; --ink:#26224a; --muted:#625d86; --line:#d9d3f0;
+  --indigo:#4b3fb5; --rani:#d6336c; --marigold:#f2a516; --soft:#ebe7fa;
+  --display:"Grandstander", "Trebuchet MS", system-ui, sans-serif;
+  --body:"Nunito", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15132a; --card:#1f1c3b; --ink:#ece9ff; --muted:#aaa4d4; --line:#363162;
+  --indigo:#9d93ff; --rani:#ff6b9c; --marigold:#ffc04d; --soft:#2a2650; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15132a; --card:#1f1c3b; --ink:#ece9ff; --muted:#aaa4d4; --line:#363162;
+  --indigo:#9d93ff; --rani:#ff6b9c; --marigold:#ffc04d; --soft:#2a2650; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+.wrap{max-width:660px;margin:0 auto;padding-inline:16px;padding-block:28px 60px;display:flex;flex-direction:column;gap:24px}
+h1,h2{font-family:var(--display);font-weight:800;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:clamp(2.2rem,8vw,3.2rem);color:var(--indigo)}
+h1 .z{color:var(--rani)}
+h2{font-size:1.45rem}
+p{margin:0}
+.lead{color:var(--muted)}
+.say{font-size:.85rem;font-weight:700;color:var(--rani)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-weight:700;font-size:.85rem;padding:4px 12px;border-radius:999px;background:var(--card);border:2px solid var(--line)}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.tag{font-family:var(--display);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--rani)}
+button{font:inherit;font-weight:700;cursor:pointer;border-radius:999px;border:2px solid var(--ink);background:transparent;color:var(--ink);padding:8px 16px;touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
+.who{font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.tile{aspect-ratio:1;border-radius:14px;border:2px solid var(--line);font-family:var(--display);font-size:clamp(1.4rem,6vw,2rem);padding:0;background:var(--soft)}
+.tile.on{background:var(--rani);border-color:var(--rani);color:#fff}
+.tile.on2{background:var(--indigo);border-color:var(--indigo);color:#fff}
+.bagrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pull{background:var(--indigo);border-color:var(--indigo);color:#fff;font-family:var(--display);font-size:1.15rem;padding:10px 20px}
+.drawn{display:flex;flex-wrap:wrap;gap:6px;min-height:46px}
+.lt{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:1.3rem;background:var(--marigold);color:#3b2a00;box-shadow:0 3px 0 rgba(0,0,0,.18);animation:pop .35s ease}
+.lt.z{background:var(--rani);color:#fff}
+@keyframes pop{from{transform:translateY(-14px) scale(.6);opacity:0}to{transform:none;opacity:1}}
+.race{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;align-items:center}
+.race .nm{font-family:var(--display);font-size:1.6rem;width:1.4em;text-align:center}
+.race .trk{height:28px;background:var(--soft);border-radius:14px;overflow:hidden}
+.race .fill{height:100%;width:0;border-radius:14px;transition:width .3s}
+.race .n{font-family:var(--display);font-size:1.2rem;font-variant-numeric:tabular-nums;min-width:2.5em;text-align:right}
+.fe{background:var(--marigold)} .fz{background:var(--rani)} .fa{background:var(--indigo)}
+.story{display:flex;flex-direction:column;gap:10px;padding:14px 10px;border-radius:16px;background:var(--soft)}
+.sline{display:flex;flex-wrap:wrap;gap:4px 16px}
+.sword{display:inline-flex;align-items:flex-end}
+.sl{border:0;border-radius:8px;padding:0 3px;min-width:30px;min-height:46px;font-family:var(--display);font-size:clamp(1.6rem,7vw,2.2rem);background:transparent;color:var(--ink);line-height:1}
+.punc{font-family:var(--display);font-size:clamp(1.6rem,7vw,2.2rem);line-height:46px}
+.sl.hitE{background:var(--marigold);color:#3b2a00}
+.sl.hitZ{background:var(--rani);color:#fff}
+.sl.nope{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.note{padding:10px 12px;border-radius:12px;background:var(--soft);font-weight:700}
+.pics{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px}
+.pic{display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:16px;border-color:var(--line);padding:10px 4px;font-weight:400}
+.pic .em{font-size:2.4rem;line-height:1.1}
+.pic .w{font-family:var(--display);font-size:1rem;letter-spacing:.04em}
+.pic .w i{font-style:normal;color:var(--rani)}
+.pic.yes{border-color:var(--rani);background:var(--soft)}
+.pic.no{opacity:.55}
+.pic.snd{border-color:var(--marigold);background:var(--soft)}
+.score{font-family:var(--display);font-size:1.2rem;color:var(--rani)}
+.facts{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
+.facts li{padding:12px 14px;border-radius:14px;background:var(--soft)}
+.facts b{font-family:var(--display);display:block;margin-bottom:2px}
+.foot{font-size:.92rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.lt{animation:none}.race .fill{transition:none}}
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <h1>Alex's <span class="z">Z</span> Hunt</h1>
+    <p class="lead">Alex noticed something: Z hardly ever shows up in words. Are they right? Let's be letter detectives and find out.</p>
+    <p class="demo-note" style="margin:10px 0 0;font-size:.85em;opacity:.8">Demo version: “Alex” is a placeholder name. Each real Curiosity Loop game is built from one child's own question and anonymized before sharing.</p>
+    <div class="chips"><span class="chip">Alex: chief detective, does all the tapping</span><span class="chip">Grown-up: reads everything out loud</span><span class="chip">About 15 minutes</span></div>
+  </header>
+
+  <section class="panel">
+    <div class="tag">Step 1 · Guess first</div>
+    <h2>Which letter is the shyest?</h2>
+    <p class="say">Grown-up, read aloud: "Some letters show up all the time. Some hardly ever come out. Which one of these do you think is the shyest?"</p>
+    <p class="who">Alex taps one:</p>
+    <div class="tiles" data-g="m"></div>
+    <p class="who">Grown-up taps one:</p>
+    <div class="tiles" data-g="p"></div>
+  </section>
+
+  <section class="panel">
+    <div class="tag">Step 2 · Letter hunt in a story</div>
+    <h2>Find every E and every Z</h2>
+    <p class="say">Read the story aloud first. Then: "Tap every E you can find. Then tap every Z. Which one has more?"</p>
+    <div class="story" id="story"></div>
+    <div class="race">
+      <span class="nm">E</span><div class="trk"><div class="fill fe" id="fE"></div></div><span class="n" id="nE">0</span>
+      <span class="nm" style="color:var(--rani)">Z</span><div class="trk"><div class="fill fz" id="fZ"></div></div><span class="n" id="nZ">0</span>
+    </div>
+    <p class="note" id="bagNote">Start tapping! Every E turns yellow, every Z turns pink.</p>
+  </section>
+
+  <section class="panel">
+    <div class="tag">Step 3 · Z or no Z?</div>
+    <h2>Which pictures have a Z hiding in their name?</h2>
+    <p class="say">Read aloud: "I'll say each word. You tap the ones you think have a Z." Some are tricky. Listen for the "zzz" sound!</p>
+    <div class="pics" id="pics"></div>
+    <p class="score" id="picScore"></p>
+  </section>
+
+  <section class="panel">
+    <div class="tag">Step 4 · Why is Z so shy?</div>
+    <h2>Three clues from the case file</h2>
+    <ul class="facts">
+      <li><b>The Romans kicked Z out.</b>Long, long ago, the Romans took Z out of their alphabet. Later they let it back in, but it had to stand at the very end of the line. That's why Z is still last today.</li>
+      <li><b>Z is worth 10 points.</b>In a word game called Scrabble, Z gets 10 points, one of the biggest scores. Rare letters are worth more because they're hard to use.</li>
+      <li><b>Hindi has a visiting Z too.</b>In Hindi, ज़ is ज with a little dot under it. The dot was added for words that came from Persian, like ज़मीन (zameen, land).</li>
+    </ul>
+  </section>
+
+  <p class="foot">Tomorrow: go on a real Z hunt together. Signs, books, toy boxes, shop names. Who spots a Z first? Grown-ups: what did Alex say that surprised you?</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+/* Step 1: guesses */
+const CH=["E","A","S","T","M","Z"];
+document.querySelectorAll('.tiles').forEach(box=>{
+  CH.forEach(ch=>{const b=document.createElement('button');b.className='tile';b.textContent=ch;
+    b.addEventListener('click',()=>{box.querySelectorAll('.tile').forEach(x=>x.classList.remove('on','on2'));
+      b.classList.add(box.dataset.g==='m'?'on':'on2');guess[box.dataset.g]=ch});
+    box.appendChild(b)});
+});
+const guess={};
+/* Step 2: tap-the-letters story hunt */
+const STORY=["The dolls went to the zoo.","They saw a green tree","and three sleepy bees."];
+const TOT={E:0,Z:0},cnt={E:0,Z:0};
+STORY.forEach(line=>{
+  const row=document.createElement('div');row.className='sline';
+  line.split(' ').forEach(word=>{
+    const wd=document.createElement('span');wd.className='sword';
+    [...word].forEach(ch=>{
+      const U=ch.toUpperCase();
+      if(!/[A-Z]/.test(U)){const p=document.createElement('span');p.className='punc';p.textContent=ch;wd.appendChild(p);return}
+      if(TOT[U]!==undefined)TOT[U]++;
+      const b=document.createElement('button');b.className='sl';b.textContent=ch;b.setAttribute('aria-label','letter '+U);
+      b.addEventListener('click',()=>{
+        if(b.dataset.done)return;
+        if(U==='E'||U==='Z'){b.dataset.done=1;b.classList.add(U==='E'?'hitE':'hitZ');cnt[U]++;updateHunt()}
+        else{b.classList.remove('nope');void b.offsetWidth;b.classList.add('nope')}
+      });
+      wd.appendChild(b);
+    });
+    row.appendChild(wd);
+  });
+  $('story').appendChild(row);
+});
+function updateHunt(){
+  const max=Math.max(1,cnt.E,cnt.Z);
+  ['E','Z'].forEach(k=>{$('f'+k).style.width=(cnt[k]/TOT.E*100)+'%';$('n'+k).textContent=cnt[k]});
+  let msg;
+  if(cnt.E===TOT.E&&cnt.Z===TOT.Z){
+    msg=`All found! ${TOT.E} E's and only ${TOT.Z} Z. E is everywhere and Z is shy, just like Alex noticed.`;
+    if(guess.m)msg+=` Alex guessed ${guess.m} was the shyest letter. ${guess.m==='Z'?'Spot on!':'What do you think now?'}`;
+    msg+=' Try it with a page from a favourite book next!';
+  }else if(cnt.E===TOT.E)msg=`Every E found: ${TOT.E} of them! Now, is there a Z hiding anywhere?`;
+  else if(cnt.Z===TOT.Z)msg=`Z found! There was only ${TOT.Z}. Keep hunting E's: there are lots more.`;
+  else msg=`E's found: ${cnt.E}. Z's found: ${cnt.Z}. Keep looking!`;
+  $('bagNote').textContent=msg;
+}
+/* Step 3: picture cards. z=has a real Z; s=zzz sound spelled with S */
+const PICS=[
+ ["🦓","zebra","<i>z</i>ebra","z"],["🍎","apple","apple",""],["🍕","pizza","pi<i>zz</i>a","z"],["🌳","tree","tree",""],
+ ["🦎","lizard","li<i>z</i>ard","z"],["🎂","cake","cake",""],["🧀","cheese","chee<i>s</i>e","s"],["🐝","buzz","bu<i>zz</i>","z"],
+ ["🌙","moon","moon",""],["🌹","rose","ro<i>s</i>e","s"],["0️⃣","zero","<i>z</i>ero","z"],["🐘","elephant","elephant",""]
+];
+let found=0;const ZTOTAL=PICS.filter(p=>p[3]==='z').length;
+PICS.forEach(([em,w,h,k])=>{
+  const b=document.createElement('button');b.className='pic';b.innerHTML=`<span class="em">${em}</span><span class="w">${w}</span>`;
+  b.addEventListener('click',()=>{
+    if(b.dataset.done)return;b.dataset.done=1;
+    if(k==='z'){b.classList.add('yes');b.innerHTML=`<span class="em">${em}</span><span class="w">${h}</span>Yes, a Z!`;found++}
+    else if(k==='s'){b.classList.add('snd');b.innerHTML=`<span class="em">${em}</span><span class="w">${h}</span>Sneaky! Sounds like Z, but it's an S.`}
+    else{b.classList.add('no');b.innerHTML=`<span class="em">${em}</span><span class="w">${w}</span>No Z here.`}
+    $('picScore').textContent=found===ZTOTAL?`You found all ${ZTOTAL} Z words! Can you think of one more Z word? It's harder than you'd think!`:`Z words found: ${found} of ${ZTOTAL}`;
+  });
+  $('pics').appendChild(b);
+});
+</script>
+
+</body></html>
