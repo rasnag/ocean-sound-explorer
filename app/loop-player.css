@@ -1,0 +1,52 @@
+.loop-player {
+  max-width: 52rem;
+  margin: 1.5rem auto;
+  padding: clamp(1rem, 4vw, 2rem);
+  border-radius: 1.5rem;
+  background: var(--card, #f0fcff);
+  color: var(--card-foreground, #12364a);
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.loop-player > * + * { margin-top: 1.5rem; }
+.loop-player h1 { font-size: clamp(2rem, 7vw, 3rem); }
+.loop-player h2 { margin-bottom: .6rem; }
+.loop-player h3 { margin: 0 0 .5rem; }
+.loop-player-label { font-weight: 750; }
+.loop-player aside { padding: 1rem; border: 2px solid currentColor; border-radius: .8rem; }
+.loop-player aside h2 { font-size: 1.1rem; }
+.loop-player-instruction { font-weight: 750; }
+.loop-player fieldset { min-width: 0; border: 2px solid #33758b; border-radius: 1rem; padding: 1rem; }
+.loop-player legend { padding: 0 .4rem; font-size: 1.15rem; font-weight: 750; }
+.loop-player-choices { display: flex; flex-wrap: wrap; gap: .8rem; }
+.loop-player button {
+  min-height: 56px;
+  min-width: 44px;
+  padding: .8rem 1.1rem;
+  border: 2px solid #12364a;
+  border-radius: .8rem;
+  background: #fff;
+  color: #12364a;
+  font-weight: 750;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.loop-player button[aria-pressed="true"] { background: #12364a; color: #fff; text-decoration: underline; text-underline-offset: .2em; }
+.loop-player button:disabled { opacity: 1; color: #526773; background: #e1e9ed; border-style: dashed; }
+.loop-player button.loop-player-test { width: 100%; background: var(--primary, #ffcf53); color: var(--primary-foreground, #12364a); }
+.loop-player button.loop-player-test:disabled { background: #e1e9ed; color: #526773; }
+.loop-player :is(button, a):focus-visible { outline: 4px solid #964400; outline-offset: 4px; }
+.loop-player a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: underline; }
+.loop-player-trials { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; padding: 0; list-style-position: inside; margin-block: 1rem; }
+.loop-player-trials li { padding: 1rem; border: 2px solid #33758b; border-radius: .8rem; }
+.loop-player dl { margin: 0; }
+.loop-player dt { font-weight: 750; }
+.loop-player dd { margin: 0 0 .6rem; }
+@media (max-width: 400px) {
+  .loop-player { margin: .5rem; }
+  .loop-player-choices { flex-direction: column; }
+  .loop-player-choices button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loop-player button { transition: none; transform: none; }
+}

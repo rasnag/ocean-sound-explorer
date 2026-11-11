@@ -1,0 +1,54 @@
+{
+  "reviewer": "Claude Code",
+  "reviewed_commit": "e96d3e3d9d0fdcbdd5165c8b70d00e842756a0d2",
+  "findings": {
+    "verdict": "pass",
+    "summary": "CODEX-06-A meets every current acceptance criterion. It adds a finite fixture-1/fixture-engine-1 engine that strictly checks the full adventure 1.1.0 and play_action 1.1.0 shapes, and every rejection leaves state unchanged. The React player gets its outcomes only from the engine and is reached only through the existing three-flag preview predicate. The outcome stays hidden until a committed prediction and configuration reach Test. Only the one designated variable (balanced/offset) can change. Retained tries show the guess, position and result immutably, unsupported specs and actions fail safely, and two tries need only button taps. Controller evidence on this tree is real and passing: 19 node tests, the Vite build, a contract-level engine probe, a jsdom DOM probe that transpiles the actual TSX and clicks real handlers, 36 main.tsx routing cases, and a seeded production secret scan. The remaining notes are minor quality items. Browser, phone and layout QA is honestly reported as not observed.",
+    "findings": [
+      {
+        "severity": "minor",
+        "title": "No repo-maintained component test; DOM coverage lives only in controller probe",
+        "file": "tests/loop-player.test.mjs",
+        "line": 1,
+        "problem": "The card asks app tests to cover 'real component interaction as appropriate'. The repository tests exercise only the engine. React/jsdom interaction (Test gating, retained fields, invalid-prop alert) is verified only by the controller's player_dom_probe.mjs, so a future `npm test` would not catch UI regressions such as Test enabling early or current-result rendering before Test. Acceptable under 'as appropriate' because the controller probe is real and passed, but this should be tracked.",
+        "fix_check": "A later card or follow-up adds a maintained jsdom component test under tests/ (or explicitly records that the controller probe is the maintained UI regression gate)."
+      },
+      {
+        "severity": "minor",
+        "title": "Compare control only offers the latest two tries",
+        "file": "app/LoopPlayer.tsx",
+        "line": 111,
+        "problem": "The engine accepts any two distinct retained trial IDs, but the UI sends only `trials.slice(-2)`. Every try stays visible, so the criterion holds. However, with three or more tries a child or parent cannot ask to compare, for example, try 1 with try 3. That limits the comparison step of PD-007/F08.",
+        "fix_check": "Either let users choose two retained tries to compare, or record that latest-two comparison is an intentional v1 simplification for CODEX-06-B/C to revisit."
+      },
+      {
+        "severity": "nit",
+        "title": "Rejection message implies inputs were lost",
+        "file": "app/LoopPlayer.tsx",
+        "line": 49,
+        "problem": "On any dispatch rejection the UI says 'Choose your guess and position again.' Rejections leave state unchanged, so the committed inputs are still selected (aria-pressed stays true). The message can mislead a parent or child. It is a wording problem only, not a safety one.",
+        "fix_check": "The message wording matches the unchanged state (for example, 'That didn't work. Your choices are still selected; try again.')."
+      },
+      {
+        "severity": "nit",
+        "title": "Engine reads action.kind before descriptor validation",
+        "file": "lib/loop/player-engine.mjs",
+        "line": 79,
+        "problem": "`switch (action.kind)` runs before `exact()` confirms that `kind` is an own data property, so a caller-supplied getter would run once before rejection. No state changes and the UI never sends such input, but strict 'no hidden effects' validation would check the shape first.",
+        "fix_check": "Check the action's own keys or data descriptors (or read the `kind` descriptor value) before branching on kind."
+      },
+      {
+        "severity": "nit",
+        "title": "Report cites a different task blob than the canonical card header",
+        "file": ".codex/execution/results/CODEX-06-A/REPORT.md",
+        "line": 7,
+        "problem": "REPORT.md pins task blob 35cf6bfb\u2026 under APPROVAL-003, but the card header supplied for this review names source blob 4ef4aa86\u2026 (commit 70a195e\u2026). These may be the normalized canonical copy versus the source, but the report does not say which, which weakens the exact-revision provenance the card requires.",
+        "fix_check": "REPORT.md states which artifact each blob identifies (canonical approved copy vs. source) and they reconcile with approved/APPROVALS.md."
+      }
+    ]
+  },
+  "controller_checks": {
+    "commit": "e96d3e3d9d0fdcbdd5165c8b70d00e842756a0d2",
+    "output": "[\"npm.cmd\", \"test\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 test\n> node --test tests/*.test.mjs\n\n\u2714 native media starts synchronously in a tap and stop cannot award completion (3.0606ms)\n\u2714 the expedition has two confidence rounds followed by three ocean rounds (2.3515ms)\n\u2714 Web Audio playback schedules every source during the initiating gesture (2.1039ms)\n\u2714 every public game has a distinct playable route and valid scripts (21.7083ms)\n\u2714 every game animal uses a bundled same-origin MP3 (6.0345ms)\n\u2714 real local PostgreSQL and HTTP enforce synthetic founder boundaries (3189.0141ms)\n\u2714 local factory preserves guard failures and returns an empty real PostgreSQL engine (2033.7065ms)\n\u2714 two fresh databases reproduce scoped fixtures, constraints and household deletion (2907.435ms)\n\u2714 assignment scope failures remain immediate while duplicate request assignments cannot commit (1271.1112ms)\n\u2714 migration checksums and actual SQL/registry failures preserve atomicity (1182.0119ms)\n\u2714 exact local mode returns disconnected adapters and does not mutate input (2.0156ms)\n\u2714 missing, unknown, preview and production environments fail closed (0.4307ms)\n\u2714 connections, private browser variables and enabled adapters are refused (1.7266ms)\n\u2714 configuration rejection never includes the rejected value (0.4278ms)\n\u2714 preview requires every exact flag and remains off in production (0.2331ms)\n\u2714 complete finite adventure contract rejects missing, extra, version, range and constant defects (4.182ms)\n\u2714 two fresh button-shaped tries retain immutable provenance and trusted results (2.4342ms)\n\u2714 full envelope and unsupported-operation failures have no effects (1.9916ms)\n\u2714 caller mutation cannot replace pinned rules or committed input (0.4035ms)\n\u2139 tests 19\n\u2139 suites 0\n\u2139 pass 19\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 7626.7401\n\n\n[\"npm.cmd\", \"run\", \"build\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1846 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-BFJER5LG.css  162.72 kB \u2502 gzip: 28.62 kB\ndist/client/assets/index-Cynwe3lD.js   264.22 kB \u2502 gzip: 84.36 kB\n\n\u2713 built in 949ms\n\n\n[\"C:\\\\Program Files\\\\Python314\\\\python.exe\", \"C:\\\\Users\\\\Arrgee\\\\.codex\\\\.chatgpt-projects\\\\g-p-6aa20bbf0df48191a58549f304e705de\\\\loop-adaptation\\\\.codex\\\\tools\\\\check_application_card.py\", \"--card\", \"CODEX-06-A\"]: exit 0\nFinite player engine passed exact synthetic contract validation, committed prediction/config references, deterministic Test, stale/foreign/extra rejection, immutable retained tries and comparison. No save/durability/learning/content approval inferred.\nActual React/jsdom interactions passed two button-only tries, pre-Test outcome gating, retained comparison fields and safe unsupported-spec rendering. No browser/layout claim.\nController assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1846 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-BFJER5LG.css  162.72 kB \u2502 gzip: 28.62 kB\ndist/client/assets/index-CbbxsEQo.js   264.21 kB \u2502 gzip: 84.36 kB\n\n\u2713 built in 519ms\nActual main.tsx router passed36 module-identity cases including trailing slashes: original pages preserved; synthetic routes dev-only.\nSeeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.\n\n"
+  }
+}
