@@ -1,0 +1,45 @@
+{
+  "verdict": "changes_requested",
+  "summary": "The implementation at cd6b4e0 fits the CODEX-06-B scope. The engine, fixture, fixed-audio controller, LoopPlayer, CSS, contract and tests stay within the listed files. They keep the 06-A legacy path and match the specified exact shapes for options, envelopes, assistance actions and snapshots. The controller's npm test (30/30), build and check_application_card.py (engine, DOM, assistance, media, route and seeded-scan probes) all exited 0. Those runs prove the control logic and the jsdom behaviour. They do not prove native audio, keyboard or 320px phone behaviour. The card says \"Browser checkpoint holds before merge\", and a pass here would trigger an automatic merge without any browser observations, so I cannot pass it yet.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "title": "Required browser checkpoint evidence is absent; merge gate not satisfied",
+      "file": "card",
+      "problem": "The card requires that Mute/replay, failed audio and keyboard/phone controls work. It also says source review and DOM tests are NOT layout proof, the browser checkpoint holds before merge, and a real browser gate checks native decode/play/ended, keyboard and phone. The controller evidence contains only jsdom and mock-media runs. assistance_dom_probe.mjs says 'Mock media is NOT native playback/phone layout evidence', jsdom printed 'Not implemented: HTMLMediaElement's pause()', and REPORT.md:43 says no browser result is claimed. Under loop_policy merge_after_review_pass, a pass would merge without the gate the card requires before merge.",
+      "fix_check": "Attach observed real-browser results on exact application revision cd6b4e0 or its successor. They must show: 320px viewport reflow with no clipped controls; keyboard-only operation of prediction, configuration, Test, help-1/2/3, close-help, side-thread-toggle, compare and audio controls with visible focus; the fixture tone decoding, playing and reaching ended; and audio-error-fixture producing the unavailable status while Test, compare and help keep working. Each observation needs browser and version, viewport and actual result."
+    },
+    {
+      "severity": "minor",
+      "title": "REPORT.md is stale: says all checks NOT YET RUN and lacks exact app revision",
+      "file": ".codex/execution/results/CODEX-06-B/REPORT.md",
+      "line": 27,
+      "problem": "The card requires the completion record to give the actual owner, artifact, exact revisions and checks. The report marks every check NOT YET RUN and cites a prior 29-pass/1-fail run. It does not record the reviewed commit cd6b4e0 or the controller's 30/30 test, build and checker exit-0 results. It also describes only the fixture correction, not the full set of implemented files and interfaces.",
+      "fix_check": "The report names commit cd6b4e0 (or its successor) and the controller-run check outcomes with exit statuses. It lists all seven authorized files. It keeps the open browser, voice and content-review gates."
+    },
+    {
+      "severity": "minor",
+      "title": "Adult disclaimer now sits only under 'synthetic developer controls'",
+      "file": "app/LoopPlayer.tsx",
+      "line": 172,
+      "problem": "For the assisted default, adventure.limits (the grown-up disclaimer) is no longer under 'For the grown-up: about this toy'. It appears only inside collapsed details titled 'For the grown-up: synthetic developer controls', next to script and media-fault fixtures. Parents are less likely to find the 'not a real safety or science model' disclaimer there. The protected test still passes because it reads the first adult details paragraph.",
+      "fix_check": "The assisted screen keeps a parent-facing limits disclosure separate from the developer controls, or the reviewer accepts the merged placement explicitly. The protected limits-equality assertion still passes."
+    },
+    {
+      "severity": "nit",
+      "title": "Rejected help/side-thread action shows guess/position error text",
+      "file": "app/LoopPlayer.tsx",
+      "line": 84,
+      "problem": "Every rejected dispatch, including help, close_help and side_thread, shows 'Choose your guess and position again.' The child is told to redo choices that were never affected.",
+      "fix_check": "The rejection message for an assistance action does not tell the child to re-choose their guess or position."
+    },
+    {
+      "severity": "nit",
+      "title": "aria-controls points at help/side content that is not in the DOM when closed",
+      "file": "app/LoopPlayer.tsx",
+      "line": 136,
+      "problem": "The help buttons and side-thread-toggle reference id help-content or side-content even while those elements are not rendered. That ID reference is invalid for assistive technology.",
+      "fix_check": "aria-controls is present only when the target element is rendered, or the target stays mounted with the hidden attribute."
+    }
+  ]
+}
