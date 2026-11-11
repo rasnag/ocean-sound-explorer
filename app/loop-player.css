@@ -22,8 +22,6 @@
 .loop-player-model-small { padding: .25rem; margin-block: .5rem; }
 .loop-player-model-small svg { max-width: 13rem; }
 .loop-player-model-small figcaption { font-size: .85rem; }
-.loop-player aside { padding: 1rem; border: 2px solid currentColor; border-radius: .8rem; }
-.loop-player aside h2 { font-size: 1.1rem; }
 .loop-player-instruction { font-weight: 750; }
 .loop-player fieldset { min-width: 0; border: 2px solid #33758b; border-radius: 1rem; padding: 1rem; }
 .loop-player legend { padding: 0 .4rem; font-size: 1.15rem; font-weight: 750; }

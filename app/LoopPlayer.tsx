@@ -35,7 +35,7 @@ function ToyBalance({configuration, outcome, compact = false}: {configuration: s
   const position = configuration ? configurationLabels[configuration] : 'Choose a block position';
   const result = outcome ? outcomeLabels[outcome] : 'Not tested yet';
   return (
-    <figure className={`loop-player-model${compact ? ' loop-player-model-small' : ''}`}
+    <figure className={`loop-player-model${compact ? ' loop-player-model-small' : ''}`} aria-hidden={compact || undefined}
       data-testid={compact ? 'trial-model' : 'balance-model'} data-configuration={configuration || 'none'} data-outcome={outcome || 'unresolved'}>
       <svg viewBox="0 0 320 180" role="img" aria-label={`${position}. ${result}.`}>
         <path d="M140 158 L160 112 L180 158 Z" fill="#408996"/>
@@ -45,7 +45,7 @@ function ToyBalance({configuration, outcome, compact = false}: {configuration: s
           {configuration && <rect x={configuration === 'offset' ? 236 : 138} y="50" width="44" height="48" rx="7" fill="#efb62e" stroke="#5a3c12" strokeWidth="3"/>}
         </g>
       </svg>
-      <figcaption>{position}{outcome ? ` · ${result}` : ' · Ready for your idea'}</figcaption>
+      <figcaption aria-hidden="true">{position}{outcome ? ` · ${result}` : ' · Ready for your idea'}</figcaption>
     </figure>
   );
 }
@@ -78,7 +78,6 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
       <h1 id="loop-player-title">Pretend balance</h1>
       <p>{adventure.opening}</p>
       <details className="loop-player-limits"><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p></details>
-      <ToyBalance configuration={state.current_result?.configuration || state.configuration} outcome={state.current_result?.outcome}/>
       <p className="loop-player-instruction" role="status">{instruction}</p>
       <fieldset>
         <legend>1. What do you think will happen?</legend>
@@ -92,6 +91,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
       </fieldset>
       <fieldset>
         <legend>2. Where will you put the block?</legend>
+        <ToyBalance configuration={state.current_result?.configuration || state.configuration} outcome={state.current_result?.outcome}/>
         <div className="loop-player-choices">
           {['balanced', 'offset'].map(configuration => (
             <button type="button" key={configuration} data-configuration={configuration}

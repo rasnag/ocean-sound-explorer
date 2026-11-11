@@ -128,6 +128,9 @@ test('actual React drawing shows chosen setup, reveals motion only on Test and r
     const model = () => host.querySelector('[data-testid="balance-model"]');
     const press = async selector => { const button = host.querySelector(selector); assert(button && !button.disabled); await React.act(async () => button.click()); };
     assert.equal(host.querySelector('details').open, false, 'parent model notes should not overwhelm the initial child controls');
+    assert.equal(host.querySelector('details p').textContent, fixtureAdventure.limits, 'complete parent limits remain available');
+    assert.match(host.querySelector('.loop-player-label').textContent, /unreviewed/);
+    assert(!host.querySelector('.loop-player-label').closest('details'), 'unreviewed label remains outside collapsed notes');
     assert.equal(model().getAttribute('data-outcome'), 'unresolved');
     await press('[data-prediction="tips"]'); await press('[data-configuration="balanced"]');
     const middle = model().querySelector('g rect[stroke]').getAttribute('x');
@@ -143,6 +146,7 @@ test('actual React drawing shows chosen setup, reveals motion only on Test and r
     const retained = [...host.querySelectorAll('[data-testid="trial-model"]')];
     assert.deepEqual(retained.map(node => node.getAttribute('data-outcome')), ['stable', 'tips']);
     assert.deepEqual(retained.map(node => node.getAttribute('data-configuration')), ['balanced', 'offset']);
+    assert(retained.every(node => node.getAttribute('aria-hidden') === 'true'), 'decorative miniature diagrams must not repeat the spoken trial fields');
   } finally {
     if (root) await React.act(async () => root.unmount());
     dom.window.close();
