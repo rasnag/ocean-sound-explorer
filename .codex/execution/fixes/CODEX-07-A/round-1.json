@@ -1,0 +1,38 @@
+{
+  "verdict": "changes_requested",
+  "summary": "The CODEX-07-A implementation mostly follows architecture v1.2 and the card. It writes action, event, checkpoint and sequence in one transaction with a pending journal marker, removes duplicates before the sequence check, rechecks household and consent on every call, and records to the journal only after fsync. The controller's PostgreSQL, HTTP and journal probe exercised lost responses, old duplicates, the two-writer race, four rollback points, Configure and Test outages with backfill, both withdrawal orderings, isolated corruption cases, and journal reopen, crash, checksum and truncation; all of it passed. One failure-handling defect blocks a pass: any non-denied error inside chain(), including a resume or commit before the play has started, puts the play in quarantine for the life of the process. That quarantine then stops a valid later Start from ever being acknowledged, and health() still reports healthy.",
+  "findings": [
+    {
+      "severity": "major",
+      "title": "A resume or commit before Start quarantines the play for the life of the process",
+      "file": "server/play-service.mjs",
+      "line": 196,
+      "problem": "chain() runs `throw Error()` when play_sessions, metadata, start or checkpoint rows are missing (a play that was never started). Its catch block then adds household:play to `quarantined` for every non-denied error. A /play/resume or commit sent before Start, which a resume-or-start client like 07-B could send, therefore puts a play that does not exist into quarantine. A later valid start() inserts its primary rows and appends to the journal. Its confirmation transaction then calls chain(), hits the quarantine at line 155, and confirm() returns retryable_unacknowledged at line 233. An exact retry of Start reaches sameId -> chain() and fails with recovery_required. The play can't be acknowledged until the process restarts, and health() stays 'healthy', so the operator sees nothing. Transient SQL errors inside chain() are also quarantined permanently. The card allows permanent scoped quarantine only for detected corruption of stored history. A play that hasn't started, or a transient failure, is not corruption. This breaks the requirement for meaningful failure handling and the rule that no acknowledgement is withheld once both commits succeed.",
+      "fix_check": "Quarantine only after stored history has been detected as present and inconsistent. A missing play (no session, metadata or start rows) should return denied or recovery_required without quarantine, and non-corruption errors should not be quarantined. Add a real PG test: call resume, and also commit, on an unstarted play_id. Expect a rejection with no rows written. Then start() must return acknowledged and resume() must return its checkpoint. Existing corruption cases must still fail with recovery_required."
+    },
+    {
+      "severity": "minor",
+      "title": "Old duplicate is rejected while a newer action awaits journal confirmation",
+      "file": "server/play-service.mjs",
+      "line": 293,
+      "problem": "If the latest command on a play is pending journal confirmation, an exact retry of an older acknowledged action throws journal_unavailable instead of returning its original receipt. The card requires a repeated or lost-response action to return the original result even after newer actions, and blocks only new actions while a command is pending. Failing closed is safe, but it differs from the idempotent-receipt rule.",
+      "fix_check": "An exact retry of an older acknowledged action, while a later command is pending, returns the deep-equal original receipt after journal verification and adds no rows. Alternatively, the contract documents this as a deliberate fail-closed exception."
+    },
+    {
+      "severity": "minor",
+      "title": "REPORT.md is stale and not a completion record",
+      "file": ".codex/execution/results/CODEX-07-A/REPORT.md",
+      "line": 1,
+      "problem": "The report covers only the User-Agent correction and lists npm test, build and check_application_card as NOT YET RUN. It doesn't record the actual owner, the reviewed commit 1dacd13, the controller results (41/41 tests, build, and the probe including 44 routes) or a list of all artifacts. The card's completion section asks for owner, artifact, exact revisions, checks, unresolved issues and downstream IDs. The controller evidence exists separately, so this concerns the record, not missing verification.",
+      "fix_check": "The report records the owner, exact commit and blobs, all seven artifacts, the actual controller check results (with exit statuses), open limitations and downstream IDs. It no longer calls this only an HTTP correction."
+    },
+    {
+      "severity": "nit",
+      "title": "Engine 1 help/compare event emission not run through the service",
+      "file": "tests/loop-play-service.test.mjs",
+      "line": 46,
+      "problem": "The card lists 'engine1+2 finite help/compare'. The controller probe runs compare, help, close_help and side_thread only on engine 2. Engine 1 (which supports compare) goes through the service only for predict, configure and test, so its comparison_viewed event path has no direct evidence.",
+      "fix_check": "A real PG test runs an engine-1 compare of two actual trials and checks the comparison_viewed batch, the cursors and the resume checkpoint."
+    }
+  ]
+}
