@@ -41,3 +41,73 @@ No browser/UI checks were performed. Static demo assets and the manual Pages wor
 Provider/account controls, privacy G-E03, offer, capacity/support and content/release gates remain unresolved within their recorded scopes. DECISION-033 resolves eligibility holds and submission-time trial eligibility only; it does not configure other policies. No spending, provisioning, messages, deployment, admission, push or merge is authorized by this report.
 
 Next action: controller owner repairs and verifies the route-probe dependency substitution, then runs the authorized checks against an exact pinned application artifact and attaches actual output. CODEX-01-B and CODEX-01-C retain their dependency order and cannot treat this blocked report as acceptance of CODEX-01-A.
+
+
+## Controller re-verification after check-harness repair
+
+2026-11-11T03:31:16.718297+00:00: the preceding blocker text records the earlier failed harness. The preserved source has now passed these actual protected checks on this tree. Independent review and task acceptance remain pending.
+
+```text
+["npm.cmd", "test"]: exit 0
+
+> ocean-sound-explorer@0.1.0 test
+> node --test tests/*.test.mjs
+
+✔ native media starts synchronously in a tap and stop cannot award completion (1.4269ms)
+✔ the expedition has two confidence rounds followed by three ocean rounds (0.9624ms)
+✔ Web Audio playback schedules every source during the initiating gesture (1.5177ms)
+✔ every public game has a distinct playable route and valid scripts (14.935ms)
+✔ every game animal uses a bundled same-origin MP3 (5.8998ms)
+✔ exact local mode returns disconnected adapters and does not mutate input (1.8091ms)
+✔ missing, unknown, preview and production environments fail closed (0.4304ms)
+✔ connections, private browser variables and enabled adapters are refused (1.6302ms)
+✔ configuration rejection never includes the rejected value (0.4168ms)
+✔ preview requires every exact flag and remains off in production (0.2331ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.7957
+
+
+["npm.cmd", "run", "build"]: exit 0
+
+> ocean-sound-explorer@0.1.0 build
+> vite build
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 1842 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.73 kB │ gzip:  0.45 kB
+dist/client/assets/index-DXQb-_Bt.css  160.59 kB │ gzip: 28.17 kB
+dist/client/assets/index-B8JFZPtD.js   253.99 kB │ gzip: 81.49 kB
+
+✓ built in 565ms
+
+
+["C:\\Program Files\\Python314\\python.exe", "C:\\Users\\Arrgee\\.codex\\.chatgpt-projects\\g-p-6aa20bbf0df48191a58549f304e705de\\loop-adaptation\\.codex\\tools\\check_application_card.py", "--card", "CODEX-01-A"]: exit 0
+Controller assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.
+
+> ocean-sound-explorer@0.1.0 build
+> vite build
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 1842 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.73 kB │ gzip:  0.45 kB
+dist/client/assets/index-DXQb-_Bt.css  160.59 kB │ gzip: 28.17 kB
+dist/client/assets/index-8YijOCEd.js   253.99 kB │ gzip: 81.49 kB
+
+✓ built in 545ms
+Actual main.tsx router passed28 module-identity cases including trailing slashes: original pages preserved; synthetic route dev-only.
+Seeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.
+
+
+```
