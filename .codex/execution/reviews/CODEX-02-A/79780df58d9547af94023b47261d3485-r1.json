@@ -1,0 +1,46 @@
+{
+  "reviewer": "Claude Code",
+  "reviewed_commit": "7b14454b14c7ab3d4e812c9010cad76deac245fa",
+  "findings": {
+    "verdict": "pass",
+    "summary": "The CODEX-02-A slice is limited to the six authorized source paths plus the controller's results report. It meets all three card acceptance criteria. Anonymous demo anchors need no signup and the page has no identity inputs. Full, paused and unknown states hide the offer and the Join button and promise no delivery. Offer terms come only from a validated, fresh, open synthetic snapshot, and there is no $15/two-game fallback. getDiscoveryView fails closed on missing, extra, invalid, unselected and expired values (including expires_at == now). Join re-checks the snapshot with clock() at click time. Interest is opt-in, starts unchecked and is unsent. Discovery is gated behind isSyntheticPreviewEnabled with the three-flag allowlist kept. Controller evidence (25/25 tests, build, 44 route-identity cases, seeded secret scan) backs this. The remaining gaps are minor evidence and copy issues; the offer, admission, signup (02-B) and consent (10-A) gates stay open.",
+    "findings": [
+      {
+        "severity": "minor",
+        "title": "No browser/phone layout or keyboard-focus observation",
+        "file": "app/loop-discovery.css",
+        "line": 49,
+        "problem": "The card asks for keyboard focus, a phone layout and the forest/paper visual family, and says DOM checks are not phone/browser layout verification. The CSS supplies a :focus-visible outline, 44px targets and a \u2264420px column layout, but nobody has observed them in a browser, at phone width or with a keyboard walkthrough. The report says so honestly. This is unverified, not failing.",
+        "fix_check": "Before any public use, attach an actual phone-width browser observation and a keyboard tab-order walkthrough of /loop-preview/discover, or record it as an open verification item in the acceptance record."
+      },
+      {
+        "severity": "minor",
+        "title": "Required service-explanation copy has no automated assertion",
+        "file": "tests/loop-discovery.test.mjs",
+        "line": 80,
+        "problem": "The card requires visible copy for US geography, ages 5\u20138, the parent-together role, an AI-generated draft plus mandatory human review, and a 24-hour commitment that starts only at confirmed original production receipt. The component renders all of it (LoopDiscovery.tsx:75-90), but no test asserts it, so a later edit could drop or contradict the copy silently. I could not read the controller checker (permission denied), so I can't confirm the controller covers it either.",
+        "fix_check": "Add React/jsdom assertions that discovery-family contains the US, ages 5\u20138, human-review and receipt-start 24-hour text in every fixture state."
+      },
+      {
+        "severity": "nit",
+        "title": "Report wording is stale against controller evidence",
+        "file": ".codex/execution/results/CODEX-02-A/REPORT.md",
+        "line": 7,
+        "problem": "The report mentions 'seven listed output paths' while the instruction lists six. It also describes the tests, build and checker as pending, but the controller has since run them with exit 0. The record should match the final evidence.",
+        "fix_check": "The acceptance record cites six source paths plus the report, and attaches the controller results (25 pass, build ok, 44 route cases, seeded scan)."
+      },
+      {
+        "severity": "nit",
+        "title": "Offer values are read twice (validate then copy)",
+        "file": "lib/loop/discovery.mjs",
+        "line": 24,
+        "problem": "Offer fields are checked with nonempty() and then read again to build the copy. An accessor property could return a valid string on the first read and something else on the second. With developer fixtures this has negligible impact, but reading each value once would make the fail-closed guarantee exact.",
+        "fix_check": "Read each offer key once into a local, validate those values, and return the same values; add a getter-based negative test."
+      }
+    ]
+  },
+  "controller_checks": {
+    "commit": "7b14454b14c7ab3d4e812c9010cad76deac245fa",
+    "output": "[\"npm.cmd\", \"test\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 test\n> node --test tests/*.test.mjs\n\n\u2714 native media starts synchronously in a tap and stop cannot award completion (1.9397ms)\n\u2714 the expedition has two confidence rounds followed by three ocean rounds (1.4007ms)\n\u2714 Web Audio playback schedules every source during the initiating gesture (1.8624ms)\n\u2714 every public game has a distinct playable route and valid scripts (20.7447ms)\n\u2714 every game animal uses a bundled same-origin MP3 (7.1988ms)\n\u2714 real local PostgreSQL and HTTP enforce synthetic founder boundaries (4225.7924ms)\n\u2714 local factory preserves guard failures and returns an empty real PostgreSQL engine (2826.4636ms)\n\u2714 two fresh databases reproduce scoped fixtures, constraints and household deletion (3191.8986ms)\n\u2714 assignment scope failures remain immediate while duplicate request assignments cannot commit (1295.1629ms)\n\u2714 migration checksums and actual SQL/registry failures preserve atomicity (1215.3641ms)\n\u2714 discovery validates every required field, exact keys, territory and safe clock boundary (3.6418ms)\n\u2714 real React controls keep local actions truthful, optional and closed after expiry (3389.946ms)\n\u2714 explicit activation, terminal release and last-unit serialization use actual PostgreSQL (3170.7748ms)\n\u2714 outer rollback and actual SQL failure preserve caller transaction work (1497.7462ms)\n\u2714 stored receipt boundaries, immutable interval and current consent are enforced (1386.4829ms)\n\u2714 exact local mode returns disconnected adapters and does not mutate input (2.1137ms)\n\u2714 missing, unknown, preview and production environments fail closed (0.4329ms)\n\u2714 connections, private browser variables and enabled adapters are refused (1.8301ms)\n\u2714 configuration rejection never includes the rejected value (0.4461ms)\n\u2714 preview requires every exact flag and remains off in production (0.2554ms)\n\u2714 complete finite adventure contract rejects missing, extra, version, range and constant defects (4.822ms)\n\u2714 two fresh button-shaped tries retain immutable provenance and trusted results (3.7753ms)\n\u2714 full envelope and unsupported-operation failures have no effects (2.9637ms)\n\u2714 caller mutation cannot replace pinned rules or committed input (0.6572ms)\n\u2714 actual React drawing shows chosen setup, reveals motion only on Test and retains visual tries (3588.6144ms)\n\u2139 tests 25\n\u2139 suites 0\n\u2139 pass 25\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 8784.7758\n\n\n[\"npm.cmd\", \"run\", \"build\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1849 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-D9Us0p0q.css  165.32 kB \u2502 gzip: 29.14 kB\ndist/client/assets/index-D59KDDJp.js   272.49 kB \u2502 gzip: 86.77 kB\n\n\u2713 built in 894ms\n\n\n[\"C:\\\\Program Files\\\\Python314\\\\python.exe\", \"C:\\\\Users\\\\Arrgee\\\\.codex\\\\.chatgpt-projects\\\\g-p-6aa20bbf0df48191a58549f304e705de\\\\loop-adaptation\\\\.codex\\\\tools\\\\check_application_card.py\", \"--card\", \"CODEX-02-A\"]: exit 0\nActual discovery model and React events passed closed stale/invalid/full/paused states, configured fixture terms, direct anonymous demos, opt-in separation, click-time expiry and truthful unsent handoffs. No public admission/identity or browser layout proof.\nController assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1849 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-D9Us0p0q.css  165.32 kB \u2502 gzip: 29.14 kB\ndist/client/assets/index-BAOC-kEz.js   272.49 kB \u2502 gzip: 86.77 kB\n\n\u2713 built in 534ms\nActual main.tsx router passed44 module-identity cases including trailing slashes: original pages preserved; synthetic routes dev-only.\nSeeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.\n\n"
+  }
+}
