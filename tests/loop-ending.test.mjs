@@ -91,3 +91,67 @@ test('replay requests path-scoped identities atomically and retains engines acro
   f.fault(() => old.medium); reject(() => shell.replay());
   assert.deepEqual(state(), newer);
 });
+
+test('actual React navigation retains pending older and played newer groups in both directions', async () => {
+  const {JSDOM} = await import('jsdom');
+  const ts = (await import('typescript')).default;
+  const {readFile, writeFile, unlink} = await import('node:fs/promises');
+  const {randomUUID} = await import('node:crypto');
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', {url: 'http://local.invalid/loop-preview/player'});
+  dom.window.HTMLMediaElement.prototype.pause = () => {};
+  dom.window.HTMLMediaElement.prototype.load = () => {};
+  const names = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Event', 'IS_REACT_ACT_ENVIRONMENT'];
+  const old = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  for (const name of names) Object.defineProperty(globalThis, name, {value: name === 'IS_REACT_ACT_ENVIRONMENT' ? true : dom.window[name], configurable: true, writable: true});
+  const temporary = new URL(`../app/.visual-test-${randomUUID()}.mjs`, import.meta.url);
+  let root, owned = false;
+  const React = await import('react');
+  try {
+    const source = await readFile(new URL('../app/LoopPlayer.tsx', import.meta.url), 'utf8');
+    const compiled = ts.transpileModule(source, {compilerOptions: {jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext},
+      transformers: {before: [context => file => ts.visitNode(file, function visit(node) {
+        if (ts.isImportDeclaration(node) && !node.importClause && node.moduleSpecifier.text.endsWith('.css')) return undefined;
+        return ts.visitEachChild(node, visit, context);
+      })]}}).outputText;
+    await writeFile(temporary, compiled, {flag: 'wx'}); owned = true;
+    const {default: LoopPlayer} = await import(temporary.href);
+    const {createRoot} = await import('react-dom/client');
+    const document = dom.window.document, host = document.getElementById('root'); root = createRoot(host);
+    let count = 0;
+    await React.act(async () => root.render(React.createElement(LoopPlayer, {newPlayId: () => `roundtrip-${++count}`})));
+    const id = () => host.querySelector('[data-testid="shell-root"]').getAttribute('data-play-id');
+    const press = async selector => { const button = host.querySelector(selector); assert(button && !button.disabled); await React.act(async () => button.click()); };
+    const oldId = id();
+    await press('[data-testid="start-play"]');
+    await press('[data-prediction="tips"]'); await press('[data-configuration="balanced"]');
+    await press('[data-testid="finish-play"]');
+    assert.match(host.querySelector('[data-testid="ending-recap"]').textContent, /try first/);
+    await press('[data-testid="replay-play"]'); const newerId = id(); assert.notEqual(newerId, oldId);
+    await press('[data-testid="start-play"]');
+    await press('[data-prediction="not_sure"]'); await press('[data-configuration="offset"]');
+    await press('[data-testid="test"]');
+    const newerTrial = host.querySelector('[data-testid="trial"]').textContent;
+    const navigate = async target => {
+      const button = host.querySelector(`[data-testid="return-play"][data-target-play-id="${target}"]`);
+      assert(button, 'retained play must stay reachable from either group');
+      const details = button.closest('details'); await React.act(async () => details.querySelector('summary').click());
+      await press(`[data-testid="return-play"][data-target-play-id="${target}"]`);
+      assert.equal(id(), target); await press('[data-testid="resume-play"]');
+    };
+    await navigate(oldId);
+    assert(host.querySelector('[data-testid="assisted-family"]'));
+    assert.equal(host.querySelector('[data-prediction="tips"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(host.querySelector('button[data-configuration="balanced"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(host.querySelectorAll('[data-testid="trial"]').length, 0);
+    await navigate(newerId);
+    assert.equal(host.querySelectorAll('[data-testid="trial"]').length, 1);
+    assert.equal(host.querySelector('[data-testid="trial"]').textContent, newerTrial);
+    await press('[data-testid="finish-play"]');
+    assert.match(host.querySelector('[data-testid="ending-recap"]').textContent, /another try/);
+  } finally {
+    if (root) await React.act(async () => root.unmount());
+    dom.window.close();
+    for (const [name, descriptor] of old) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else delete globalThis[name]; }
+    if (owned) await unlink(temporary);
+  }
+});

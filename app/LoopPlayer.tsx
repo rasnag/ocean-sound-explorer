@@ -67,9 +67,10 @@ function ShellSession({adventure, newPlayId}: {adventure: Adventure; newPlayId: 
     try { work(); setError(''); refresh(n => n + 1); }
     catch { setError('That local navigation could not be prepared. Your current play and tries are unchanged. You can resume or try again.'); }
   }
-  // Only groups created before the current group are offered as earlier plays.
+  // Every other retained group stays reachable, even after returning to an older play.
   const groupIndex = snap.plays.findIndex(item => item.play_id === adapter.players.fast.snapshot().play_id);
-  const earlier = snap.plays.slice(0, groupIndex);
+  const otherPlays = snap.plays.map((item, index) => ({...item, groupNumber: Math.floor(index / 3) + 1}))
+    .filter((_item, index) => index < groupIndex || index >= groupIndex + 3);
   return <main className="loop-player loop-shell" data-testid="shell-root" data-play-id={snap.active_play_id} aria-labelledby="shell-title">
     <p className="loop-player-label">Synthetic toy preview · unreviewed</p>
     <h1 id="shell-title" ref={heading} tabIndex={-1}>{snap.view === 'opening' ? 'Your idea comes first'
@@ -99,7 +100,9 @@ function ShellSession({adventure, newPlayId}: {adventure: Adventure; newPlayId: 
         <ol className="loop-player-trials">{snap.recap.trials.map((trial, index) => <li data-testid="recap-trial" key={trial.trial_id}>
           <h3>Try {index + 1}</h3><TrialFields trial={trial}/>
         </li>)}</ol>
-        <p>You can discuss: what changed between the positions you tried?</p>
+        <p>{snap.recap.trials.length > 1 ? 'You can discuss: what changed between the positions you tried?'
+          : snap.recap.trials.length === 1 ? 'You can discuss: what might you change for another try?'
+            : 'You can discuss: what would you like to try first?'}</p>
       </section>
       <section data-testid="offscreen" aria-labelledby="offscreen-title"><h2 id="offscreen-title">An idea away from the screen</h2><p>{adventure.offscreen}</p></section>
       <div className="loop-player-choices"><button type="button" data-testid="resume-play" onClick={() => intent(() => shell.resume())}>Resume this play</button>
@@ -123,10 +126,10 @@ function ShellSession({adventure, newPlayId}: {adventure: Adventure; newPlayId: 
       <p>The current play remains here. No new investigation has been booked.</p>
       <button type="button" data-testid="back-to-ending" onClick={() => intent(() => shell.finish())}>Back to ending</button>
     </section>}
-    {earlier.length > 0 && <details className="loop-player-limits"><summary>For the grown-up: earlier local plays</summary>
-      <p>Return to an earlier synthetic path without clearing its choices or tries.</p>
-      {earlier.map((item, index) => <button type="button" key={item.play_id} data-testid="return-play" data-target-play-id={item.play_id}
-        onClick={() => intent(() => shell.returnToPlay(item.play_id))}>Earlier group {Math.floor(index / 3) + 1}, developer path {item.path}, {item.state.trials.length} tries</button>)}
+    {otherPlays.length > 0 && <details className="loop-player-limits"><summary>For the grown-up: other local plays</summary>
+      <p>Return to another retained synthetic play without clearing either play’s choices or tries.</p>
+      {otherPlays.map(item => <button type="button" key={item.play_id} data-testid="return-play" data-target-play-id={item.play_id}
+        onClick={() => intent(() => shell.returnToPlay(item.play_id))}>Local group {item.groupNumber}, developer path {item.path}, {item.state.trials.length} tries</button>)}
     </details>}
     <a href="/loop-preview">Return to preview shell</a>
   </main>;
