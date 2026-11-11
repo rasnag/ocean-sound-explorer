@@ -76,6 +76,86 @@ for(const version of ['fixture-engine-1','fixture-engine-2']) test('real primary
   f.player.dispatch(pair[race.findIndex(r=>r.status==='fulfilled')]);
   assert.deepEqual((await service.resume(scope,f.resume)).checkpoint.state,f.player.snapshot());
 });
+
+for(const firstOperation of ['resume','commit']) test('unstarted '+firstOperation+' rejects without quarantining later Start',async t=>{
+  const f=await fixture(t),before=await f.snapshot();
+  assert(Object.values(before).every(rows=>rows.length===0));
+  const input=firstOperation==='resume'?f.resume:f.command({kind:'predict',prediction:'tips'});
+  await denied(()=>f.service[firstOperation](f.scope,input),['denied','recovery_required']);
+  assert.deepEqual(await f.snapshot(),before,'pre-start rejection wrote play data');
+  assert.deepEqual(f.service.health(),{state:'healthy'});
+  const started=await f.service.start(f.scope,f.start);
+  assert.equal(started.status,'acknowledged');
+  assert.equal(started.checkpoint.last_action_sequence,0);
+  assert.equal(started.checkpoint.last_event_sequence,0);
+  assert.deepEqual(await f.service.resume(f.scope,f.resume),started);
+  assert.deepEqual(await f.service.start(f.scope,f.start),started);
+  assert.equal((await f.snapshot()).play_start_commands[0].ack_state,'acknowledged');
+});
+
+test('transient SQL chain read failure does not quarantine present valid history',async t=>{
+  const f=await fixture(t);const started=await f.service.start(f.scope,f.start);
+  let failRead=true,injected=false;
+  const wrapper={query:(...args)=>f.db.query(...args),transaction:fn=>f.db.transaction(tx=>fn(new Proxy(tx,{get(target,key){
+    if(key==='query')return async(sql,...args)=>{
+      if(failRead&&/SELECT \* FROM play_action_commands/i.test(sql)) {
+        injected=true;throw Object.assign(Error('Synthetic transient SQL read failure'),{code:'08006'});
+      }
+      return target.query(sql,...args);
+    };
+    const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;
+  }})))};
+  const service=f.make(wrapper),before=await f.snapshot();
+  await denied(()=>service.resume(f.scope,f.resume),['recovery_required']);
+  assert(injected);assert.deepEqual(await f.snapshot(),before);
+  failRead=false;
+  assert.deepEqual(await service.resume(f.scope,f.resume),started,'same instance retained a false quarantine');
+  const cmd=f.command({kind:'predict',prediction:'tips'}),result=await service.commit(f.scope,cmd);
+  assert.equal(result.status,'acknowledged');assert.deepEqual(result.checkpoint.state,f.player.dispatch(cmd));
+  assert.deepEqual((await service.resume(f.scope,f.resume)).checkpoint,result.checkpoint);
+});
+
+test('present inconsistent checkpoint remains fail-closed after quarantine correction',async t=>{
+  const f=await fixture(t);await f.service.start(f.scope,f.start);await f.send({kind:'predict',prediction:'tips'});
+  await f.db.transaction(async tx=>{
+    await tx.exec('SET LOCAL session_replication_role=replica');
+    await tx.query("UPDATE play_checkpoints SET checkpoint=jsonb_set(checkpoint,'{last_event_sequence}','999'::jsonb) WHERE household_id=$1 AND play_id=$2",[f.scope.household_id,f.scope.play_id]);
+  });
+  assert.equal((await f.db.query('SHOW session_replication_role')).rows[0].session_replication_role,'origin');
+  const before=await f.snapshot();
+  await denied(()=>f.service.resume(f.scope,f.resume),['recovery_required']);
+  await denied(()=>f.service.resume(f.scope,f.resume),['recovery_required']);
+  await denied(()=>f.service.commit(f.scope,f.command({kind:'configure',configuration:'offset'})),['recovery_required']);
+  assert.deepEqual(await f.snapshot(),before);
+});
+
+for(const version of ['fixture-engine-1','fixture-engine-2']) test('real service comparison of two committed trials '+version,async t=>{
+  const f=await fixture(t,version);await f.service.start(f.scope,f.start);
+  for(const configuration of ['balanced','offset']) {
+    const p=await f.send({kind:'predict',prediction:'not_sure'});
+    const c=await f.send({kind:'configure',configuration});
+    await f.send({kind:'test',prediction_action_id:p.cmd.action_id,configuration_action_id:c.cmd.action_id});
+  }
+  const trials=f.player.snapshot().trials,trialIds=trials.map(trial=>trial.trial_id);
+  const before=await f.snapshot();
+  await denied(()=>f.service.commit(f.scope,f.command({kind:'compare',trial_ids:[trialIds[0],randomUUID()+':trial:1']})),['validation_failed']);
+  if(version==='fixture-engine-1')await denied(()=>f.service.commit(f.scope,f.command({kind:'help',level:1})),['validation_failed']);
+  assert.deepEqual(await f.snapshot(),before);
+  const compared=await f.send({kind:'compare',trial_ids:trialIds});
+  assert.equal(compared.result.checkpoint.last_action_sequence,7);
+  assert.equal(compared.result.checkpoint.last_event_sequence,9);
+  assert.deepEqual(compared.result.checkpoint.state.trials,trials);
+  assert.deepEqual(compared.result.checkpoint.state.comparison,trialIds);
+  assert.equal(compared.result.events.length,1);
+  assert.equal(compared.result.events[0].event_type,'comparison_viewed');
+  assert.equal(compared.result.events[0].sequence,9);
+  assert.equal(compared.result.events[0].action_sequence,7);
+  assert.deepEqual(compared.result.events[0].data,{trial_ids:trialIds});
+  const batch=(await f.db.query('SELECT payload FROM play_events WHERE household_id=$1 AND play_id=$2 AND action_id=$3',[f.scope.household_id,f.scope.play_id,compared.cmd.action_id])).rows;
+  assert.deepEqual(batch,[{payload:{events:compared.result.events}}]);
+  assert.deepEqual(await f.service.resume(f.scope,f.resume),compared.result);
+});
+
 test('real SQL rollback at each gameplay write boundary',async t=>{
   const f=await fixture(t);await f.service.start(f.scope,f.start);
   for(const table of ['play_action_commands','play_events','play_checkpoints','play_sessions']) {
@@ -88,6 +168,7 @@ test('real SQL rollback at each gameplay write boundary',async t=>{
     assert(injected);assert.deepEqual(await f.snapshot(),before);
   }
 });
+
 test('pending Configure and Test hide all progress over actual HTTP; backfill applies once',async t=>{
   const f=await fixture(t);await f.service.start(f.scope,f.start);
   const token=randomBytes(32).toString('base64url');
@@ -105,7 +186,13 @@ test('pending Configure and Test hide all progress over actual HTTP; backfill ap
     const pending=await f.service.commit(f.scope,cmd);assert.equal(pending.status,'retryable_unacknowledged');noData(pending);
     noData(await f.service.resume(f.scope,f.resume));
     const response=await post('/play/resume',f.resume);assert.equal(response.status,503);noData(await response.json());
-    const before=await f.snapshot();await denied(()=>f.service.commit(f.scope,{...cmd,action_id:randomUUID()}),['journal_unavailable']);assert.deepEqual(await f.snapshot(),before);
+    const before=await f.snapshot();
+    assert.deepEqual(await f.service.commit(f.scope,p.cmd),p.result,'old acknowledged receipt must survive a newer pending action');
+    const oldHttp=await post('/play/action',p.cmd);assert.equal(oldHttp.status,200);assert.deepEqual(await oldHttp.json(),p.result);
+    assert.equal(f.service.health().state,'journal_unavailable','reading an old receipt must not clear the newer outage');
+    await denied(()=>f.service.commit(f.scope,{...p.cmd,action:{kind:'predict',prediction:'stable'}}),['conflict']);
+    await denied(()=>f.service.commit(f.scope,{...cmd,action_id:randomUUID()}),['journal_unavailable']);assert.deepEqual(await f.snapshot(),before);
+    noData(await f.service.resume(f.scope,f.resume));
     if(action.kind==='test')assert.deepEqual(before.play_action_commands.at(-1).result.events.map(e=>e.event_type),['test_resolved','progress_saved']);
     f.setFault(null);const result=await f.service.commit(f.scope,cmd);assert.equal(result.status,'acknowledged');assert.equal(result.primary_commit_id,pending.primary_commit_id);
     assert.deepEqual(result.checkpoint.state,f.player.dispatch(cmd));assert.deepEqual(await f.service.commit(f.scope,cmd),result);
@@ -116,6 +203,7 @@ test('pending Configure and Test hide all progress over actual HTTP; backfill ap
   assert.equal((await post('/play/resume',f.resume,{'X-Forwarded-Host':'localhost'})).status,403);
   assert.equal((await post('/play/resume',{...f.resume,password:'synthetic'})).status,400);
 });
+
 test('independent process reopen, killed writer, checksum and truncation fail closed',async t=>{
   const f=await fixture(t);const result=await f.service.start(f.scope,f.start),id=result.durability_ref.slice(12),record=await f.journal.read(id);
   await f.closeJournal();
@@ -135,6 +223,7 @@ test('independent process reopen, killed writer, checksum and truncation fail cl
     await denied(()=>createSyntheticPlayJournal({env,directory}),['recovery_required']);
   }
 });
+
 test('withdrawal-first denies duplicates and original epoch cannot be rewritten',async t=>{
   const f=await fixture(t);await f.service.start(f.scope,f.start);const accepted=await f.send({kind:'predict',prediction:'tips'});const before=await f.snapshot();
   await f.db.transaction(async tx=>{await tx.query('SELECT household_id FROM households WHERE household_id=$1 FOR UPDATE',[f.scope.household_id]);await tx.query("INSERT INTO service_consents VALUES($1,2,'withdrawn')",[f.scope.household_id]);});

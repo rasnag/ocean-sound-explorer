@@ -151,12 +151,19 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
     return entry;
   }
   async function chain(tx,scope,entry) {
+    if(quarantined.has(key(scope))) throw playError('recovery_required');
+    // SQL failures are operational failures, not evidence of corrupt history.
+    // Read the complete stored chain before entering the pure consistency checks.
+    const sessions=await rows(tx,'SELECT * FROM play_sessions WHERE household_id=$1 AND play_id=$2 FOR UPDATE',params(scope));
+    const metadata=await rows(tx,'SELECT binding FROM play_service_metadata WHERE household_id=$1 AND play_id=$2',params(scope));
+    const starts=await rows(tx,'SELECT * FROM play_start_commands WHERE household_id=$1 AND play_id=$2',params(scope));
+    const checkpoints=await rows(tx,'SELECT checkpoint FROM play_checkpoints WHERE household_id=$1 AND play_id=$2',params(scope));
+    const commands=await rows(tx,'SELECT * FROM play_action_commands WHERE household_id=$1 AND play_id=$2 ORDER BY sequence',params(scope));
+    const events=await rows(tx,'SELECT * FROM play_events WHERE household_id=$1 AND play_id=$2 ORDER BY sequence',params(scope));
+    // An authorized assignment may have no play yet. Reject without poisoning a
+    // later Start. Partial stored history, including legacy seeds, is different.
+    if([sessions,metadata,starts,checkpoints,commands,events].every(value=>value.length===0)) throw playError('denied');
     try {
-      if(quarantined.has(key(scope))) throw playError('recovery_required');
-      const sessions=await rows(tx,'SELECT * FROM play_sessions WHERE household_id=$1 AND play_id=$2 FOR UPDATE',params(scope));
-      const metadata=await rows(tx,'SELECT binding FROM play_service_metadata WHERE household_id=$1 AND play_id=$2',params(scope));
-      const starts=await rows(tx,'SELECT * FROM play_start_commands WHERE household_id=$1 AND play_id=$2',params(scope));
-      const checkpoints=await rows(tx,'SELECT checkpoint FROM play_checkpoints WHERE household_id=$1 AND play_id=$2',params(scope));
       if(sessions.length!==1||metadata.length!==1||starts.length!==1||checkpoints.length!==1) throw Error();
       const session=sessions[0],stored=metadata[0].binding;
       if(['assignment_id','child_id','revision_id'].some(k=>session[k]!==scope[k])) throw playError('denied');
@@ -172,8 +179,6 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
           || !equal(row.journal_record,makeRecord(scope,row.command,expected,row.journal_record.record_id))) throw Error();
       }
       verifyRow(start,candidate(scope,start.command,player.snapshot(),0,idsFrom(start)));
-      const commands=await rows(tx,'SELECT * FROM play_action_commands WHERE household_id=$1 AND play_id=$2 ORDER BY sequence',params(scope));
-      const events=await rows(tx,'SELECT * FROM play_events WHERE household_id=$1 AND play_id=$2 ORDER BY sequence',params(scope));
       if(events.length!==commands.length) throw Error();
       let eventCursor=0,latest=start,seenPending=start.ack_state==='pending';
       for(let i=0;i<commands.length;i++) {
@@ -193,6 +198,8 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
       return {player,start,commands,latest};
     } catch(error) {
       if(error?.code==='denied') throw error;
+      // Only inconsistencies detected in successfully read, present stored
+      // history enter permanent scoped quarantine. No SQL runs in this block.
       quarantined.add(key(scope));
       throw playError('recovery_required');
     }
@@ -290,7 +297,8 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
           const duplicate=history.commands.find(row=>row.action_id===c.action_id);
           if(duplicate) {
             if(duplicate.canonical_digest!==digest({scope:s,command:c})) throw playError('conflict');
-            if(history.latest.ack_state==='pending' && history.latest!==duplicate) throw playError('journal_unavailable');
+            // Returning a verified historical receipt is not a new write and
+            // does not expose the newer pending checkpoint or clear its outage.
             return duplicate;
           }
           if(history.latest.ack_state==='pending') throw playError('journal_unavailable');
