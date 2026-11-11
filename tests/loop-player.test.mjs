@@ -100,3 +100,57 @@ test('caller mutation cannot replace pinned rules or committed input', () => {
   assert.equal(player.snapshot().trials[0].prediction, 'tips');
   assert.equal(player.snapshot().revision_id, fixtureAdventure.revision_id);
 });
+
+test('actual React drawing shows chosen setup, reveals motion only on Test and retains visual tries', async () => {
+  const {JSDOM} = await import('jsdom');
+  const ts = (await import('typescript')).default;
+  const {readFile, writeFile, unlink} = await import('node:fs/promises');
+  const {randomUUID} = await import('node:crypto');
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', {url: 'http://local.invalid/loop-preview/player'});
+  const names = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Event', 'IS_REACT_ACT_ENVIRONMENT'];
+  const old = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  for (const name of names) Object.defineProperty(globalThis, name, {value: name === 'IS_REACT_ACT_ENVIRONMENT' ? true : dom.window[name], configurable: true, writable: true});
+  const temporary = new URL(`../app/.visual-test-${randomUUID()}.mjs`, import.meta.url);
+  let root, owned = false;
+  const React = await import('react');
+  try {
+    const source = await readFile(new URL('../app/LoopPlayer.tsx', import.meta.url), 'utf8');
+    const compiled = ts.transpileModule(source, {compilerOptions: {jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext},
+      transformers: {before: [context => file => ts.visitNode(file, function visit(node) {
+        if (ts.isImportDeclaration(node) && !node.importClause && node.moduleSpecifier.text.endsWith('.css')) return undefined;
+        return ts.visitEachChild(node, visit, context);
+      })]}}).outputText;
+    await writeFile(temporary, compiled, {flag: 'wx'}); owned = true;
+    const {default: LoopPlayer} = await import(temporary.href);
+    const {createRoot} = await import('react-dom/client');
+    const document = dom.window.document, host = document.getElementById('root'); root = createRoot(host);
+    await React.act(async () => root.render(React.createElement(LoopPlayer)));
+    const model = () => host.querySelector('[data-testid="balance-model"]');
+    const press = async selector => { const button = host.querySelector(selector); assert(button && !button.disabled); await React.act(async () => button.click()); };
+    assert.equal(host.querySelector('details').open, false, 'parent model notes should not overwhelm the initial child controls');
+    assert.equal(host.querySelector('details p').textContent, fixtureAdventure.limits, 'complete parent limits remain available');
+    assert.match(host.querySelector('.loop-player-label').textContent, /unreviewed/);
+    assert(!host.querySelector('.loop-player-label').closest('details'), 'unreviewed label remains outside collapsed notes');
+    assert.equal(model().getAttribute('data-outcome'), 'unresolved');
+    await press('[data-prediction="tips"]'); await press('[data-configuration="balanced"]');
+    const middle = model().querySelector('g rect[stroke]').getAttribute('x');
+    assert.match(model().querySelector('svg').getAttribute('aria-label'), /Not tested yet/);
+    await press('[data-testid="test"]'); assert.equal(model().getAttribute('data-outcome'), 'stable');
+    await press('[data-prediction="not_sure"]'); await press('[data-configuration="offset"]');
+    assert.notEqual(model().querySelector('g rect[stroke]').getAttribute('x'), middle, 'block must visibly move when its position changes');
+    const pendingTransform = model().querySelector('g').getAttribute('transform');
+    assert.equal(model().getAttribute('data-outcome'), 'unresolved');
+    await press('[data-testid="test"]');
+    assert.equal(model().getAttribute('data-outcome'), 'tips');
+    assert.notEqual(model().querySelector('g').getAttribute('transform'), pendingTransform, 'tilt appears only after actual Test');
+    const retained = [...host.querySelectorAll('[data-testid="trial-model"]')];
+    assert.deepEqual(retained.map(node => node.getAttribute('data-outcome')), ['stable', 'tips']);
+    assert.deepEqual(retained.map(node => node.getAttribute('data-configuration')), ['balanced', 'offset']);
+    assert(retained.every(node => node.getAttribute('aria-hidden') === 'true'), 'decorative miniature diagrams must not repeat the spoken trial fields');
+  } finally {
+    if (root) await React.act(async () => root.unmount());
+    dom.window.close();
+    for (const [name, descriptor] of old) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else delete globalThis[name]; }
+    if (owned) await unlink(temporary);
+  }
+});

@@ -1,0 +1,29 @@
+{
+  "reviewer": "Claude Code",
+  "reviewed_commit": "fd612d9a174040e049999910c74ce11d9540c3e7",
+  "findings": {
+    "verdict": "pass",
+    "summary": "Round 2 fixes all round-1 findings that needed a change, and it stays inside the four granted CODEX-06-A files plus the attributed review record. The main ToyBalance now sits inside the configuration fieldset. The compact trial figures are aria-hidden, so each try's dl fields are announced only once. The real React/jsdom test now asserts that the complete limits text is in the collapsed details, that the unreviewed label sits outside it, and that the trial figures are decorative. The dead aside CSS is gone. The tilt and outcome still come only from the engine's validated current_result or a retained trial. I checked the engine: predict and configure clear current_result, and Test resets configuration, so the result cannot show early or go stale. The controller's results (20/20 tests, build, protected check_application_card) together with this code support all three card acceptance criteria. This pass only covers the technical fix under the existing delegation. It does not approve the science, learning or publication content, change any task status or promote any artifact.",
+    "findings": [
+      {
+        "severity": "nit",
+        "title": "Test still writes its transpiled module into app/",
+        "file": "tests/loop-player.test.mjs",
+        "line": 114,
+        "problem": "If a run is interrupted, a stray app/.visual-test-<uuid>.mjs file can be left behind. The 'wx' flag and the cleanup in finally handle normal runs, and the task records this as a known risk that fails closed. It does not affect any card criterion.",
+        "fix_check": "The risk stays documented as accepted, or a later change writes the file to an ignored test directory and rewrites its relative imports."
+      },
+      {
+        "severity": "nit",
+        "title": "Real-browser QA is reported in prose only, with no saved artifact",
+        "file": "card",
+        "problem": "The 320x740 run (documentWidth 305, innerWidth 320, two tries, Compare by keyboard Enter) and the desktop side-by-side check are stated by the controller. No screenshot or log is in the reviewed tree, so this review cannot confirm them independently. Nothing in jsdom makes a layout claim, and the CSS (min(100%,27rem), compact max-width 13rem) looks phone-safe in the code.",
+        "fix_check": "If the owner wants durable evidence, attach the browser-run log or screenshots to the PR or the execution record."
+      }
+    ]
+  },
+  "controller_checks": {
+    "commit": "fd612d9a174040e049999910c74ce11d9540c3e7",
+    "output": "Actual npmtest20/20passed8069ms exit0 including new realReact/jsdomdrawing interaction: actualblockxchangeswithposition, unresolveduntilTest, tilt onlyafterTest, two retainedvisualmodels. Actualnpmrunbuild exit0. Protectedcheck_application_card --cardCODEX06A exit0: finiteengine, actualReactDOMtwo tries/safeinvalidstate, exactlocalguard,36actualroutingcases, seededprivatefixture/envsecretproductionbuildscan, deploymentfences allpassed. Gitdiff--check passed. Initial03-levelrelativecheckerpathcommandfailed beforecheck due wrongtoolpath; rerun atcorrectrootpath producedexit0. No realdata/paidAPI/provision/deploy/messages."
+  }
+}
