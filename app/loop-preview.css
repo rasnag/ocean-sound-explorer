@@ -1,0 +1,29 @@
+.loop-preview {
+  box-sizing: border-box;
+  max-width: 44rem;
+  margin: 2rem auto;
+  padding: clamp(1rem, 5vw, 2.5rem);
+  background: #fffaf0;
+  color: #183e32;
+  border: 2px solid #183e32;
+  border-radius: 1rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.loop-preview .loop-preview-label {
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.loop-preview h1 { font-size: clamp(1.75rem, 6vw, 2.5rem); line-height: 1.2; }
+.loop-preview h2 { font-size: 1.25rem; }
+.loop-preview section { margin-block: 2rem; }
+.loop-preview a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #183e32;
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
+.loop-preview a:focus-visible { outline: 3px solid #183e32; outline-offset: 4px; }
