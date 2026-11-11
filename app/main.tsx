@@ -4,6 +4,7 @@ import Home from './page';
 import MakeMoon from './MakeMoon';
 import About from './About';
 import LoopPreview from './LoopPreview';
+import LoopPlayer from './LoopPlayer';
 import {isSyntheticPreviewEnabled} from '../lib/loop/client-mode.mjs';
 import './globals.css';
 
@@ -16,5 +17,6 @@ const path = window.location.pathname.replace(/\/$/, '') || '/';
 const page = path === '/make-the-moon' ? <MakeMoon/>
   : path === '/ocean-sound-explorer' ? <Home/>
   : path === '/loop-preview' && previewEnabled ? <LoopPreview/>
+  : path === '/loop-preview/player' && previewEnabled ? <LoopPlayer/>
   : <About/>;
 createRoot(document.getElementById('root')!).render(page);
