@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPlayer, validateAdventure} from '../lib/loop/player-engine.mjs';
 import {fixtureAdventure} from '../lib/loop/fixture-adventure.mjs';
+import {assistedFixtureAdventure} from '../lib/loop/assisted-fixture.mjs';
 
 function session(spec = fixtureAdventure) {
   const player = createPlayer(spec, {playId: 'test-play', consentEpoch: 1});
@@ -124,7 +125,8 @@ test('actual React drawing shows chosen setup, reveals motion only on Test and r
     const {default: LoopPlayer} = await import(temporary.href);
     const {createRoot} = await import('react-dom/client');
     const document = dom.window.document, host = document.getElementById('root'); root = createRoot(host);
-    await React.act(async () => root.render(React.createElement(LoopPlayer)));
+    await React.act(async () => root.render(React.createElement(LoopPlayer, {adventure: assistedFixtureAdventure, showShell: false})));
+    assert(host.querySelector('[data-testid="assisted-family"]'), 'explicit accepted engine2 visual coverage');
     const model = () => host.querySelector('[data-testid="balance-model"]');
     const press = async selector => { const button = host.querySelector(selector); assert(button && !button.disabled); await React.act(async () => button.click()); };
     assert.equal(host.querySelector('details').open, false, 'parent model notes should not overwhelm the initial child controls');

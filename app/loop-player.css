@@ -8,7 +8,7 @@
   overflow-wrap: anywhere;
   line-height: 1.6;
 }
-.loop-player > * + *, .loop-player-family > * + * { margin-top: 1.5rem; }
+.loop-player > * + *, .loop-player-family > * + *, .loop-player-session > * + * { margin-top: 1.5rem; }
 .loop-player-family, .loop-player section { min-width: 0; }
 .loop-player h1 { font-size: clamp(2rem, 7vw, 3rem); }
 .loop-player h2 { margin-bottom: .6rem; }
@@ -44,7 +44,7 @@
 .loop-player button:disabled { opacity: 1; color: #526773; background: #e1e9ed; border-style: dashed; }
 .loop-player button.loop-player-test { width: 100%; background: var(--primary, #ffcf53); color: var(--primary-foreground, #12364a); }
 .loop-player button.loop-player-test:disabled { background: #e1e9ed; color: #526773; }
-.loop-player :is(button, a):focus-visible { outline: 4px solid #964400; outline-offset: 4px; }
+.loop-player :is(button, a):focus-visible, .loop-shell h1:focus-visible { outline: 4px solid #964400; outline-offset: 4px; }
 .loop-player a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: underline; }
 .loop-player-trials { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; padding: 0; list-style-position: inside; margin-block: 1rem; }
 .loop-player-trials li { padding: 1rem; border: 2px solid #33758b; border-radius: .8rem; }
@@ -53,6 +53,11 @@
 .loop-player dd { margin: 0 0 .6rem; }
 .loop-player [data-testid="help-panel"], .loop-player [data-testid="side-thread"] { padding: 1rem; border: 2px solid #33758b; border-radius: .8rem; margin-block: 1rem; }
 .loop-player [data-testid="show-it-example"] { border-inline-start: 4px solid #33758b; padding-inline-start: .75rem; margin-block: 1rem; }
+.loop-shell [hidden] { display: none !important; }
+.loop-shell-memory { padding: .75rem; border-inline-start: 4px solid #33758b; }
+.loop-shell [data-testid="offscreen"], .loop-shell [data-testid="new-wonder-handoff"] { padding: 1rem; border: 2px solid #33758b; border-radius: 1rem; }
+.loop-shell [data-testid="return-play"] { display: block; margin-block: .75rem; }
+.loop-shell [role="alert"] { border-inline-start: 4px solid #964400; padding-inline-start: 1rem; }
 @media (max-width: 400px) {
   .loop-player { margin: .5rem; }
   .loop-player-choices { flex-direction: column; }
