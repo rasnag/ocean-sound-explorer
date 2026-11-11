@@ -8,7 +8,7 @@ type Action = {kind: 'predict'; prediction: string} | {kind: 'configure'; config
   | {kind: 'test'; prediction_action_id: string; configuration_action_id: string}
   | {kind: 'compare'; trial_ids: string[]};
 const predictionLabels: Record<string, string> = {stable: 'Stays steady', tips: 'Tips over', not_sure: 'Not sure yet'};
-const configurationLabels: Record<string, string> = {balanced: 'Balanced position', offset: 'Offset position'};
+const configurationLabels: Record<string, string> = {balanced: 'Block in the middle', offset: 'Block near the edge'};
 const outcomeLabels: Record<string, string> = {stable: 'Stayed steady', tips: 'Tipped over'};
 
 // Validation runs on every prop render, including mutations to the same object.
@@ -29,6 +29,25 @@ export default function LoopPlayer({adventure = fixtureAdventure}: {adventure?: 
     </main>
   );
   return <PlayerSession key={JSON.stringify(valid)} adventure={valid}/>;
+}
+
+function ToyBalance({configuration, outcome, compact = false}: {configuration: string | null; outcome?: string | null; compact?: boolean}) {
+  const position = configuration ? configurationLabels[configuration] : 'Choose a block position';
+  const result = outcome ? outcomeLabels[outcome] : 'Not tested yet';
+  return (
+    <figure className={`loop-player-model${compact ? ' loop-player-model-small' : ''}`}
+      data-testid={compact ? 'trial-model' : 'balance-model'} data-configuration={configuration || 'none'} data-outcome={outcome || 'unresolved'}>
+      <svg viewBox="0 0 320 180" role="img" aria-label={`${position}. ${result}.`}>
+        <path d="M140 158 L160 112 L180 158 Z" fill="#408996"/>
+        <path d="M105 162 H215" stroke="#214858" strokeWidth="7" strokeLinecap="round"/>
+        <g transform={`rotate(${outcome === 'tips' ? 14 : 0} 160 106)`}>
+          <rect x="38" y="100" width="244" height="12" rx="6" fill="#81543a"/>
+          {configuration && <rect x={configuration === 'offset' ? 236 : 138} y="50" width="44" height="48" rx="7" fill="#efb62e" stroke="#5a3c12" strokeWidth="3"/>}
+        </g>
+      </svg>
+      <figcaption>{position}{outcome ? ` · ${result}` : ' · Ready for your idea'}</figcaption>
+    </figure>
+  );
 }
 
 function PlayerSession({adventure}: {adventure: Adventure}) {
@@ -55,10 +74,11 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
     : !state.configuration_action_id ? 'Choose the position to test.' : 'Tap Test to see what happens.';
   return (
     <main className="loop-player" aria-labelledby="loop-player-title">
-      <p className="loop-player-label">Unreviewed synthetic development preview</p>
+      <p className="loop-player-label">Synthetic toy preview · unreviewed</p>
       <h1 id="loop-player-title">Pretend balance</h1>
       <p>{adventure.opening}</p>
-      <aside aria-labelledby="player-limits"><h2 id="player-limits">For the grown-up: model limits</h2><p>{adventure.limits}</p></aside>
+      <details className="loop-player-limits"><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p></details>
+      <ToyBalance configuration={state.current_result?.configuration || state.configuration} outcome={state.current_result?.outcome}/>
       <p className="loop-player-instruction" role="status">{instruction}</p>
       <fieldset>
         <legend>1. What do you think will happen?</legend>
@@ -71,7 +91,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
         </div>
       </fieldset>
       <fieldset>
-        <legend>2. Choose one position</legend>
+        <legend>2. Where will you put the block?</legend>
         <div className="loop-player-choices">
           {['balanced', 'offset'].map(configuration => (
             <button type="button" key={configuration} data-configuration={configuration}
@@ -101,6 +121,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
             <li key={trial.trial_id} data-testid="trial" data-prediction={trial.prediction}
               data-configuration={trial.configuration} data-outcome={trial.outcome}>
               <h3>Try {index + 1}</h3>
+              <ToyBalance configuration={trial.configuration} outcome={trial.outcome} compact/>
               <dl>
                 <dt>Guess</dt><dd data-field="prediction">{predictionLabels[trial.prediction]}</dd>
                 <dt>Position</dt><dd data-field="configuration">{configurationLabels[trial.configuration]}</dd>
