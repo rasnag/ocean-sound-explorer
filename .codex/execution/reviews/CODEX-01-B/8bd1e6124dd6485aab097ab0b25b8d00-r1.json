@@ -1,0 +1,46 @@
+{
+  "reviewer": "Claude Code",
+  "reviewed_commit": "80d29b12b985f6f559a32ee1cc94a9a34b46c4ba",
+  "findings": {
+    "verdict": "pass",
+    "summary": "CODEX-01-B meets the card's scope and acceptance criteria. It adds versioned PostgreSQL-compatible migrations, a SHA-256 checksummed transactional migration runner, an idempotent loader for two invented household chains, and a local PGlite factory that only works in the exact local-synthetic mode. Composite foreign keys tie each request to its child, each revision to its request and source scope, each assignment to a published revision, and each play to its assignment, child and revision. The controller's evidence on this tree shows `npm test` passing (14/14), the build passing and check_application_card.py exiting 0. The independent tests cover failure paths against the real database rather than mocks, including the PostgreSQL 18 engine, both migration fault paths, checksum mismatch, deferred-unique rollback, cascade isolation and index-column checks on action-ID and sequence uniqueness. The remaining findings are minor: stale wording in the report and a migration comment, one same-household binding with no app-level test, and a constraint choice for a later module to confirm. Engineering v1.2 (APPROVAL-004) open gates stay open: no consent enforcement, CommitAction/CAS, offer/retention defaults, RLS/backup or 10-C/10-D deletion is claimed.",
+    "findings": [
+      {
+        "severity": "minor",
+        "title": "No app test for a same-household play bound to the wrong assignment",
+        "file": "tests/loop-database.test.mjs",
+        "line": 118,
+        "problem": "The card says same-household wrong child/request/revision/assignment bindings must be tested. The independent app tests reject a wrong child, a wrong revision and a draft revision on assignments. For play_sessions, the only binding test is a cross-household play_events insert. No test inserts a same-household play_session whose assignment_id, child_id or revision_id doesn't match. The protected probe and controller checker passed and report 'scoped references', but I couldn't read the checker or probe (permission denied), so app-level coverage of this binding is unconfirmed. The composite FK in 001_core.sql does enforce it.",
+        "fix_check": "Add an app test that seeds data, then inserts a play_session in the same household with the original assignment_id but another child_id, and another with a different revision_id. Expect SQLSTATE 23503 each time and no row inserted."
+      },
+      {
+        "severity": "minor",
+        "title": "REPORT.md is stale against the committed tree and controller evidence",
+        "file": ".codex/execution/results/CODEX-01-B/REPORT.md",
+        "line": 27,
+        "problem": "The report says only db/synthetic-fixtures.mjs was returned, that no files were written, and that every check is 'Not yet run'. The committed revision 80d29b1 contains the full migration/runner/driver/test set, and the controller recorded passing test, build and checker results. The card's completion record needs the exact revisions and checks. The controller evidence exists, but the result report doesn't reflect it.",
+        "fix_check": "The completion record cites commit 80d29b1 (or its successor) and the controller's exit statuses for npm test, the build and check_application_card.py, and no longer describes them as not run."
+      },
+      {
+        "severity": "nit",
+        "title": "Migration 002 comment describes the old fixture conflict handling",
+        "file": "db/migrations/002_assignment_constraint_order.sql",
+        "line": 5,
+        "problem": "The comment says fixture loading uses untargeted ON CONFLICT DO NOTHING. The loader now targets (household_id,assignment_id), and the untargeted form caused the earlier 55000 failure. Editing the file changes its checksum. These migrations have only run on disposable databases, but the edit must happen before any persistent database applies them.",
+        "fix_check": "Correct the comment before the migration is applied anywhere persistent, or document the discrepancy if the checksum is kept frozen."
+      },
+      {
+        "severity": "minor",
+        "title": "One-reservation-per-request uniqueness may constrain WM-04 lifecycle",
+        "file": "db/migrations/001_core.sql",
+        "line": 44,
+        "problem": "capacity_reservations has UNIQUE(household_id, request_id) regardless of state or source_scope_version. Once a reservation is released, a corrected source version can only be re-reserved by mutating the existing row, which the WM-04 capacity lifecycle (clarification/correction/alternatives) may not intend. This is not a CODEX-01-B acceptance failure, but downstream owners should know about it.",
+        "fix_check": "WM-04/CODEX-04 owners confirm the constraint or replace it in a successor migration, e.g. a partial unique index on active reservations."
+      }
+    ]
+  },
+  "controller_checks": {
+    "commit": "80d29b12b985f6f559a32ee1cc94a9a34b46c4ba",
+    "output": "[\"npm.cmd\", \"test\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 test\n> node --test tests/*.test.mjs\n\n\u2714 native media starts synchronously in a tap and stop cannot award completion (1.8269ms)\n\u2714 the expedition has two confidence rounds followed by three ocean rounds (1.0169ms)\n\u2714 Web Audio playback schedules every source during the initiating gesture (1.4885ms)\n\u2714 every public game has a distinct playable route and valid scripts (12.5622ms)\n\u2714 every game animal uses a bundled same-origin MP3 (5.6072ms)\n\u2714 local factory preserves guard failures and returns an empty real PostgreSQL engine (1704.4825ms)\n\u2714 two fresh databases reproduce scoped fixtures, constraints and household deletion (3004.2195ms)\n\u2714 assignment scope failures remain immediate while duplicate request assignments cannot commit (1701.4715ms)\n\u2714 migration checksums and actual SQL/registry failures preserve atomicity (1576.5103ms)\n\u2714 exact local mode returns disconnected adapters and does not mutate input (1.7536ms)\n\u2714 missing, unknown, preview and production environments fail closed (0.4162ms)\n\u2714 connections, private browser variables and enabled adapters are refused (1.5841ms)\n\u2714 configuration rejection never includes the rejected value (0.4145ms)\n\u2714 preview requires every exact flag and remains off in production (0.234ms)\n\u2139 tests 14\n\u2139 suites 0\n\u2139 pass 14\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 8161.9322\n\n\n[\"npm.cmd\", \"run\", \"build\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1842 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-DXQb-_Bt.css  160.59 kB \u2502 gzip: 28.17 kB\ndist/client/assets/index-B8JFZPtD.js   253.99 kB \u2502 gzip: 81.49 kB\n\n\u2713 built in 517ms\n\n\n[\"C:\\\\Program Files\\\\Python314\\\\python.exe\", \"C:\\\\Users\\\\Arrgee\\\\.codex\\\\.chatgpt-projects\\\\g-p-6aa20bbf0df48191a58549f304e705de\\\\loop-adaptation\\\\.codex\\\\tools\\\\check_application_card.py\", \"--card\", \"CODEX-01-B\"]: exit 0\nReal disposable Postgres passed reproducible migrations/fixtures, scoped references, immutable source lineage, publication binding, action/sequence uniqueness, range constraints, transaction rollback and scoped deletion. No production/RLS/backup proof is inferred.\nController assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1842 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-DXQb-_Bt.css  160.59 kB \u2502 gzip: 28.17 kB\ndist/client/assets/index-8YijOCEd.js   253.99 kB \u2502 gzip: 81.49 kB\n\n\u2713 built in 493ms\nActual main.tsx router passed28 module-identity cases including trailing slashes: original pages preserved; synthetic route dev-only.\nSeeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.\n\n"
+  }
+}
