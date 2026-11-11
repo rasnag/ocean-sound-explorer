@@ -1,0 +1,54 @@
+{
+  "reviewer": "Claude Code",
+  "reviewed_commit": "cf0d0ea3ab6eeeefbd52b17103c2ff96c7307660",
+  "findings": {
+    "verdict": "pass",
+    "summary": "CODEX-01-C adds local-only founder authentication: synthetic identities, password and authenticator-code (TOTP) login, and server-side sessions. It stays in the card's file scope and uses migration 003 without editing 001 or 002. All three card criteria are met in code and covered by a passing real PostgreSQL plus HTTP test: unauthenticated callers get 401 and family callers get 403; expiry, logout, demotion and disabling are checked against the database on every request; and secrets are absent from logs, console/stderr, responses and session rows, with every response set to no-store. All five extra checks the app review must confirm have actual tests: the cleared logout cookie, identical unknown-user and wrong-password replies, the lockout lifting after its window, refusal of bad Host, content type, oversized body and duplicate cookies, and console/stderr secret capture. The controller's npm test, build and card checker all exited 0. I could not read check_application_card.py or founder_auth_probe.mjs myself (permission denied), so for those I am relying on the controller's reported output. Remaining issues are minor and do not block the acceptance criteria.",
+    "findings": [
+      {
+        "severity": "minor",
+        "title": "Login issues a new session but does not revoke the presented one",
+        "file": "server/loop-auth.mjs",
+        "line": 69,
+        "problem": "POST /login always issues a fresh server-generated token, so session fixation is not possible. But a valid loop_session cookie sent with the login request is never revoked, and the test shows the earlier founderCookie stays valid after re-login. The card says login 'rotates any client-proposed session'. The strictest reading means the replaced session should be invalidated, which would leave fewer live sessions.",
+        "fix_check": "On successful login, revoke the session for the presented cookie token (if any) in the same transaction. Add a test that the previous cookie returns 401 on GET /founder after re-login."
+      },
+      {
+        "severity": "minor",
+        "title": "4KB streaming body limit is untested; report says 'chunked'",
+        "file": "tests/loop-auth.test.mjs",
+        "line": 86,
+        "problem": "req.end(payload) on a fresh Node request sets Content-Length, so the 4097-byte test only hits the Content-Length check. The streaming size check (size > 4096 while reading) never runs. REPORT.md describes this as a '4097-byte chunked body', which overstates the evidence. The card explicitly requires the 4KB-body refusal.",
+        "fix_check": "Add a test that sends more than 4096 bytes with Transfer-Encoding: chunked and no Content-Length (e.g. several req.write calls) and gets 413. Correct the REPORT.md wording."
+      },
+      {
+        "severity": "minor",
+        "title": "Result report omits specific downstream task IDs",
+        "file": ".codex/execution/results/CODEX-01-C/REPORT.md",
+        "line": 51,
+        "problem": "The card says completion must record 'downstream IDs from the index'. The report only lists module categories (intake, review, publication and so on) and WM-08/WM-10, with no specific task IDs. Its check section still says NOT YET RUN everywhere and does not point to the controller results now attached.",
+        "fix_check": "REPORT.md lists the downstream task IDs from INDEX.md and references the controller's npm test, build and checker results by revision."
+      },
+      {
+        "severity": "nit",
+        "title": "One global throttle lets any account lock out the founder",
+        "file": "lib/loop/founder-auth.mjs",
+        "line": 57,
+        "problem": "The single global throttle avoids leaking which accounts exist, and this is documented. The side effect is that failed attempts on any username, including a family account, block the founder from logging in until the window ends. This is acceptable for a disposable local issuer. Production rate-limit policy remains gated and should not inherit this design without a decision.",
+        "fix_check": "The report or code comment states this cross-account lockout trade-off as provisional local-only behaviour."
+      },
+      {
+        "severity": "nit",
+        "title": "Strict cookie parsing rejects requests with other 127.0.0.1 cookies",
+        "file": "server/loop-auth.mjs",
+        "line": 13,
+        "problem": "Browsers send 127.0.0.1 cookies to every port. Any cookie that fails the strict parser, or a duplicate name set by another local dev server, gets a 401 on every route, including GET /login. This is safe (it fails closed) but could confuse a developer.",
+        "fix_check": "Optional: only apply strict parsing and duplicate rejection to loop_session, or document the behaviour."
+      }
+    ]
+  },
+  "controller_checks": {
+    "commit": "cf0d0ea3ab6eeeefbd52b17103c2ff96c7307660",
+    "output": "[\"npm.cmd\", \"test\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 test\n> node --test tests/*.test.mjs\n\n\u2714 native media starts synchronously in a tap and stop cannot award completion (1.5368ms)\n\u2714 the expedition has two confidence rounds followed by three ocean rounds (1.0634ms)\n\u2714 Web Audio playback schedules every source during the initiating gesture (1.616ms)\n\u2714 every public game has a distinct playable route and valid scripts (18.2437ms)\n\u2714 every game animal uses a bundled same-origin MP3 (6.0617ms)\n\u2714 real local PostgreSQL and HTTP enforce synthetic founder boundaries (3201.4285ms)\n\u2714 local factory preserves guard failures and returns an empty real PostgreSQL engine (2066.8468ms)\n\u2714 two fresh databases reproduce scoped fixtures, constraints and household deletion (3508.8374ms)\n\u2714 assignment scope failures remain immediate while duplicate request assignments cannot commit (1543.4934ms)\n\u2714 migration checksums and actual SQL/registry failures preserve atomicity (1755.1348ms)\n\u2714 exact local mode returns disconnected adapters and does not mutate input (1.8093ms)\n\u2714 missing, unknown, preview and production environments fail closed (0.4098ms)\n\u2714 connections, private browser variables and enabled adapters are refused (1.6606ms)\n\u2714 configuration rejection never includes the rejected value (0.4517ms)\n\u2714 preview requires every exact flag and remains off in production (0.241ms)\n\u2139 tests 15\n\u2139 suites 0\n\u2139 pass 15\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 9084.2368\n\n\n[\"npm.cmd\", \"run\", \"build\"]: exit 0\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1842 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-DXQb-_Bt.css  160.59 kB \u2502 gzip: 28.17 kB\ndist/client/assets/index-B8JFZPtD.js   253.99 kB \u2502 gzip: 81.49 kB\n\n\u2713 built in 869ms\n\n\n[\"C:\\\\Program Files\\\\Python314\\\\python.exe\", \"C:\\\\Users\\\\Arrgee\\\\.codex\\\\.chatgpt-projects\\\\g-p-6aa20bbf0df48191a58549f304e705de\\\\loop-adaptation\\\\.codex\\\\tools\\\\check_application_card.py\", \"--card\", \"CODEX-01-C\"]: exit 0\nReal disposable Postgres passed reproducible migrations/fixtures, scoped references, immutable source lineage, publication binding, action/sequence uniqueness, range constraints, transaction rollback and scoped deletion. No production/RLS/backup proof is inferred.\nActual local HTTP/Postgres authentication probe passed: password/TOTP, server roles, expiry, logout, concurrent replay, rate limiting, CSRF, cache and secret checks.\nController assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.\n\n> ocean-sound-explorer@0.1.0 build\n> vite build\n\nvite v8.0.13 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1842 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/client/index.html                   0.73 kB \u2502 gzip:  0.45 kB\ndist/client/assets/index-DXQb-_Bt.css  160.59 kB \u2502 gzip: 28.17 kB\ndist/client/assets/index-8YijOCEd.js   253.99 kB \u2502 gzip: 81.49 kB\n\n\u2713 built in 503ms\nActual main.tsx router passed28 module-identity cases including trailing slashes: original pages preserved; synthetic route dev-only.\nSeeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.\n\n"
+  }
+}
