@@ -59,8 +59,8 @@ export default function LoopDiscovery({snapshot, clock = Date.now}: Props) {
       <a className="discovery-skip" href="#discovery-family">Skip to discovery</a>
       <p className="discovery-label">Local synthetic preview · no real joining</p>
       {fixturesEnabled && (
-        <aside className="discovery-fixtures" aria-labelledby="fixture-heading">
-          <h2 id="fixture-heading">Developer fixture states</h2>
+        <details className="discovery-fixtures">
+          <summary>Developer fixture states</summary>
           <p>Explore fictional availability. These controls do not change a real service.</p>
           <div className="discovery-actions">
             {(['open', 'full', 'paused', 'unknown'] as const).map(state => (
@@ -68,7 +68,7 @@ export default function LoopDiscovery({snapshot, clock = Date.now}: Props) {
                 onClick={() => changeFixture(state)}>{state}</button>
             ))}
           </div>
-        </aside>
+        </details>
       )}
       <section id="discovery-family" data-testid="discovery-family" aria-labelledby="discovery-title">
         <header>
