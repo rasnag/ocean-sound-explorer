@@ -82,7 +82,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
         consent_epoch: current.consent_epoch, revision_id: current.revision_id,
         pattern_version: current.pattern_version, action}));
       setError('');
-    } catch { setError('That choice could not be applied. Choose your guess and position again.'); }
+    } catch { setError(['help','close_help','side_thread'].includes(action.kind) ? 'That optional choice could not be opened. You can keep investigating.' : 'That choice could not be applied. Choose your guess and position again.'); }
   }
   function switchPath(next: Path) {
     const player = players[next];
@@ -102,7 +102,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
       <h1 id="loop-player-title">Pretend balance</h1>
       <p>{adventure.opening}</p>
       {assisted && <p data-testid="path-instruction">{pathInstructions[path]}</p>}
-      {!assisted && <details className="loop-player-limits"><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p></details>}
+      <details className="loop-player-limits"><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p></details>
       <p className="loop-player-instruction" role="status">{instruction}</p>
       <fieldset><legend>1. What do you think will happen?</legend>
         <div className="loop-player-choices">{['stable','tips','not_sure'].map(prediction =>
@@ -127,7 +127,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
       {assisted && <section aria-labelledby="help-title">
         <h2 id="help-title">Want a clue?</h2>
         <div className="loop-player-choices">{[1,2,3].map(level => <button type="button" key={level} data-testid={`help-${level}`}
-          aria-expanded={state.help_open && state.help_level === level} aria-controls="help-content"
+          aria-expanded={state.help_open && state.help_level === level} aria-controls={state.help_open ? "help-content" : undefined}
           onClick={() => send({kind: 'help', level})}>{['A nudge','A bigger nudge','Show an example'][level - 1]}</button>)}</div>
         {state.help_open && <section id="help-content" data-testid="help-panel" data-level={state.help_level} aria-label="Optional clue">
           <p>{adventure.help[(state.help_level || 1) - 1]}</p>
@@ -139,7 +139,7 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
           </div>}
           <button type="button" data-testid="close-help" onClick={() => send({kind: 'close_help'})}>Close clue</button>
         </section>}
-        <button type="button" data-testid="side-thread-toggle" aria-expanded={state.side_thread_open} aria-controls="side-content"
+        <button type="button" data-testid="side-thread-toggle" aria-expanded={state.side_thread_open} aria-controls={state.side_thread_open ? "side-content" : undefined}
           onClick={() => send({kind: 'side_thread', open: !state.side_thread_open})}>{state.side_thread_open ? 'Close optional question' : 'An optional pretend question'}</button>
         {state.side_thread_open && <p id="side-content" data-testid="side-thread">{adventure.side_thread}</p>}
       </section>}
@@ -172,7 +172,6 @@ function PlayerSession({adventure}: {adventure: Adventure}) {
     </div>
     {assisted && <details className="loop-player-limits">
       <summary>For the grown-up: synthetic developer controls</summary>
-      <p>{adventure.limits}</p>
       <p>Developer scripts A/B/C explicitly select fast/medium/slow authored text paths. They do not classify a child. Each keeps its own tries until this preview closes.</p>
       <div className="loop-player-choices">{(['fast','medium','slow'] as Path[]).map((name,index) => <button type="button" key={name}
         data-testid={`script-${name}`} aria-pressed={path === name} onClick={() => switchPath(name)}>{['A','B','C'][index]}</button>)}</div>
