@@ -8,7 +8,8 @@
   overflow-wrap: anywhere;
   line-height: 1.6;
 }
-.loop-player > * + * { margin-top: 1.5rem; }
+.loop-player > * + *, .loop-player-family > * + * { margin-top: 1.5rem; }
+.loop-player-family, .loop-player section { min-width: 0; }
 .loop-player h1 { font-size: clamp(2rem, 7vw, 3rem); }
 .loop-player h2 { margin-bottom: .6rem; }
 .loop-player h3 { margin: 0 0 .5rem; }
@@ -29,6 +30,7 @@
 .loop-player button {
   min-height: 56px;
   min-width: 44px;
+  max-width: 100%;
   padding: .8rem 1.1rem;
   border: 2px solid #12364a;
   border-radius: .8rem;
@@ -49,6 +51,8 @@
 .loop-player dl { margin: 0; }
 .loop-player dt { font-weight: 750; }
 .loop-player dd { margin: 0 0 .6rem; }
+.loop-player [data-testid="help-panel"], .loop-player [data-testid="side-thread"] { padding: 1rem; border: 2px solid #33758b; border-radius: .8rem; margin-block: 1rem; }
+.loop-player [data-testid="show-it-example"] { border-inline-start: 4px solid #33758b; padding-inline-start: .75rem; margin-block: 1rem; }
 @media (max-width: 400px) {
   .loop-player { margin: .5rem; }
   .loop-player-choices { flex-direction: column; }
