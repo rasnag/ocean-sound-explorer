@@ -1,0 +1,53 @@
+.loop-discovery {
+  color: #213d30;
+  background: #f7f3e8;
+  min-height: 100vh;
+  padding: clamp(16px, 5vw, 56px);
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.loop-discovery > *, .loop-discovery > section { max-width: 760px; margin-inline: auto; }
+.loop-discovery h1 { font-family: Georgia, serif; font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.15; margin-block: 18px; }
+.loop-discovery h2 { font-size: 1.35rem; line-height: 1.35; }
+.loop-discovery h3 { font-size: 1.1rem; }
+.loop-discovery p { margin-block: 12px; }
+.loop-discovery .discovery-label { font-size: .9rem; font-weight: 650; }
+.loop-discovery .discovery-card, .loop-discovery .discovery-fixtures {
+  margin-block: 24px;
+  padding: clamp(16px, 4vw, 28px);
+  border: 1px solid #758575;
+  border-radius: 18px;
+  background: #fffdf6;
+}
+.loop-discovery .discovery-fixtures { border-style: dashed; background: #eeeadd; }
+.loop-discovery .discovery-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 16px; }
+.loop-discovery button, .loop-discovery .discovery-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 18px;
+  border: 2px solid #284c38;
+  border-radius: 10px;
+  background: #284c38;
+  color: #fffdf6;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.loop-discovery button:disabled { background: #e4e5dd; color: #49544a; border-color: #758575; cursor: default; }
+.loop-discovery a { color: #244d36; text-underline-offset: 4px; }
+.loop-discovery :focus-visible { outline: 3px solid #91501f; outline-offset: 4px; }
+.loop-discovery .discovery-offer { border-left: 4px solid #758575; padding-left: 16px; margin-block: 18px; }
+.loop-discovery .discovery-checkbox { display: flex; align-items: center; gap: 12px; min-height: 44px; margin-block: 16px; cursor: pointer; }
+.loop-discovery input[type="checkbox"] { width: 24px; height: 24px; flex: 0 0 24px; accent-color: #284c38; }
+.loop-discovery .discovery-skip { position: absolute; left: 16px; top: -100px; background: #fffdf6; padding: 12px; }
+.loop-discovery .discovery-skip:focus { top: 12px; }
+@media (max-width: 420px) {
+  .loop-discovery .discovery-actions { flex-direction: column; align-items: stretch; }
+  .loop-discovery button { width: 100%; }
+}
