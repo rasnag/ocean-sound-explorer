@@ -1,0 +1,21 @@
+# Local invented child setup
+
+CODEX-02-C implements DECISION-040 / APPROVAL-007 under engineering v1.2. It does not satisfy real privacy review, production consent, retention or public launch gates. Only invented families and TEST-v1 permissions are supported.
+
+The asynchronous `createSyntheticChildSetup({env,db,access,policyVersion,clock?})` requires the local-synthetic environment, actual migrated PGlite, accepted adult access and TEST-v1. Its frozen interface contains `status(token)` and `save(token,command)` only. Accepted `withSession` supplies current identity and serialization; latest permission is locked before any profile or receipt. No browser identity is trusted.
+
+Status returns permission_required, setup_required, complete or setup_unavailable. A prior-epoch retained child makes setup unavailable after reconsent. A context digest binds adult, household, epoch and policy; it is not authorization. Responses expose neither underlying identity nor epoch. Child identifiers are scoped references, never bearer credentials.
+
+Create commands have exactly command_id, setup_context, operation:create, initial and profile. Corrections have command_id, setup_context, operation:correct, child_id, expected_profile_version and profile. Profile input is nickname, age and calibration; calibration is reads, counts_to_20 and challenge. Every question supports not-sure. UUIDs normalize to lowercase before a recursively sorted fingerprint over the complete command and server actor. Invalid extra properties, accessors and prototypes are rejected.
+
+The first child occupies a stable household slot. Equivalent initial version-one submissions return its acknowledgment without adding a receipt or quota use. Explicit sibling creation with a fresh command creates a separate child even for identical answers. Corrections preserve child identity, append immutable history and atomically compare the expected version. Receipts return original acknowledgments before version or quota checks, after current access and membership checks. The UI always reads the latest list after an acknowledgment.
+
+Thirty new mutations per household per minute is a fixture policy, not a production capacity promise. Backward clocks deny new writes; exact retries and equivalent initial submissions bypass quota. SQL failures roll back profile, history, receipt and throttle together. Deferred constraints require current profiles to match their immutable version; physical cascades are tested separately and do not constitute a full privacy deletion workflow.
+
+GET/POST /adult/setup retain existing local HTTP guards and cookie policy. The five/six-field command union is route-specific. Only /loop-preview/setup and its trailing-slash form extend the existing static-shell allowlist. Production and preview-disabled builds show About instead of this screen.
+
+The screen keeps drafts and pending commands only in memory, fences them to current permission and selected profile version, and reconciles on focus and every 15 seconds. Same-context polls preserve input nodes and values. Mutations preserve the original command for explicit retry; passive polling never retries writes or clears a mutation failure. Withdrawal hides private details immediately and reports failure as unconfirmed. Permissions and optional choices start unchecked. Starting settings appear as Gentle start, Middle start or Bigger challenge, without scoring the child.
+
+Verification remains provisional until actual service, HTTP, React, build, independent card checks, native browser scenarios and Claude feature review are recorded. Single-connection fixture evidence does not establish production durability or multi-connection behavior. No email delivery, real accounts, billing, game generation or public deployment is included.
+
+Clock/version overflow uses domain code `unavailable` and HTTP503. The protected probe lists `unexpected` for generic503; this is a documented domain alias, not a different HTTP outcome. Transient passive failures hide the private view while retaining RAM-only draft/command intent and any existing sticky mutation error. Confirmed403 or changed context/version clears private intent. Explicit retry rechecks current authorization before resending the identical command.

@@ -37,11 +37,11 @@ async function body(req,keys) {
   try { value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); }
   catch { throw deny(400); }
   if (!value || typeof value!=='object' || Array.isArray(value)
-    || Object.keys(value).length!==keys.length || keys.some(key=>!Object.hasOwn(value,key))) throw deny(400);
+    || !(Array.isArray(keys[0])?keys:[keys]).some(shape=>Object.keys(value).length===shape.length&&shape.every(key=>Object.hasOwn(value,key)))) throw deny(400);
   return value;
 }
 function assetPath(url) {
-  const allowed=url.pathname==='/' || /^\/loop-preview(?:\/join)?\/?$/.test(url.pathname)
+  const allowed=url.pathname==='/' || /^\/loop-preview(?:\/(?:join|setup))?\/?$/.test(url.pathname)
     || /^\/(?:app|lib|components|node_modules)\//.test(url.pathname)
     || /^\/@(?:vite\/client|react-refresh|id\/)/.test(url.pathname);
   return allowed && [...url.searchParams.keys()].every(key=>['v','t','import'].includes(key));
@@ -51,11 +51,12 @@ function assetPath(url) {
 export function createSyntheticAdultAccessServer(options={}) {
   resolveLoopConfig(options?.env);
   if (!options || typeof options!=='object' || Array.isArray(options)
-    || Object.keys(options).some(key=>!['access','env','serve','consent'].includes(key))) throw deny(400);
-  const {access,serve,consent}=options;
+    || Object.keys(options).some(key=>!['access','env','serve','consent','setup'].includes(key))) throw deny(400);
+  const {access,serve,consent,setup}=options;
   if (!access || ['request','verify','session','logout'].some(key=>typeof access[key]!=='function')
     || (serve!==undefined && typeof serve!=='function')) throw deny(400);
   if(consent!==undefined&&(!consent||['status','record','withdraw'].some(k=>typeof consent[k]!=='function')))throw deny(400);
+  if(setup!==undefined&&(!setup||['status','save'].some(k=>typeof setup[k]!=='function')))throw deny(400);
   const server=http.createServer({maxHeaderSize:8192,requestTimeout:10000,headersTimeout:10000},async(req,res)=>{
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -93,6 +94,8 @@ export function createSyntheticAdultAccessServer(options={}) {
       if (api) {
         if (url.search || url.hash || req.url!==url.pathname) return send(404,{error:'Request unavailable.'});
         if (req.method==='POST' && (count('origin')!==1 || req.headers.origin!==origin)) throw deny(403);
+        if(setup&&url.pathname==='/adult/setup'&&req.method==='GET')return send(200,await setup.status(token));
+        if(setup&&url.pathname==='/adult/setup'&&req.method==='POST')return send(200,await setup.save(token,await body(req,[['command_id','setup_context','operation','initial','profile'],['command_id','setup_context','operation','child_id','expected_profile_version','profile']])));
         if(consent && url.pathname==='/adult/consent' && req.method==='GET')return send(200,await consent.status(token));
         if(consent && url.pathname==='/adult/consent' && req.method==='POST')return send(200,await consent.record(token,await body(req,['command_id','policy_version','required_service','optional_contact','optional_story'])));
         if(consent && url.pathname==='/adult/consent/withdraw' && req.method==='POST')return send(200,await consent.withdraw(token,await body(req,['command_id','policy_version'])));

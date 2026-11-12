@@ -8,6 +8,7 @@ import LoopPlayer from './LoopPlayer';
 import LoopDiscovery from './LoopDiscovery';
 import LoopSavedPlayer from './LoopSavedPlayer';
 import LoopAdultAccess from './LoopAdultAccess';
+import LoopChildSetup from './LoopChildSetup';
 import {isSyntheticPreviewEnabled} from '../lib/loop/client-mode.mjs';
 import './globals.css';
 
@@ -24,5 +25,6 @@ const page = path === '/make-the-moon' ? <MakeMoon/>
   : path === '/loop-preview/discover' && previewEnabled ? <LoopDiscovery/>
   : path === '/loop-preview/saved' && previewEnabled ? <LoopSavedPlayer/>
   : path === '/loop-preview/join' && previewEnabled ? <LoopAdultAccess/>
+  : path === '/loop-preview/setup' && previewEnabled ? <LoopChildSetup/>
   : <About/>;
 createRoot(document.getElementById('root')!).render(page);

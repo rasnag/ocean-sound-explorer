@@ -190,6 +190,7 @@ export default function LoopAdultAccess() {
     </section>}
     {phase==='restricted' && scope && <section aria-labelledby="adult-account-title">
       <h2 id="adult-account-title">Restricted account status</h2>
+      <p><a href="/loop-preview/setup">Open the separate invented child setup fixture</a></p>
       <p>The invented account has a restricted local session. Recovery replaces older sessions, including in other tabs.</p>
       <p>No child information, private play, consent, trial or booking is available.</p>
       <button type="button" onClick={()=>void signOut()} disabled={busy}>Sign out</button>
