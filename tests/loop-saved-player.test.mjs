@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,writeFile,unlink,access} from 'node:fs/promises';
+import {createRequire,registerHooks} from 'node:module';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
 import {createSyntheticDatabase} from '../lib/loop/local-db.mjs';
@@ -13,6 +15,56 @@ import {endingFixtureAdventure} from '../lib/loop/ending-fixture.mjs';
 import {fixtureAdventure} from '../lib/loop/fixture-adventure.mjs';
 
 const env={LOOP_ENV:'local-synthetic'};
+
+test('actual React retries an uncertain Replay into the new introduction, retaining the old play',async()=>{
+  await fixture(2,async({origin,lose,db})=>{
+    const appRoot=path.dirname(path.dirname(fileURLToPath(import.meta.url))),require=createRequire(new URL('../package.json',import.meta.url));
+    const {JSDOM,VirtualConsole}=require('jsdom'),ts=require('typescript'),React=require('react');
+    const vc=new VirtualConsole(),errors=[];vc.on('jsdomError',error=>errors.push(error));
+    const dom=new JSDOM('<div id="root"></div>',{url:origin+'/loop-preview/saved',pretendToBeVisual:true,virtualConsole:vc});
+    const names=['window','document','navigator','HTMLElement','Node','Event','MouseEvent','IS_REACT_ACT_ENVIRONMENT','fetch','Audio'];
+    const previous=new Map(names.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)])),nativeFetch=globalThis.fetch;
+    const realFetch=(url,options)=>{const target=new URL(url,origin);assert.equal(target.origin,origin);return nativeFetch(target,options);};
+    for(const name of names)Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:name==='IS_REACT_ACT_ENVIRONMENT'?true:name==='fetch'?realFetch:dom.window[name]});
+    dom.window.fetch=realFetch;
+    for(const name of ['pause','load'])Object.defineProperty(dom.window.HTMLMediaElement.prototype,name,{configurable:true,value(){}});
+    Object.defineProperty(dom.window.HTMLMediaElement.prototype,'play',{configurable:true,value(){return Promise.resolve();}});
+    const hook=registerHooks({load(url,context,next){if(url.endsWith('.css'))return {format:'module',source:'',shortCircuit:true};return next(url,context);}});
+    const temporary=path.join(appRoot,'app/.saved-replay-test.mjs');let owned=false,reactRoot;
+    try{
+      let exists=false;try{await access(temporary);exists=true;}catch{}assert(!exists,'preserve an existing test artifact');
+      const source=await readFile(path.join(appRoot,'app/LoopSavedPlayer.tsx'),'utf8');
+      const compiled=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}});
+      await writeFile(temporary,compiled.outputText,{flag:'wx'});owned=true;
+      const {default:Component}=await import(pathToFileURL(temporary).href),{createRoot}=require('react-dom/client');
+      const host=dom.window.document.getElementById('root');reactRoot=createRoot(host);
+      const find=id=>host.querySelector(`[data-testid="${id}"]`),phase=()=>find('saved-status')?.getAttribute('data-phase');
+      const wait=async condition=>{const deadline=Date.now()+15000;while(!condition()){assert(Date.now()<deadline,'actual Replay UI did not settle');await React.act(async()=>new Promise(resolve=>setTimeout(resolve,25)));}};
+      const click=async selector=>{const button=typeof selector==='string'?host.querySelector(selector):selector;assert(button&&!button.disabled,'missing active Replay control');await React.act(async()=>button.click());};
+      await React.act(async()=>reactRoot.render(React.createElement(Component)));await wait(()=>phase()==='ready');
+      await click(find('saved-start'));await wait(()=>find('saved-test'));
+      for(const selector of ['button[data-prediction="stable"]','button[data-configuration="balanced"]','[data-testid="saved-test"]']){await click(selector);await wait(()=>phase()==='ready');}
+      assert.equal(host.querySelectorAll('[data-testid="saved-trial"]').length,1);
+      const original=find('saved-root').getAttribute('data-play-id');
+      await click([...host.querySelectorAll('button')].find(button=>button.textContent==='Pause and look back'));
+      let failureSent=false;lose(record=>{if(record.route==='/saved/replay'){failureSent=true;return true;}return false;});
+      await click(find('saved-replay'));
+      // Wait for the real 503, not just the initial synchronous pending phase.
+      await wait(()=>failureSent&&phase()==='pending'&&host.querySelector('[role="alert"]')?.textContent.includes('Pending'));
+      assert.equal(find('saved-root').getAttribute('data-play-id'),original);
+      assert.equal(host.querySelectorAll('[data-testid="saved-trial"]').length,1);
+      await click(find('saved-retry'));await wait(()=>phase()==='ready'&&find('saved-root').getAttribute('data-play-id')!==original);
+      assert(find('saved-start'),'confirmed uncertain Replay must enter the new introduction');
+      assert.equal(host.querySelectorAll('[data-testid="saved-trial"]').length,0);
+      assert(host.querySelector(`button[data-saved-play="${original}"]`),'original history disappeared');
+      assert.equal((await db.query('SELECT count(*)::int n FROM play_sessions')).rows[0].n,2,'Replay retry created an extra play');
+      assert.equal(errors.length,0,errors.map(String).join('\n'));
+    }finally{
+      if(reactRoot)await React.act(async()=>reactRoot.unmount());hook.deregister();if(owned)await unlink(temporary);dom.window.close();
+      for(const [name,descriptor]of previous){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}
+    }
+  });
+});
 async function seed(db,s,a){
   const request=randomUUID();
   await db.transaction(async tx=>{

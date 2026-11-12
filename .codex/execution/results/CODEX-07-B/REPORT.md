@@ -50,3 +50,7 @@ Architecture review obligations for journal failure/backfill continue through ac
 ## Controller native-browser finding and scoped correction
 
 Codex controller using actual IAB observed candidate4822ef20ba475de6ab421280a8b8d622a5232589 returning HTTP403 JSON instead of its page. The fixture logged header names only and confirmed an ordinary browser Cookie header; no values were read. The correction strips incidental cookies only from trusted read-only non-API assets, preserving all save API guards, and adds a real HTTP regression. Prior50tests/build/protected checks passed on4822; this changed revision requires fresh controller checks and native CUA before the first Claude review. No review was consumed or reset by this pre-review correction.
+
+## Second controller browser correction
+
+Actual320x740 native CUA on81334ad observed a post-commit Replay response failure: old ID/two tries stayed visible while pending, then Retry returned a distinct zero-try ID but left the old paused recap instead of an introduction. Root added a real React->HTTP->PG/journal regression which failed at the missing Introduction assertion on the original source. The component now opens the introduction only after Retry confirms a changed play ID. Phone saving/loss copy is shorter and plain-language; the test boundary remains explicit. Focused saved-player tests pass after correction; full required checks and fresh source-bound CUA remain required. No actual Claude review has run yet and none was reset.

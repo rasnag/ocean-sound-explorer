@@ -96,6 +96,14 @@ export default function LoopSavedPlayer() {
     if (resumed.phase === 'ready' && resumed.play_id === playId) setView('playing');
   });
   const send = (action: Parameters<typeof client.dispatch>[0]) => void invoke(() => client.dispatch(action));
+  const retryOriginal = () => void invoke(async () => {
+    const previousPlay = client.snapshot().play_id;
+    const reconciled = await client.retry();
+    if (reconciled.phase === 'ready' && reconciled.play_id !== previousPlay) {
+      setView('opening');
+      setReloadChoice(false);
+    }
+  });
   const status = snap.phase === 'ready' ? 'Confirmed on this local server'
     : snap.phase === 'idle' ? 'Not opened. Waiting for the local fixture.'
       : snap.phase === 'loading' ? 'Opening the local server play…'
@@ -108,9 +116,8 @@ export default function LoopSavedPlayer() {
     <h1 id="saved-title" ref={heading} tabIndex={-1}>{view === 'ending' ? 'Pause and look back' : 'Your idea comes first'}</h1>
     <p data-testid="saved-status" data-phase={snap.phase} role="status" aria-live="polite">{status}</p>
     {snap.error && <p role="alert">{snap.error}</p>}{localError && <p role="alert">{localError}</p>}
-    <p>This developer fixture uses one invented household. Confirmation applies only to this running local server, on this host. production_ready: false. Stopping the server loses its local play registry and replay coordination; this is not production storage or parent authentication.</p>
-    <p>Refresh can resume confirmed progress on the same running server. Unconfirmed intent is held only in page memory; closing or refreshing may lose it. A stopped or unavailable fixture cannot silently restart your confirmed play.</p>
-    {['pending', 'failed'].includes(snap.phase) && <button type="button" data-testid="saved-retry" onClick={() => void invoke(() => client.retry())}>Retry original operation</button>}
+    <p>Local test only. Confirmed progress returns on refresh while this demo server keeps running. Stopping it ends access. Unconfirmed changes may be lost if you close or refresh.</p>
+    {['pending', 'failed'].includes(snap.phase) && <button type="button" data-testid="saved-retry" onClick={retryOriginal}>Retry original operation</button>}
     {snap.phase !== 'denied' && !busy && <button type="button" onClick={() => setReloadChoice(true)}>Reload confirmed progress</button>}
     {reloadChoice && <section aria-label="Reload choice"><p>Reload discards the pending page intent. A command may already have reached the server. Reload reads that same play’s current confirmed state; it never merges or creates a replay.</p>
       <button type="button" onClick={() => {setReloadChoice(false); void invoke(() => client.reload());}}>Discard page intent and reload</button>
@@ -160,7 +167,9 @@ export default function LoopSavedPlayer() {
       <nav aria-label="Retained local plays"><h2>Other local plays</h2><p>Opening a retained play does not create a replay.</p>
         <div className="saved-buttons">{snap.history.filter(h => h.play_id !== snap.play_id).map(h => <button type="button" key={h.play_id} data-saved-play={h.play_id} disabled={!ready} onClick={() => void invoke(async () => {await client.open(h.play_id);setView('opening');})}>Play {snap.history.findIndex(item => item.play_id === h.play_id) + 1}: {h.trial_count === null ? 'confirmation pending' : `${h.trial_count} tries`} · incomplete</button>)}</div>
       </nav>
-      <details><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p><p>The old memory-only player and its three developer paths remain separate. This server selects one path; it is not a child score.</p></details>
+      <details><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p>
+        <p>This test uses one invented household. It does not verify real parents or provide production storage. Confirmation covers only this running local server; its play list and replay tracking end when it stops.</p>
+        <p>The old memory-only player and its three developer paths remain separate. This server selects one path; it is not a child score.</p></details>
       <Sound key={snap.play_id} active={view === 'playing' && snap.phase !== 'denied'}/>
     </>}
     <a href="/loop-preview">Return to preview shell</a>

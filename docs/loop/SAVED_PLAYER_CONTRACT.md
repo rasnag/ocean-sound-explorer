@@ -59,3 +59,7 @@ NOT RUN BY THIS DRAFTING AGENT: npm.cmd test; npm.cmd run build; controller chec
 ## Controller browser correction — November 11
 
 The real browser sent an incidental localhost cookie with the document GET. Only GET/HEAD outside the saved API namespace may reach the trusted development asset handler; those cookie fields are stripped and confer no authority. All saved API cookies, forwarded/identity/authorization headers, foreign origins and unknown writes remain denied. A real HTTP regression proves both asset loading and unchanged API denial. No parent session or production access policy is introduced.
+
+## Confirmed replay navigation
+
+Generic Retry compares the confirmed returned play ID with the prior selected play. A confirmed new ID opens its introduction; action retries on the same play preserve the current view. An uncertain replay never switches early or allocates a second intent. The real React/HTTP regression waits for the post-commit503, retries, verifies two total sessions and retained old history, and requires the fresh introduction. Saving/server-stop limits remain visible in plain language; detailed test boundaries stay in the grown-up disclosure.
