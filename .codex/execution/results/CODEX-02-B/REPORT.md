@@ -1,3 +1,7 @@
+> Controller acceptance record: the historical NOT YET RUN/Pending table, eeba25e check output and rerun-required/no-review notes below are superseded for the accepted synthetic slice. Reviewed source `606e8c5e20cc4412a67a56b178402d02e0bb4458` passed actual60/60tests, build and protected card checks (real HTTP/PGlite, DB/founder authentication,60routes and seeded production scan). Actual native CUA passed all8required scenarios on exact matching source blobs. [Attributed Claude review1 and embedded controller evidence](../../reviews/CODEX-02-B/5e687a35bcce49b382d2095b24eeb850-r1.json) passed. Application PR16 merged `ae78709b6879270b97ebcfc8ecb248e4d4167b1f`; planning PR55 merged `ace2ae46e393ded002bdc7446c6b2ff57a149f7a`. Local CUA file `606e8c5e20cc4412a67a56b178402d02e0bb4458.json` and trusted trace SHA256 `3e4332ae317884da0914422e529e11f8ad4708a146204963b491accf29c0b65c` remain with the root run records. The status ledger on the planning source of truth records delegated technical acceptance. This is not real verification, consent, sending or admission.
+>
+> Follow-up: a separate narrow correction removes passive logout of a newer shared-cookie session. Its actual React/HTTP regression, source, native check and independent review are recorded separately; the original accepted-source evidence above is not silently attributed to the follow-up. No original review record or decision is altered.
+
 # CODEX-02-B correction and evidence report
 
 Codex · November 11, 2026 · Draft correction; not done or accepted.
@@ -12,7 +16,7 @@ Applicable interfaces and invariants: WM-02 VerifyAdult and separately restricte
 
 ## Correction
 
-Return complete replacement contents for server/adult-http.mjs and this report. Preserve all other existing authorized deliverables, tests, migrations and unrelated work. No approved specification, status/authorization ledger, controller probe, package or deployment configuration is changed.
+Historical drafting correction preserved below; subsequent controller evidence governs acceptance.
 
 Source inspection identifies the concrete cause of ordinary HTTP requests being rejected: the identity-header expression matches the `user` segment in the standard `user-agent` header. Node fetch and browsers can supply this header on ordinary requests. The denial is evaluated before route dispatch, so a valid session read can return403 even with the correct Host.
 

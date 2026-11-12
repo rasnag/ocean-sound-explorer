@@ -50,7 +50,8 @@ export default function LoopAdultAccess() {
     setScope(null);
     try {
       const result=await enqueue(async()=>{
-        if (suppressRestore.current) { await api('logout',{}); return {status:'signed_out'}; }
+        // A passive check must not revoke a newer session shared by another tab.
+        if (suppressRestore.current) return {status:'signed_out'};
         return api('session');
       });
       if (!current(id)) return;
