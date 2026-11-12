@@ -123,6 +123,59 @@ test('ordinary browser cookies are stripped only for read-only trusted assets; s
     assetCalls++;res.writeHead(200,{'Content-Type':'text/plain'});res.end('Synthetic asset');
   }});
 });
+for(const engine of [1,2])test(`fresh client reconciles stored pending Test without the lost browser queue, engine${engine}`,async()=>{
+  await fixture(engine,async({db,scope,client,fault})=>{
+    const original=client();await original.open();
+    await original.dispatch({kind:'predict',prediction:'tips'});await original.dispatch({kind:'configure',configuration:'offset'});
+    const state=original.snapshot().confirmed.checkpoint.state;
+    fault(true);await original.dispatch({kind:'test',prediction_action_id:state.prediction_action_id,configuration_action_id:state.configuration_action_id});
+    assert.equal(original.snapshot().phase,'pending');assert.equal(original.snapshot().confirmed.checkpoint.state.trials.length,0);
+    // The original client and its pending envelope are never used again.
+    fault(false);const refreshed=client();await refreshed.open(scope.play_id);
+    assert.equal(refreshed.snapshot().phase,'ready');assert.equal(refreshed.snapshot().confirmed.checkpoint.state.trials.length,1);
+    assert.equal((await db.query('SELECT count(*)::int n FROM play_action_commands')).rows[0].n,3);
+    assert.equal((await db.query("SELECT count(*)::int n FROM play_action_commands WHERE ack_state='pending'")).rows[0].n,0);
+    await refreshed.dispatch({kind:'predict',prediction:'stable'});assert.equal(refreshed.snapshot().phase,'ready');
+    await refreshed.replay();assert.equal(refreshed.snapshot().phase,'ready');
+    assert.equal(refreshed.snapshot().confirmed.checkpoint.state.trials.length,0);
+    await refreshed.dispatch({kind:'configure',configuration:'balanced'});assert.equal(refreshed.snapshot().phase,'ready');
+  });
+});
+test('Replay Start failure before primary commit never poisons original reads or duplicates the intent',async()=>{
+  await fixture(2,async({db,scope,request,client,fault})=>{
+    const a=client();await a.open();await a.replay();const second=a.snapshot().play_id;
+    fault(true);await a.dispatch({kind:'predict',prediction:'stable'});assert.equal(a.snapshot().phase,'pending');
+    const command={play_id:scope.play_id,command_id:randomUUID()};
+    const failed=await request('/saved/replay',command);assert.equal(failed.status,503);
+    assert.equal((await db.query('SELECT count(*)::int n FROM play_sessions')).rows[0].n,2,'failed Start wrote a play');
+    const b=client();await b.open(scope.play_id);assert.equal(b.snapshot().phase,'ready','unstarted replay produced a false403');
+    assert.equal(b.snapshot().confirmed.checkpoint.state.trials.length,0);
+    assert.equal(b.snapshot().history.length,2,'unstarted intent leaked as play history');
+    assert(b.snapshot().history.some(item=>item.play_id===second&&item.trial_count===null));
+    fault(false);await b.reload();assert.equal(b.snapshot().phase,'ready');
+    const retried=await request('/saved/replay',command);assert.equal(retried.status,200);
+    const third=retried.body.result.play_id;assert(![scope.play_id,second].includes(third));
+    assert.equal((await db.query('SELECT count(*)::int n FROM play_sessions')).rows[0].n,3);
+    const duplicate=await request('/saved/replay',command);assert.equal(duplicate.status,200);assert.equal(duplicate.body.result.play_id,third);
+    assert.equal((await db.query('SELECT count(*)::int n FROM play_sessions')).rows[0].n,3);
+  });
+});
+test('unsupported acknowledgement retains the selected replay and its revision pin for explicit reload',async()=>{
+  await fixture(2,async({request,scope})=>{
+    let corrupt=null;const calls=[];
+    const a=createSavedPlayerClient({newActionId:randomUUID,request:async(route,body)=>{
+      calls.push(structuredClone({route,body}));const result=await request(route,body);
+      if(corrupt==='mode'){result.body.mode='unsupported';corrupt=null;}
+      else if(corrupt==='revision'){const revision=randomUUID();result.body.adventure.revision_id=revision;result.body.result.checkpoint.state.revision_id=revision;corrupt=null;}
+      return result;
+    }});
+    await a.open();await a.replay();const selected=a.snapshot().play_id;assert.notEqual(selected,scope.play_id);
+    corrupt='mode';await a.open(selected);assert.equal(a.snapshot().phase,'failed');assert.equal(a.snapshot().confirmed,null);
+    assert.equal(a.snapshot().play_id,selected);assert.equal(a.snapshot().retryable,false);await assert.rejects(()=>a.retry());
+    corrupt='revision';await a.reload();assert.equal(calls.at(-1).body.play_id,selected);assert.equal(a.snapshot().phase,'failed','malformed packet erased the trusted revision pin');
+    await a.reload();assert.equal(calls.at(-1).body.play_id,selected);assert.equal(a.snapshot().phase,'ready');assert.equal(a.snapshot().play_id,selected);
+  });
+});
 for(const engine of [1,2])test(`real saved HTTP/PG/journal engine${engine}: pending, retry, conflict, history and withdrawal`,async()=>{
   await fixture(engine,async({db,scope,adventure,request,calls,client,fault,lose})=>{
     const a=client();await a.open();assert.equal(a.snapshot().phase,'ready');

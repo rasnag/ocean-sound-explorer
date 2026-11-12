@@ -34,37 +34,46 @@ export function createSyntheticSavedServer(options){
   }]});
   const startCommand=s=>Object.freeze({contract_version:'1.1.0',command_id:randomUUID(),play_id:s.play_id,
     consent_epoch:s.consent_epoch,revision_id:s.revision_id,pattern_version:spec.pattern_version,engine_version:spec.engine_version});
-  const registry=new Map([[fixed.play_id,{scope:fixed,start:startCommand(fixed),started:false}]]);
+  const registry=new Map([[fixed.play_id,{scope:fixed,start:startCommand(fixed),materialized:false}]]);
   const intents=new Map();
   const known=id=>{const entry=registry.get(id);if(!entry)throw playError('denied');return entry;};
   const resume=entry=>service.resume(entry.scope,{play_id:entry.scope.play_id,revision_id:entry.scope.revision_id,consent_epoch:entry.scope.consent_epoch});
   async function start(entry){
     const result=await service.start(entry.scope,entry.start);
-    if(result.status==='acknowledged')entry.started=true;
+    // Either receipt proves Start reached its real primary transaction. A throw
+    // before it returns keeps only the retry intent, never a history entry.
+    entry.materialized=true;
     return result;
   }
-  async function full(entry){
+  async function current(entry){
     const result=await resume(entry);
+    // The browser may have lost its in-memory retry envelope on refresh. Only
+    // the accepted service can reconcile its stored original command/intent.
+    return result.status==='retryable_unacknowledged'?service.reconcile(entry.scope):result;
+  }
+  async function full(entry){
+    const result=await current(entry);
     if(result.status!=='acknowledged')return pending();
     const history=[];
     for(const item of registry.values()){
+      if(!item.materialized)continue;
       // Every entry is currently authorized; denial aborts the entire response.
-      const current=await resume(item);
-      history.push({play_id:item.scope.play_id,trial_count:current.status==='acknowledged'?current.checkpoint.state.trials.length:null,incomplete:true});
+      const receipt=await current(item);
+      history.push({play_id:item.scope.play_id,trial_count:receipt.status==='acknowledged'?receipt.checkpoint.state.trials.length:null,incomplete:true});
     }
     // History IO must not turn a stale selected checkpoint into current resume.
-    const current=await resume(entry);
-    if(current.status!=='acknowledged')return pending();
+    const latest=await current(entry);
+    if(latest.status!=='acknowledged')return pending();
     const selected=history.find(h=>h.play_id===entry.scope.play_id);
-    selected.trial_count=current.checkpoint.state.trials.length;
-    return {mode:'local-synthetic',production_ready:false,adventure:structuredClone(spec),result:current,history};
+    selected.trial_count=latest.checkpoint.state.trials.length;
+    return {mode:'local-synthetic',production_ready:false,adventure:structuredClone(spec),result:latest,history};
   }
   async function operate(route,body){
     if(route==='/saved/open'){
       exactObject(body,['play_id']);
       if(body.play_id!==null&&!uuid(body.play_id))throw playError('validation_failed');
       const entry=known(body.play_id??fixed.play_id);
-      if(body.play_id===null&&!entry.started){const result=await start(entry);if(result.status!=='acknowledged')return pending();}
+      if(!entry.materialized){const result=await start(entry);if(result.status!=='acknowledged')return pending();}
       return full(entry);
     }
     if(route==='/saved/action'){
@@ -76,7 +85,7 @@ export function createSyntheticSavedServer(options){
     exactObject(body,['play_id','command_id']);
     if(!uuid(body.play_id)||!uuid(body.command_id))throw playError('validation_failed');
     const source=known(body.play_id);
-    const authorized=await resume(source);
+    const authorized=await current(source);
     if(authorized.status!=='acknowledged')return pending();
     let intent=intents.get(body.command_id);
     if(intent&&intent.from_play_id!==body.play_id)throw playError('conflict');
@@ -86,7 +95,7 @@ export function createSyntheticSavedServer(options){
       intent=Object.freeze({command_id:body.command_id,from_play_id:body.play_id,new_play_id:id,start_command:startCommand(nextScope)});
       // Retain the intent before any Start can commit or lose its response.
       intents.set(body.command_id,intent);
-      registry.set(id,{scope:nextScope,start:intent.start_command,started:false});
+      registry.set(id,{scope:nextScope,start:intent.start_command,materialized:false});
     }
     const entry=known(intent.new_play_id);
     const result=await start(entry);

@@ -63,3 +63,11 @@ The real browser sent an incidental localhost cookie with the document GET. Only
 ## Confirmed replay navigation
 
 Generic Retry compares the confirmed returned play ID with the prior selected play. A confirmed new ID opens its introduction; action retries on the same play preserve the current view. An uncertain replay never switches early or allocates a second intent. The real React/HTTP regression waits for the post-commit503, retries, verifies two total sessions and retained old history, and requires the fresh introduction. Saving/server-stop limits remain visible in plain language; detailed test boundaries stay in the grown-up disclosure.
+
+## Round1 recovery corrections
+
+A replay intent is retained before Start, but it enters history only after the accepted service returns a primary-backed receipt (acknowledged or pending). A Start that throws before its primary commit does not poison other plays; retry retains its original intent and Start command. Normal current authorization still precedes every disclosed stored history.
+
+Open calls the accepted service reconciliation method when Resume reports a stored pending receipt. The service validates the current epoch and original chain and backfills the actual journal/acknowledgement marker; the adapter does not invent or re-execute a gameplay command. Thus a fresh browser can recover after losing its page-memory retry envelope when the journal becomes healthy. Unavailable journal and authorization denial still expose no candidate or older checkpoint. History reads can reconcile pending stored entries under the same current authorization.
+
+The client retains only its non-authorizing selected play identifier and trusted revision pins after an unsupported acknowledgement, while clearing rendered game data. Explicit reload targets that same play. retryable indicates a retained original intent; an unsupported acknowledgement clears that intent and hides the unusable Retry button. Denial clears identifiers/pins/content. After retrying a failed Start/Resume entry read, the parent may press Start/Resume again to enter; this disclosed two-step interaction does not create a new play.

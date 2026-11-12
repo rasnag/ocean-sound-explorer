@@ -117,7 +117,7 @@ export default function LoopSavedPlayer() {
     <p data-testid="saved-status" data-phase={snap.phase} role="status" aria-live="polite">{status}</p>
     {snap.error && <p role="alert">{snap.error}</p>}{localError && <p role="alert">{localError}</p>}
     <p>Local test only. Confirmed progress returns on refresh while this demo server keeps running. Stopping it ends access. Unconfirmed changes may be lost if you close or refresh.</p>
-    {['pending', 'failed'].includes(snap.phase) && <button type="button" data-testid="saved-retry" onClick={retryOriginal}>Retry original operation</button>}
+    {['pending', 'failed'].includes(snap.phase) && snap.retryable && <button type="button" data-testid="saved-retry" onClick={retryOriginal}>Retry original operation</button>}
     {snap.phase !== 'denied' && !busy && <button type="button" onClick={() => setReloadChoice(true)}>Reload confirmed progress</button>}
     {reloadChoice && <section aria-label="Reload choice"><p>Reload discards the pending page intent. A command may already have reached the server. Reload reads that same play’s current confirmed state; it never merges or creates a replay.</p>
       <button type="button" onClick={() => {setReloadChoice(false); void invoke(() => client.reload());}}>Discard page intent and reload</button>
