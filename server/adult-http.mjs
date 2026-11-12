@@ -6,7 +6,7 @@ const tokenOK = value => typeof value==='string' && /^[A-Za-z0-9_-]{43}$/.test(v
   && Buffer.from(value,'base64url').toString('base64url')===value;
 const cookieName='loop_adult_session';
 const clearCookie=`${cookieName}=; HttpOnly; SameSite=Strict; Path=/adult; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-function cookies(req,api) {
+function cookies(req) {
   const header=req.headers.cookie;
   if (header===undefined) return undefined;
   if (typeof header!=='string' || header.length>4096) throw deny(400);
@@ -18,7 +18,7 @@ function cookies(req,api) {
     if (match[1]===cookieName) {
       if (!tokenOK(match[2])) throw deny(400);
       token=match[2];
-    } else if (api) throw deny(400);
+    } // Other well-formed cookies never supply adult authority.
   }
   return token;
 }
@@ -73,10 +73,9 @@ export function createSyntheticAdultAccessServer(options={}) {
       if (count('host')!==1 || req.headers.host!==host) throw deny(403);
       for (let i=0;i<req.rawHeaders.length;i+=2) {
         const name=req.rawHeaders[i].toLowerCase();
-        // User-Agent describes client software and supplies no identity. Exempt
-        // only that exact standard name; User, X-User-Id and other identity
-        // headers remain rejected, regardless of their values.
-        const identityHeader=name!=='user-agent'
+        // These exact standard browser metadata names supply no identity.
+        // User, X-User-Id and all other identity headers remain rejected.
+        const identityHeader=!['user-agent','sec-fetch-user'].includes(name)
           && /(?:^|-)(?:identity|adult|household|user|role|bearer|session)(?:-|$)/.test(name);
         if (name==='authorization' || name==='proxy-authorization' || name==='forwarded'
           || name.startsWith('x-forwarded-') || name==='x-original-url' || name==='x-rewrite-url'
@@ -89,7 +88,7 @@ export function createSyntheticAdultAccessServer(options={}) {
         || /[\\\x00-\x20\x7f]/.test(req.url)) throw deny(400);
       const url=new URL(req.url,origin);
       const api=url.pathname==='/adult' || url.pathname.startsWith('/adult/');
-      const token=cookies(req,api);
+      const token=cookies(req);
       if (api) {
         if (url.search || url.hash || req.url!==url.pathname) return send(404,{error:'Request unavailable.'});
         if (req.method==='POST' && (count('origin')!==1 || req.headers.origin!==origin)) throw deny(403);

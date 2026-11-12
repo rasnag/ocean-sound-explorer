@@ -167,3 +167,7 @@ Seeded production build/source scan passed: server-only env secret, private VITE
 
 
 ```
+
+## Controller browser entry correction
+
+Actual native CUA on eeba25e5 showed403before the entry screen. Sec-Fetch-User was incorrectly classified as identity; actual HTTP regression was RED403vs200. A second actual HTTP regression was RED400vs200when a valid adult session included an unrelated well-formed cookie. Exact standard browser metadata is now recognized and unrelated cookies grant no identity while coexisting with the named adult session. Existing identity/Host/Origin/CSRF, malformed/duplicate-cookie and current-session checks remain. Focused HTTP check and subsequent protected checks are recorded by the controller; all eight native scenarios must be rerun on the corrected source before any review. No Claude card review has occurred yet.

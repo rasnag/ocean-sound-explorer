@@ -152,6 +152,9 @@ test('adult HTTP: actual loopback, CSRF/header/cookie/body guards, rotation and 
     assert.deepEqual(JSON.parse(hostileHost.body),{error:'Request denied.'});
     assert.equal(messages.length,0,'rejected Host cannot issue a challenge');
     assert.deepEqual(await(await fetch(origin+'/adult/session')).json(),out,'ordinary same-origin traffic remains usable after hostile Host');
+    const browserNavigation=await raw(port,'/loop-preview/join',['Host',host,'Sec-Fetch-User','?1','Sec-Fetch-Site','none','Cookie','harmless=one']);assert.equal(browserNavigation.status,200,'ordinary browser navigation metadata is not caller identity');assert.equal(browserNavigation.body,'synthetic asset');
+    assert.equal((await raw(port,'/loop-preview/join',['Host',host,'Sec-Fetch-User','?1','Sec-Fetch-Site','cross-site'])).status,403);
+    assert.equal((await raw(port,'/adult/session',['Host',host,'Sec-Fetch-User','?1','X-User-Id','invented'])).status,403);
     for(const headers of [{Origin:'https://foreign.invalid'},{Authorization:'Bearer invented'},{'X-Forwarded-Host':host},{Forwarded:'for=127.0.0.1'},{'X-Adult-Id':randomUUID()},{'X-Household-Id':randomUUID()}])assert.equal((await send('/adult/request',input,headers)).status,403);
     assert.equal((await send('/adult/request',{...input,householdId:randomUUID()})).status,400);
     assert.equal((await send('/adult/logout',{token:'not-allowed'})).status,400);
@@ -168,6 +171,9 @@ test('adult HTTP: actual loopback, CSRF/header/cookie/body guards, rotation and 
     const setCookie=verified.headers.get('set-cookie');assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/SameSite=Strict/);assert.match(setCookie,/Path=\/adult/);assert(!setCookie.includes('Domain='));
     const cookie=setCookie.split(';')[0];
     const status=await fetch(origin+'/adult/session',{headers:{Cookie:cookie}});const scope=await status.json();assert.equal(scope.status,'restricted');assert.equal(scope.restricted,true);
+    const withUnrelated=await fetch(origin+'/adult/session',{headers:{Cookie:cookie+'; unrelated_local_fixture=one'}});assert.equal(withUnrelated.status,200,'unrelated well-formed cookie is not authority and cannot block this adult session');assert.deepEqual(await withUnrelated.json(),scope);
+    assert.deepEqual(await(await fetch(origin+'/adult/session',{headers:{Cookie:'unrelated_local_fixture=one'}})).json(),out,'unrelated cookie alone grants no identity');
+    assert.deepEqual(await(await fetch(origin+'/adult/session',{headers:{Cookie:'loop_session='+ 'A'.repeat(43)}})).json(),out,'founder cookie cannot become adult authority');
     assert.equal(status.headers.get('cache-control'),'no-store');assert.equal(status.headers.get('referrer-policy'),'no-referrer');
     for(const token of [code,'invalid']){const response=await send('/adult/verify',{token});assert.equal(response.status,200);assert.deepEqual(await response.json(),invalid);}
     assert.equal((await fetch(origin+'/adult/session',{headers:{Cookie:cookie+'; '+cookie}})).status,400);
