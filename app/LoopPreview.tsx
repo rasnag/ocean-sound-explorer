@@ -13,6 +13,7 @@ export default function LoopPreview() {
         <p>Joining, private investigations, saved progress and publication are not available in this shell.</p>
         <p><a href="/loop-preview/player">Explore the unreviewed synthetic toy player</a></p>
         <p><a href="/loop-preview/discover">Explore synthetic discovery and availability</a></p>
+        <p><a href="/loop-preview/saved">Explore local-server confirmation, resume and separate replays</a> — requires an explicitly launched invented fixture server on this same origin. This is not production saved progress or parent authentication.</p>
       </section>
       <a href="/">Return to the public demos</a>
     </main>
