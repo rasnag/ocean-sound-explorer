@@ -14,6 +14,7 @@ export default function LoopPreview() {
         <p><a href="/loop-preview/player">Explore the unreviewed synthetic toy player</a></p>
         <p><a href="/loop-preview/discover">Explore synthetic discovery and availability</a></p>
         <p><a href="/loop-preview/saved">Explore local-server confirmation, resume and separate replays</a> — requires an explicitly launched invented fixture server on this same origin. This is not production saved progress or parent authentication.</p>
+        <p><a href="/loop-preview/join">Explore local synthetic adult access and recovery</a> — invented example.invalid addresses and a trusted in-process developer capture only. No email, real verification, consent or admission.</p>
       </section>
       <a href="/">Return to the public demos</a>
     </main>
