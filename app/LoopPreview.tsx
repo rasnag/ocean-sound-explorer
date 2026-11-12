@@ -16,6 +16,7 @@ export default function LoopPreview() {
         <p><a href="/loop-preview/saved">Explore local-server confirmation, resume and separate replays</a> — requires an explicitly launched invented fixture server on this same origin. This is not production saved progress or parent authentication.</p>
         <p><a href="/loop-preview/join">Explore local synthetic adult access and recovery</a> — invented example.invalid addresses and a trusted in-process developer capture only. No email, real verification, consent or admission.</p>
       </section>
+      <p><a href="/loop-preview/setup">Explore invented child setup and test permissions</a> — requires the local fixture. No real family information.</p>
       <a href="/">Return to the public demos</a>
     </main>
   );
