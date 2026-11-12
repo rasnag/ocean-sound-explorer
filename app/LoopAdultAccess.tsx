@@ -45,13 +45,12 @@ export default function LoopAdultAccess() {
   const clearInputs=()=>{setEmail('');setCode('');};
 
   const revalidate=useCallback(async()=>{
-    if (!mounted.current || working.current) return;
+    // Preserve both confirmed sign-out and unconfirmed-logout error states.
+    if (!mounted.current || working.current || suppressRestore.current) return;
     const id=++revision.current;
     setScope(null);
     try {
       const result=await enqueue(async()=>{
-        // A passive check must not revoke a newer session shared by another tab.
-        if (suppressRestore.current) return {status:'signed_out'};
         return api('session');
       });
       if (!current(id)) return;
@@ -197,7 +196,7 @@ export default function LoopAdultAccess() {
     </section>}
     {phase==='error' && <div className="loop-adult-actions">
       <button type="button" onClick={back}>Back to request</button>
-      <button type="button" onClick={()=>void revalidate()} disabled={busy}>Retry session check</button>
+      {!suppressRestore.current && <button type="button" onClick={()=>void revalidate()} disabled={busy}>Retry session check</button>}
       <button type="button" onClick={()=>void signOut()} disabled={busy}>Sign out</button>
       <p>Support: ask the developer running this local fixture. Do not share real addresses or family information.</p>
     </div>}
