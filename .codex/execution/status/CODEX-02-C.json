@@ -6,5 +6,6 @@
   "accepted_by": null,
   "accepted_result_commit": null,
   "report": "C:\\Users\\Arrgee\\.codex\\.chatgpt-projects\\g-p-6aa20bbf0df48191a58549f304e705de\\loop-adaptation\\.agent-loop\\application-runs\\root-child-0229941d6bd741bc999e5052e128eba3",
-  "result_commit": "815878cf8e1bcac98e38f5360c219465a446b84c"
+  "result_commit": "832131789c3288c806e66b5b13cd17c45fc1f245",
+  "note": "Actual review2PASS on832. Final whitespace-only test/completion-metadata change awaits normal review3 and merge checks; no acceptance yet."
 }

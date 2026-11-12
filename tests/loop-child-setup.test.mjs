@@ -77,7 +77,7 @@ test('child setup: real HTTP React flow preserves drafts, siblings, corrections,
     const set=async(selector,value)=>{const input=host.querySelector(selector);assert(input,selector);await React.act(async()=>{const proto=input.tagName==='SELECT'?dom.window.HTMLSelectElement.prototype:dom.window.HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,value);input.dispatchEvent(new dom.window.Event(input.tagName==='SELECT'?'change':'input',{bubbles:true}));});};
     const fill=async name=>{await set('input:not([type=checkbox])',name);const selects=host.querySelectorAll('select');for(const [i,value] of ['6','not-sure','not-sure','not-sure'].entries())await React.act(async()=>{selects[i].value=value;selects[i].dispatchEvent(new dom.window.Event('change',{bubbles:true}));});};
     await fill('Invented');const input=host.querySelector('input');input.focus();const beforeInput=input;
-    await React.act(async()=>dom.window.dispatchEvent(new dom.window.Event('focus')));await React.act(async()=>new Promise(r=>setTimeout(r,100))); 
+    await React.act(async()=>dom.window.dispatchEvent(new dom.window.Event('focus')));await React.act(async()=>new Promise(r=>setTimeout(r,100)));
     assert.equal(host.querySelector('input'),beforeInput);assert.equal(beforeInput.value,'Invented');
     failSave=true;await click('Save invented child');await wait(()=>host.textContent.includes('Save could not be confirmed'));
     assert.equal(await count(db,'children'),1);await React.act(async()=>dom.window.dispatchEvent(new dom.window.Event('focus')));await React.act(async()=>new Promise(r=>setTimeout(r,100))); assert(host.textContent.includes('Save could not be confirmed'));
