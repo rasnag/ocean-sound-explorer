@@ -1,6 +1,16 @@
 # CODEX-10-B — local synthetic consent enforcement
 
-November12,2026 · Implemented by Codex root controller · Awaiting independent feature review.
+November12,2026 · Implemented by Codex root controller · Review1 requested changes; review2 pending. Not accepted.
+
+## Current checked candidate and governing evidence
+
+Exact checked code/test/document revision: `10b6700d5c743fb3708ac4b998aee3d5b859146f`. Actual full **66/66** tests PASS24833.8477ms; expanded sole-file consent regression **5/5** PASS9307.3609ms; npm build PASS; protected full card check repeated PASS, including60 route identities and seeded production secret/private-fixture scan. This governs the candidate; the64-test figures below describe the earlier7b6eac7 revision. Runtime implementation is unchanged since7b6eac7473d42a18298c83e91ac29f569fa45368; review1 requested comprehensive standalone app regressions and accurate metadata, now added. The initial expanded test invocation from the planning directory exposed a cwd assumption; the test now resolves its own app module URL and also passes from outside the app. No hidden skipped test or softened assertion.
+
+Feature review1 is retained in `root-consent-5240caab06c64deeb0c75a0594e655c5-r1.json`. It requested changes and disclosed incomplete authority/engineering reading; it does not support acceptance. Review2 must read complete authority/engineering/product sources. Two documented nits preserve state-label precedence and explain separate session/quota clocks. Only the existing normal three actual feature reviews are allowed.
+
+Downstream IDs: CODEX-07-C, CODEX-08-C, CODEX-10-C are formal manifest dependents. CODEX-02-C is the explicitly approved operational next consumer under DECISION-040, not an inserted graph edge. All retain their own dependencies/checks; no other card is accepted by this result.
+
+## Earlier source/check history (superseded for current test counts)
 
 The original source-drafting run feaa1328ada14a758fb840e4d4f2df79 and all three attempts remain preserved. Attempts1–2 stopped on truncated authority reads; attempt3 read the complete pinned authority/resources but returned only a blocker report because the handoff prose said six fields while its exact command and probe name five. No implementation or Claude feature review occurred in that run. The root Codex controller implemented the already-authorized eight-file slice directly using the five named fields; no additional native coding attempt, dependency waiver, specification change or review-limit reset. The blocked historical report is preserved in commit ab0f0bc and original local logs. This report supersedes it for the actual candidate.
 
