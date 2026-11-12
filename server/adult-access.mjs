@@ -47,7 +47,7 @@ export async function createSyntheticAdultAccess(options = {}) {
     await db.query('SELECT singleton FROM adult_access_throttle WHERE singleton=true');
   } catch { throw failure(); }
 
-  async function transaction(work) {
+  async function transaction(work,preserveDomainErrors=false) {
     for (let attempt=0; attempt<3; attempt++) {
       try {
         return await db.transaction(async tx => {
@@ -59,6 +59,7 @@ export async function createSyntheticAdultAccess(options = {}) {
         });
       } catch (error) {
         if (attempt < 2 && ['40001','40P01'].includes(error?.code)) continue;
+        if(preserveDomainErrors)throw error;
         throw failure();
       }
     }
@@ -195,5 +196,15 @@ export async function createSyntheticAdultAccess(options = {}) {
     });
     return signedOut();
   }
-  return Object.freeze({request,verify,session,logout,seedAccount});
+  async function withSession(token,callback) {
+    const denied=()=>Object.assign(new Error('Synthetic account unavailable.'),{code:'denied',status:403});
+    if(!tokenOK(token)||typeof callback!=='function')throw denied();
+    return transaction(async(tx,_row,at)=>{
+      const found=await bySession(tx,token);
+      if(!found||!found.identity.enabled||found.session.revoked_at
+        ||at<new Date(found.session.issued_at).getTime()||at>=new Date(found.session.expires_at).getTime())throw denied();
+      return callback(tx,Object.freeze({adultId:found.identity.adult_id,householdId:found.identity.household_id}));
+    },true);
+  }
+  return Object.freeze({request,verify,session,logout,seedAccount,withSession});
 }

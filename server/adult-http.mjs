@@ -51,10 +51,11 @@ function assetPath(url) {
 export function createSyntheticAdultAccessServer(options={}) {
   resolveLoopConfig(options?.env);
   if (!options || typeof options!=='object' || Array.isArray(options)
-    || Object.keys(options).some(key=>!['access','env','serve'].includes(key))) throw deny(400);
-  const {access,serve}=options;
+    || Object.keys(options).some(key=>!['access','env','serve','consent'].includes(key))) throw deny(400);
+  const {access,serve,consent}=options;
   if (!access || ['request','verify','session','logout'].some(key=>typeof access[key]!=='function')
     || (serve!==undefined && typeof serve!=='function')) throw deny(400);
+  if(consent!==undefined&&(!consent||['status','record','withdraw'].some(k=>typeof consent[k]!=='function')))throw deny(400);
   const server=http.createServer({maxHeaderSize:8192,requestTimeout:10000,headersTimeout:10000},async(req,res)=>{
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -92,6 +93,9 @@ export function createSyntheticAdultAccessServer(options={}) {
       if (api) {
         if (url.search || url.hash || req.url!==url.pathname) return send(404,{error:'Request unavailable.'});
         if (req.method==='POST' && (count('origin')!==1 || req.headers.origin!==origin)) throw deny(403);
+        if(consent && url.pathname==='/adult/consent' && req.method==='GET')return send(200,await consent.status(token));
+        if(consent && url.pathname==='/adult/consent' && req.method==='POST')return send(200,await consent.record(token,await body(req,['command_id','policy_version','required_service','optional_contact','optional_story'])));
+        if(consent && url.pathname==='/adult/consent/withdraw' && req.method==='POST')return send(200,await consent.withdraw(token,await body(req,['command_id','policy_version'])));
         if (req.method==='POST' && url.pathname==='/adult/request') {
           return send(200,await access.request(await body(req,['email','purpose'])));
         }
@@ -134,7 +138,8 @@ export function createSyntheticAdultAccessServer(options={}) {
       return send(404,{error:'Request unavailable.'});
     } catch (error) {
       if (res.headersSent) { res.destroy(); return; }
-      const status=[400,403,413,415,503].includes(error?.status)?error.status:503;
+      const domain={denied:403,validation_failed:400,conflict:409,rate_limited:429};
+      const status=Object.hasOwn(domain,error?.code)?domain[error.code]:([400,403,413,415,503].includes(error?.status)?error.status:503);
       send(status,{error:status===503?'Local synthetic access unavailable.':'Request denied.'});
     }
   });
