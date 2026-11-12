@@ -132,8 +132,8 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
   async function authorize(tx,scope) {
     const household=await rows(tx,'SELECT household_id FROM households WHERE household_id=$1 FOR UPDATE',[scope.household_id]);
     if(household.length!==1) throw playError('denied');
-    const consent=await rows(tx,'SELECT consent_epoch,state FROM service_consents WHERE household_id=$1 ORDER BY consent_epoch DESC LIMIT 1 FOR UPDATE',[scope.household_id]);
-    if(consent.length!==1 || consent[0].state!=='active' || Number(consent[0].consent_epoch)!==scope.consent_epoch) throw playError('denied');
+    const consent=await rows(tx,'SELECT consent_epoch,state,policy_version FROM service_consents WHERE household_id=$1 ORDER BY consent_epoch DESC LIMIT 1 FOR UPDATE',[scope.household_id]);
+    if(consent.length!==1 || consent[0].state!=='active' || consent[0].policy_version!=='TEST-v1' || Number(consent[0].consent_epoch)!==scope.consent_epoch) throw playError('denied');
     const preliminary=await rows(tx,'SELECT request_id FROM assignments WHERE household_id=$1 AND assignment_id=$2',[scope.household_id,scope.assignment_id]);
     if(preliminary.length!==1) throw playError('denied');
     const requestId=preliminary[0].request_id;
