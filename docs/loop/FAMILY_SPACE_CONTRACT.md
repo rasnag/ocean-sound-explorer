@@ -1,6 +1,6 @@
 # Private family space — local synthetic contract
 
-CODEX-03-A candidate, November12,2026. Awaiting actual checks, full native evidence and independent feature review; not accepted or released. Engineeringv1.2 SHA25602adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79; ADR-E02, household/consent lock order, current-epoch profiles, immutable revision lineage and acknowledged-only checkpoint rules apply. Ordinary prerequisites02-C/01-B/00-C are accepted; no new privacy or owner-policy exception.
+CODEX-03-A candidate, November12,2026. Actual checks and eight native scenarios passed on264a3d29; Claude feature review1PASS. Technical acceptance is recorded separately by the controller; no public release or real-data clearance. Engineeringv1.2 SHA25602adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79; ADR-E02, household/consent lock order, current-epoch profiles, immutable revision lineage and acknowledged-only checkpoint rules apply. Ordinary prerequisites02-C/01-B/00-C are accepted; no new privacy or owner-policy exception.
 
 ## Scope and remaining handoffs
 
@@ -36,7 +36,7 @@ The optional trusted family adapter adds GET/adult/family, POST/adult/family/rea
 
 Async generations/sequence guards prevent prior sibling/account/open/read results from restoring private state.15s/focus/pageshow rechecks preserve same-context draft/focus and invalidate old opens. Confirmed scope/access changes clear intent; transient failures hide details with honest retry. Listeners/timers clean up. Labeled select/textarea, heading/status/alert,320px wrapping and44px controls/links are required; native layout is not established by React tests.
 
-Preliminary isolated draft: real protected PostgreSQL/HTTP service probe PASS; actual React through real HTTP PASS including siblings, held late read/open, account change, transient retry/draft, withdrawal/reconsent and expiry; cumulative76 selector identities PASS. These do NOT accept the app card. Full exact candidate app tests/build/protected regressions, eight actual native scenarios and actual feature Claude pass must occur after setup activation. Link-only change to accepted child screen requires exact diff plus native regression confirmation. All real data, privacy, provider, spending, public release and human content review gates remain closed.
+Historical isolated preparation passed preliminary checks only. Actual candidate264a3d29 subsequently passed68/68 app tests, build, all protected regressions,76 route identities, seeded private build/source scan and all eight source-bound native CUA scenarios. Actual Claude feature review1PASS is recorded in .codex/execution/reviews/CODEX-03-A/root-family-6999da03d310444093ce5bf629a3dd6f-r1.json. These are local synthetic technical results; acceptance is separately recorded, with all real/public gates retained. Link-only change to accepted child screen requires exact diff plus native regression confirmation. All real data, privacy, provider, spending, public release and human content review gates remain closed.
 
 
 ## Open downstream interfaces — required completion-record handoff
@@ -47,3 +47,10 @@ Preliminary isolated draft: real protected PostgreSQL/HTTP service probe PASS; a
 -08-A consumes OpenFamilyEntry: family.open's exact context/child/assignment/revision and optional existing play selection, for the private-grant/Start boundary. Current exact introduction/acknowledged receipt opening never starts a new play.
 
 The actual03-A completion/acceptance record must repeat these open obligations and interface names; later cards must wire them rather than assume producer behavior exists. For remaining=0, show factual no-allowance copy with no invented next date, price or continuation channel. For an expired actual period, show Trial ended and preserve submission-time eligibility for existing requests under DECISION-033; fresh production needs a current check. The native allowance-trial scenario must observe zero or expired copy. Actual app integration tests cover a real full period and real CancelRequest kernel release/closed-not-overdue, accepted-overdue and unchanged original due times; this test fixture is not production cancellation implementation.
+
+
+## Direct dependent cards and remaining review note
+
+Direct dependents from the approved index are CODEX-03-C (trial-ended/help and manual paid continuation), CODEX-04-A (wonder capture/persistence), CODEX-09-B (attributed parent feedback) and CODEX-09-C (human starting-level selection). None is complete by03-A.03-C must extend the factual expiry/grandfathering copy without inventing a live offer. Additional interface consumers04-B/04-C/08-A remain as listed above.
+
+Claude1 retained one nonblocking UX nit: a same-context poll/focus can invalidate an in-flight open without a visible retry notice. No stale private entry is shown, but the parent may need to tap Open again. This behavior is not claimed fixed. The test-only sanitized diagnostic filename was corrected; it does not alter application runtime behavior.

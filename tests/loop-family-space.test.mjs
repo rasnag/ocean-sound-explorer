@@ -95,7 +95,7 @@ try {
   ok=true;
  } finally {await act(async()=>{rootElement.unmount();});await unlink(temporary);hook.deregister();for(const [n,d]of prior){if(d)Object.defineProperty(globalThis,n,d);else delete globalThis[n];}dom.window.close();}
 } catch(error) {
- diagnostic=(typeof error?.code==='string'&&/^[a-zA-Z0-9_]+$/.test(error.code)?error.code:'assertion')+' '+(String(error?.stack??'').match(/family_space_probe\.mjs:(\d+)/)?.[1]??'unknown-line');
+ diagnostic=(typeof error?.code==='string'&&/^[a-zA-Z0-9_]+$/.test(error.code)?error.code:'assertion')+' '+(String(error?.stack??'').match(/loop-family-space\.test\.mjs:(\d+)/)?.[1]??'unknown-line');
 } finally {
  if(server)await new Promise(resolve=>{server.close(resolve);server.closeAllConnections?.();});
  if(journal)await journal.close();if(db)await db.close();
