@@ -7,7 +7,7 @@ type Draft={nickname:string;age:string;reads:string;counts:string;challenge:stri
 const empty=():Draft=>({nickname:'',age:'',reads:'',counts:'',challenge:''});
 async function api(path:string,payload?:object){
  const r=await fetch('/adult/'+path,{method:payload===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',headers:payload===undefined?undefined:{'Content-Type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload)});
- if(!r.ok)throw Error('Request could not be confirmed');return r.json();
+ if(!r.ok)throw Object.assign(Error('Request could not be confirmed'),{status:r.status});return r.json();
 }
 export default function LoopChildSetup(){
  const [snapshot,setSnapshot]=useState<Snapshot|null>(null),[draft,setDraft]=useState<Draft>(empty),[editing,setEditing]=useState<Child|null>(null),[adding,setAdding]=useState(false);
@@ -24,7 +24,13 @@ export default function LoopChildSetup(){
    const changed=nextFence!==fence.current || Boolean(selected&&!next.children?.some(c=>c.child_id===selected.child_id&&c.profile_version===selected.profile_version));
    if(changed)clear();
    fence.current=nextFence;current.current=next;setSnapshot(next);
-  }catch{if(live.current&&id===revision.current){fence.current='';current.current=null;setSnapshot(null);clear();setError('Access could not be confirmed. Sign in again or retry.');}}
+  }catch(failure){if(live.current&&id===revision.current){
+   setSnapshot(null);
+   // An unavailable response is not confirmed revocation. Hide the view but
+   // retain the RAM-only original intent for an explicitly authorized retry.
+   if((failure as {status?:number}).status===403){fence.current='';current.current=null;clear();}
+   setError(previous=>previous||'Access could not be confirmed. Sign in again or retry.');
+  }}
  },[clear]);
  useEffect(()=>{
   live.current=true;void refresh();const check=()=>{if(document.visibilityState!=='hidden')void refresh();};
@@ -62,7 +68,10 @@ export default function LoopChildSetup(){
    await api('setup',command);
    const after:Snapshot=await api('setup');if(!live.current||id!==revision.current)return;
    current.current=after;fence.current=after.setup_context??'';setSnapshot(after);clear();
-  }catch{if(live.current&&id===revision.current)setError('Save could not be confirmed. Retry checks the current permission before retrying this same change.');}
+  }catch(failure){if(live.current&&id===revision.current){
+   if((failure as {status?:number}).status===403){setSnapshot(null);current.current=null;fence.current='';clear();}
+   setError('Save could not be confirmed. Retry checks the current permission before retrying this same change.');
+  }}
   finally{working.current=false;if(live.current&&id===revision.current)setBusy(false);}
  }
  const phase=withdrawal?'withdrawal-unconfirmed':snapshot?.state??'access-unconfirmed';

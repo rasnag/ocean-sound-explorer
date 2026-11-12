@@ -36,10 +36,10 @@ const requestCode=async(access,messages,email,purpose='join')=>{
 test('child setup: real HTTP React flow preserves drafts, siblings, corrections, retries and withdrawal fences',async()=>fixture(async({db,access,options,messages,advance})=>{
   const consent=await createSyntheticConsentService({env,db,access,clock:options.clock,policyVersion:'TEST-v1'});
   const setup=await createSyntheticChildSetup({env,db,access,clock:options.clock,policyVersion:'TEST-v1'});
-  let failWithdrawal=false,failSave=false,holdStatus=false,releaseStatus,heldStatus;
+  let failWithdrawal=false,failSave=false,holdStatus=false,failStatus=false,releaseStatus,heldStatus;
   const guardedConsent={...consent,withdraw:async(...args)=>{if(failWithdrawal){failWithdrawal=false;throw Error('fixture failure');}return consent.withdraw(...args);}};
-  const guardedSetup={...setup,status:async(...args)=>{const answer=await setup.status(...args);if(holdStatus){holdStatus=false;heldStatus=answer;return new Promise(resolve=>{releaseStatus=()=>resolve(answer)});}return answer;},save:async(...args)=>{const saved=await setup.save(...args);if(failSave){failSave=false;throw Error('lost acknowledgment');}return saved;}};
-  const server=createSyntheticAdultAccessServer({access,consent:guardedConsent,setup:guardedSetup,env});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const guardedSetup={...setup,status:async(...args)=>{if(failStatus){failStatus=false;throw Error('transient status failure');}const answer=await setup.status(...args);if(holdStatus){holdStatus=false;heldStatus=answer;return new Promise(resolve=>{releaseStatus=()=>resolve(answer)});}return answer;},save:async(...args)=>{const saved=await setup.save(...args);if(failSave){failSave=false;throw Error('lost acknowledgment');}return saved;}};
+  const server=createSyntheticAdultAccessServer({access,consent:guardedConsent,setup:guardedSetup,env,serve:(_req,res)=>{res.end('synthetic setup shell')}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const origin='http://127.0.0.1:'+server.address().port,require=createRequire(new URL('../package.json',import.meta.url));
   const {JSDOM,VirtualConsole}=require('jsdom'),ts=require('typescript'),React=require('react');
   const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
@@ -53,6 +53,9 @@ test('child setup: real HTTP React flow preserves drafts, siblings, corrections,
   };
   const temporary=path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))),'app/.child-setup-test.mjs');
   try{
+    for(const pathname of ['/loop-preview/setup','/loop-preview/setup/']){const response=await nativeFetch(origin+pathname);assert.equal(response.status,200);assert.equal(await response.text(),'synthetic setup shell');}
+    const foreign=await nativeFetch(origin+'/loop-preview/setup',{headers:{'Sec-Fetch-Site':'cross-site'}});assert.equal(foreign.status,403);assert.deepEqual(await foreign.json(),{error:'Request denied.'});
+    for(const pathname of ['/loop-preview/setup?scope=x','/loop-preview/setupx']){const response=await nativeFetch(origin+pathname);assert.equal(response.status,404);assert.deepEqual(await response.json(),{error:'Request unavailable.'});}
     const first=await requestCode(access,messages,'passive@example.invalid');
     assert.equal((await browserFetch('/adult/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:first})})).status,200);
     for(const name of names)Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:name==='IS_REACT_ACT_ENVIRONMENT'?true:name==='fetch'?browserFetch:['requestAnimationFrame','cancelAnimationFrame'].includes(name)?dom.window[name].bind(dom.window):dom.window[name]});dom.window.fetch=browserFetch;
@@ -77,7 +80,10 @@ test('child setup: real HTTP React flow preserves drafts, siblings, corrections,
     failSave=true;await click('Save invented child');await wait(()=>host.textContent.includes('Save could not be confirmed'));
     assert.equal(await count(db,'children'),1);await React.act(async()=>dom.window.dispatchEvent(new dom.window.Event('focus')));await React.act(async()=>new Promise(r=>setTimeout(r,100))); assert(host.textContent.includes('Save could not be confirmed'));
     await click('Retry');await wait(()=>phase()==='complete'&&!host.textContent.includes('Save could not be confirmed')&&button('Add another child')&&!button('Add another child').disabled);assert.equal(await count(db,'children'),1);assert(host.textContent.includes('Gentle start'));
-    await click('Add another child');await fill('Twin');await click('Save invented child');await wait(()=>host.querySelectorAll('article').length===2);assert.equal(await count(db,'children'),2);
+    await click('Add another child');await fill('Twin');failSave=true;await click('Save invented child');await wait(()=>host.textContent.includes('Save could not be confirmed'));assert.equal(await count(db,'children'),2);
+    const createdCommands=(await db.query("SELECT command_id FROM child_setup_commands WHERE operation='create'")).rows.map(x=>x.command_id).sort();
+    failStatus=true;await React.act(async()=>dom.window.dispatchEvent(new dom.window.Event('focus')));await wait(()=>phase()==='access-unconfirmed');assert(host.textContent.includes('Save could not be confirmed'),'transient passive failure cannot replace the sticky mutation error');
+    await click('Retry');await wait(()=>host.querySelectorAll('article').length===2&&!button('Add another child').disabled);assert.equal(await count(db,'children'),2);assert.deepEqual((await db.query("SELECT command_id FROM child_setup_commands WHERE operation='create'")).rows.map(x=>x.command_id).sort(),createdCommands,'same original UUID retried without another sibling/receipt');
     await click('Correct Invented’s profile');await set('input','Updated');await click('Save correction');await wait(()=>host.textContent.includes('Updated')&&!host.querySelector('form'));assert.equal(await count(db,'child_profile_versions'),3);
     await React.act(async()=>reactRoot.unmount());reactRoot=createRoot(host);await React.act(async()=>reactRoot.render(React.createElement(Component)));await wait(()=>host.querySelectorAll('article').length===2);assert(host.textContent.includes('Updated'));
     failWithdrawal=true;await click('Withdraw test permission');await wait(()=>phase()==='withdrawal-unconfirmed'&&host.textContent.includes('Withdrawal is unconfirmed'));assert.equal(host.querySelectorAll('article').length,0);
