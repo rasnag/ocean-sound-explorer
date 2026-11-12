@@ -43,3 +43,127 @@ Concurrent interleaving tests run on single-connection PGlite: real multi-connec
 Provider/adult-identity-policy inputs are deferred only for this invented local slice. No real age, parental authority, COPPA/consent, trial, booking or public-admission claim is made. Production/preview remain unconfigured/fail-closed. Privacy, provider, offer, capacity/support, retention, production recovery, release, sending and admission gates remain in force. No real addresses, child/family records, vendor credentials, external API calls, spending, provisioning, messages, installation, push, merge or deployment occurred.
 
 CODEX-10-A/00-F/05-G remain incomplete. CODEX-02-C still requires10-B, and10-B still requires10-A. WM-08 consumers must retain the restricted identity boundary. The controller must attach exact corrected-candidate check results and actual native CUA observations before independent review and any delegated technical acceptance. No task is marked done or accepted by this report.
+
+
+## Controller re-verification after check-harness repair
+
+2026-11-12T02:45:22.787567+00:00: the preceding blocker text records the earlier failed harness. The preserved source has now passed these actual protected checks on this tree. Independent review and task acceptance remain pending.
+
+```text
+["npm.cmd", "test"]: exit 0
+
+> ocean-sound-explorer@0.1.0 test
+> node --test tests/*.test.mjs
+
+✔ native media starts synchronously in a tap and stop cannot award completion (1.796ms)
+✔ the expedition has two confidence rounds followed by three ocean rounds (1.0701ms)
+✔ Web Audio playback schedules every source during the initiating gesture (1.8152ms)
+✔ every public game has a distinct playable route and valid scripts (18.8814ms)
+✔ every game animal uses a bundled same-origin MP3 (6.6948ms)
+✔ adult service: delayed identity creation, one-use races, bound recovery, expiry and hash-only storage (5181.1244ms)
+✔ adult service: persistent cooldown, contending resends, global budgets, reset and delivery failure (2010.1812ms)
+✔ adult service: constructor/input guards and account binding cannot be supplied by callers (1663.8865ms)
+✔ adult HTTP: actual loopback, CSRF/header/cookie/body guards, rotation and assets on same server (1617.2455ms)
+✔ interleaved assistance preserves actual trials: fast (8.3041ms)
+✔ interleaved assistance preserves actual trials: medium (2.636ms)
+✔ interleaved assistance preserves actual trials: slow (1.786ms)
+✔ finite profile and explicit construction reject unsupported content (0.821ms)
+✔ media gestures, error fallback and stale promises remain independent (6.8551ms)
+✔ real local PostgreSQL and HTTP enforce synthetic founder boundaries (6246.3236ms)
+✔ local factory preserves guard failures and returns an empty real PostgreSQL engine (4358.5095ms)
+✔ two fresh databases reproduce scoped fixtures, constraints and household deletion (4002.9444ms)
+✔ assignment scope failures remain immediate while duplicate request assignments cannot commit (1507.1458ms)
+✔ migration checksums and actual SQL/registry failures preserve atomicity (1309.1189ms)
+✔ discovery validates every required field, exact keys, territory and safe clock boundary (4.6399ms)
+✔ real React controls keep local actions truthful, optional and closed after expiry (4769.3863ms)
+✔ ending fixture retains the complete accepted finite profile without editing its source (5.5251ms)
+✔ strict construction, paths and intents fail without state changes (5.6183ms)
+✔ ending preserves zero tests, pending input references, actual trials and optional handoffs (4.7926ms)
+✔ replay requests path-scoped identities atomically and retains engines across navigation (5.7576ms)
+✔ actual React navigation retains pending older and played newer groups in both directions (5216.7838ms)
+✔ explicit activation, terminal release and last-unit serialization use actual PostgreSQL (5015.147ms)
+✔ outer rollback and actual SQL failure preserve caller transaction work (1886.0441ms)
+✔ stored receipt boundaries, immutable interval and current consent are enforced (1702.2512ms)
+✔ exact local mode returns disconnected adapters and does not mutate input (4.0467ms)
+✔ missing, unknown, preview and production environments fail closed (0.884ms)
+✔ connections, private browser variables and enabled adapters are refused (2.5682ms)
+✔ configuration rejection never includes the rejected value (2.898ms)
+✔ preview requires every exact flag and remains off in production (0.4773ms)
+✔ real primary transitions and original retry receipts fixture-engine-1 (5316.266ms)
+✔ real primary transitions and original retry receipts fixture-engine-2 (2123.6067ms)
+✔ unstarted resume rejects without quarantining later Start (1669.7917ms)
+✔ unstarted commit rejects without quarantining later Start (1545.5161ms)
+✔ transient SQL chain read failure does not quarantine present valid history (1445.8349ms)
+✔ present inconsistent checkpoint remains fail-closed after quarantine correction (1372.121ms)
+✔ real service comparison of two committed trials fixture-engine-1 (1601.1347ms)
+✔ real service comparison of two committed trials fixture-engine-2 (1617.1842ms)
+✔ real SQL rollback at each gameplay write boundary (1380.9408ms)
+✔ pending Configure and Test hide all progress over actual HTTP; backfill applies once (1768.0738ms)
+✔ independent process reopen, killed writer, checksum and truncation fail closed (1558.8502ms)
+✔ withdrawal-first denies duplicates and original epoch cannot be rewritten (1328.2552ms)
+✔ complete finite adventure contract rejects missing, extra, version, range and constant defects (4.6037ms)
+✔ two fresh button-shaped tries retain immutable provenance and trusted results (3.7485ms)
+✔ full envelope and unsupported-operation failures have no effects (3.4428ms)
+✔ caller mutation cannot replace pinned rules or committed input (0.6781ms)
+Not implemented: HTMLMediaElement's pause() method
+✔ actual React drawing shows chosen setup, reveals motion only on Test and retains visual tries (4961.1542ms)
+✔ actual React retries an uncertain Replay into the new introduction, retaining the old play (8275.0062ms)
+✔ ordinary browser cookies are stripped only for read-only trusted assets; saved APIs stay strict (1596.1865ms)
+✔ fresh client reconciles stored pending Test without the lost browser queue, engine1 (1827.0913ms)
+✔ fresh client reconciles stored pending Test without the lost browser queue, engine2 (1714.016ms)
+✔ Replay Start failure before primary commit never poisons original reads or duplicates the intent (1880.8717ms)
+✔ unsupported acknowledgement retains the selected replay and its revision pin for explicit reload (1674.6388ms)
+✔ real saved HTTP/PG/journal engine1: pending, retry, conflict, history and withdrawal (2134.0673ms)
+✔ real saved HTTP/PG/journal engine2: pending, retry, conflict, history and withdrawal (2137.445ms)
+✔ construction and malformed acknowledgement fail closed (0.7693ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 60
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23176.9023
+
+
+["npm.cmd", "run", "build"]: exit 0
+
+> ocean-sound-explorer@0.1.0 build
+> vite build
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 1859 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.73 kB │ gzip:   0.45 kB
+dist/client/assets/index-BX_5XDnY.css  170.84 kB │ gzip:  30.20 kB
+dist/client/assets/index-DV-qgZcx.js   339.57 kB │ gzip: 104.76 kB
+
+✓ built in 678ms
+
+
+["C:\\Program Files\\Python314\\python.exe", "C:\\Users\\Arrgee\\.codex\\.chatgpt-projects\\g-p-6aa20bbf0df48191a58549f304e705de\\loop-adaptation\\.codex\\tools\\check_application_card.py", "--card", "CODEX-02-B"]: exit 0
+Real disposable Postgres passed reproducible migrations/fixtures, scoped references, immutable source lineage, publication binding, action/sequence uniqueness, range constraints, transaction rollback and scoped deletion. No production/RLS/backup proof is inferred.
+Actual local HTTP/Postgres authentication probe passed: password/TOTP, server roles, expiry, logout, concurrent replay, rate limiting, CSRF, cache and secret checks.
+Adult access controller PASS: real PG atomic one-use, recovery rotation/household isolation, persistent resend/global budgets, expiry, hash-only secrets, real HTTP cookie/CSRF/schema/no-cache and no child authority.
+Controller assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.
+
+> ocean-sound-explorer@0.1.0 build
+> vite build
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 1859 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.73 kB │ gzip:   0.45 kB
+dist/client/assets/index-BX_5XDnY.css  170.84 kB │ gzip:  30.20 kB
+dist/client/assets/index-C2nPvTzJ.js   339.57 kB │ gzip: 104.76 kB
+
+✓ built in 553ms
+Actual main.tsx router passed60 module-identity cases including trailing slashes: original pages preserved; synthetic routes dev-only.
+Seeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.
+
+
+```
