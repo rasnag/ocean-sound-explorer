@@ -36,6 +36,8 @@ const requestCode=async(access,messages,email,purpose='join')=>{
 test('child setup: real HTTP React flow preserves drafts, siblings, corrections, retries and withdrawal fences',async()=>fixture(async({db,access,options,messages,advance})=>{
   const consent=await createSyntheticConsentService({env,db,access,clock:options.clock,policyVersion:'TEST-v1'});
   const setup=await createSyntheticChildSetup({env,db,access,clock:options.clock,policyVersion:'TEST-v1'});
+  await assert.rejects(()=>createSyntheticChildSetup({env:{...env,[Symbol('invalid')]:true},db,access,clock:options.clock,policyVersion:'TEST-v1'}),e=>e.code==='validation_failed'&&e.status===400);
+  const hidden=Object.defineProperty({db,access,clock:options.clock,policyVersion:'TEST-v1'},'env',{value:env,enumerable:false});await assert.rejects(()=>createSyntheticChildSetup(hidden),e=>e.code==='validation_failed'&&e.status===400);
   let failWithdrawal=false,failSave=false,holdStatus=false,failStatus=false,releaseStatus,heldStatus;
   const guardedConsent={...consent,withdraw:async(...args)=>{if(failWithdrawal){failWithdrawal=false;throw Error('fixture failure');}return consent.withdraw(...args);}};
   const guardedSetup={...setup,status:async(...args)=>{if(failStatus){failStatus=false;throw Error('transient status failure');}const answer=await setup.status(...args);if(holdStatus){holdStatus=false;heldStatus=answer;return new Promise(resolve=>{releaseStatus=()=>resolve(answer)});}return answer;},save:async(...args)=>{const saved=await setup.save(...args);if(failSave){failSave=false;throw Error('lost acknowledgment');}return saved;}};

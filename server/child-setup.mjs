@@ -5,8 +5,8 @@ const fail=code=>{throw Object.assign(new Error('Synthetic setup operation unava
 function object(value,required,optional=[]) {
  if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))fail('validation_failed');
  const keys=Reflect.ownKeys(value);
- if(required.some(k=>!Object.hasOwn(value,k))||keys.some(k=>!required.includes(k)&&!optional.includes(k)
-  ||!Object.hasOwn(Object.getOwnPropertyDescriptor(value,k),'value')))fail('validation_failed');
+ if(required.some(k=>!Object.hasOwn(value,k))||keys.some(k=>typeof k!=='string'||!required.includes(k)&&!optional.includes(k)
+  ||!Object.getOwnPropertyDescriptor(value,k).enumerable||!Object.hasOwn(Object.getOwnPropertyDescriptor(value,k),'value')))fail('validation_failed');
 }
 const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 const pos=v=>Number.isSafeInteger(v)&&v>0;
