@@ -1,40 +1,22 @@
-# CODEX-03-A — incomplete drafting attempt
+# CODEX-03-A — implementation candidate
 
-2026-11-12 · Producing agent: Codex · Not done or accepted.
+November12,2026 · Codex root controller · Not accepted or released
 
-No implementation deliverables are supplied. This report does not satisfy the task. No files were written, checks run, commits created or external actions performed.
+Root implemented the existing authorized ten paths after all three native source handoffs returned REPORT only. No fourth native attempt is claimed. Original run d35dfb072cee4b989f8bfa34e41c3d59, every source handoff and blocked report remain intact; actual feature review count is zero. Native incomplete authority reads are not a source-unavailable blocker or a waiver. Current shared authority is PROJECT_CONTEXTv1.95 and approved architecturev1.2 SHA25602adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79, read with the approved product/task/approvals and their unchanged normal prerequisites02-C/01-B/00-C. Main9029ec7 activated the independently reviewed setup in PR62. Real-family/privacy/provider/public gates remain closed.
 
-## Observed source verification
+Runtime/source commit: d12ea93d77b0f799467c1386a8f63c222fc9a68f. Actual candidate validation is now starting. Earlier isolated prototype results are preliminary and are NOT substituted for these app checks or exact-candidate native evidence. Required checks: full app tests, build, protected card checker with actual PostgreSQL/HTTP/journal probes,76 real selector identities and seeded private production scan; all eight native scenarios; separate actual Claude feature review. None is claimed passed yet for this candidate.
 
-The pinned PROJECT_CONTEXT.md exists and contains 206704 bytes. Its computed byte SHA-256 is 06f8ab02bdb88b7c66d7fe2de86c997c8684fb52d38cc6f5b7ff0eb63fadb46d, matching the supplied pin. Only lines 1–40 were actually read. Complete reading is not claimed.
+## Implemented boundaries
 
-Read-only SHA-256 inspection also matched all 15 supplied protected controller-resource pins, from check_application_card.py through player-dom.json. Only the first 25 lines of family_space_probe.mjs were read; hash verification is not complete source inspection or a runtime test.
+Current server actor/latest TEST consent/current-epoch child setup govern every family lookup. Context and child references confer no authority. Canonical SQL and scoped payload resolvers preserve original source/revision lineage; ready assignment needs original receipt, completed capacity, consumption transition and published relation. Source validation chooses the finite validator from trusted SQL engine pin before reading returned properties. Reads are nonmutating; actual accepted play resume/journal IO occurs outside actor transactions, then current authorization/binding/checkpoint is rechecked. Unacknowledged progress carries no saved counts. No automatic trial, production request, Start, grant, model generation or delivery.
 
-## Unfinished prerequisite
-
-The required complete authority and protected implementation-source reads were not completed within this drafting response. The files inspected were accessible; no missing-file or hash-mismatch blocker was observed. This is an incomplete agent attempt, not evidence that the source context is unavailable. Implementation must not rely on this report as a completed source review.
-
-## Architecture and required boundaries
-
-Registered architecture: engineering v1.2, APPROVAL-004, SHA-256 02adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79. Relevant supplied obligations are ADR-E02 current server-derived authorization, WM-02 consent-before-child access, household/consent serialization, immutable assignment/source/revision bindings, and WM-07 acknowledged-only progress with journal IO outside actor transactions. No implementation or verification of these properties occurred in this attempt.
-
-Privacy, provider, offer, capacity, content, real-data and public-release gates remain unchanged.
-
-## Checks
-
-- npm.cmd test — NOT YET RUN by this agent.
-- npm.cmd run build — NOT YET RUN by this agent.
-- check_application_card.py --card CODEX-03-A — NOT YET RUN by this agent.
-- Eight native browser scenarios — NOT YET RUN by this agent.
-- Independent Claude feature review — NOT RUN in this attempt.
-
-No observed runtime outcome, passing acceptance property or exact-candidate UI evidence is asserted.
+The UI separates saved-only, requested/overdue, ready, distinct resumable plays, previously tried and actual allowance/trial states. Current scope/async guards keep prior siblings/accounts/responses hidden; RAM-only unsent input persists only within the same confirmed context. Full allowance and expiry copy invents no live terms. Actual current-source native coverage is still pending; preliminary phone testing found/fixed scoped contrast and does not count as the required eight scenarios. Accepted child component changed only by one family-home link; exact diff and native regression still must be verified.
 
 ## Open downstream interfaces
 
-- CODEX-04-A: UnsentWonderDraft persistence and explicit submission UX.
-- CODEX-04-B: atomic SubmitProduction allowance/capacity/original-receipt semantics.
-- CODEX-04-C: F06 request management and CancelRequest.
-- CODEX-08-A: OpenFamilyEntry private grant/Start boundary.
+-04-A: UnsentWonderDraft means family view_context, selected child_id/profile_version and verbatim RAM draft. Wire actual SaveWonder and explicit production-confirmation UX;03-A creates no saved/submitted result from that input.
+-04-B: atomic SubmitProduction service/allowance/capacity/original24h receipt, consumed by that UX.
+-04-C: F06 request-management/CancelRequest, clarification and status changes. The approved04-C explicitly owns cancellation; merely viewing03-A changes or cancels nothing.
+-08-A: OpenFamilyEntry is the exact current child/assignment/revision plus optional existing-play selection; wire private grant and Start. Current read-only introduction/acknowledged saved record creates no new play.
 
-These obligations remain open; this attempt implements none of them.
+These are incomplete downstream obligations, not hidden claims that all F04/F05/private gameplay is done.21-day trial intent and DECISION-033 submission-time eligibility remain approved; no live offer, allocation, price, payment channel, hosting or legal policy is selected. Local relational published fixtures are invented and unreviewed; no factual or human content approval is asserted.
