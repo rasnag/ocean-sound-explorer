@@ -97,6 +97,7 @@ export default function LoopChildSetup(){
    <label>Enjoys a challenge<select required value={draft.challenge} onChange={e=>update('challenge',e.target.value)}><option value="">Choose an answer</option><option value="gentle">Gentle</option><option value="some">Some challenge</option><option value="bigger">Bigger challenge</option><option value="not-sure">Not sure</option></select></label>
    <button type="submit">Save {editing?'correction':'invented child'}</button></fieldset>{snapshot?.state==='complete'&&<button type="button" disabled={busy} onClick={()=>{clear();setError('');}}>Cancel</button>}</form>}
   {snapshot?.setup_context&&!withdrawal&&<button disabled={busy} onClick={()=>void withdraw()}>Withdraw test permission</button>}
+  <p><a href="/loop-preview/family">Open the invented family space</a></p>
   <p><a href="/loop-preview/join">Local adult access</a> · <a href="/loop-preview">Back to local preview</a></p>
  </main>;
 }

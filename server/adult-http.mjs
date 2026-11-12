@@ -41,7 +41,7 @@ async function body(req,keys) {
   return value;
 }
 function assetPath(url) {
-  const allowed=url.pathname==='/' || /^\/loop-preview(?:\/(?:join|setup))?\/?$/.test(url.pathname)
+  const allowed=url.pathname==='/' || /^\/loop-preview(?:\/(?:join|setup|family))?\/?$/.test(url.pathname)
     || /^\/(?:app|lib|components|node_modules)\//.test(url.pathname)
     || /^\/@(?:vite\/client|react-refresh|id\/)/.test(url.pathname);
   return allowed && [...url.searchParams.keys()].every(key=>['v','t','import'].includes(key));
@@ -51,12 +51,13 @@ function assetPath(url) {
 export function createSyntheticAdultAccessServer(options={}) {
   resolveLoopConfig(options?.env);
   if (!options || typeof options!=='object' || Array.isArray(options)
-    || Object.keys(options).some(key=>!['access','env','serve','consent','setup'].includes(key))) throw deny(400);
-  const {access,serve,consent,setup}=options;
+    || Object.keys(options).some(key=>!['access','env','serve','consent','setup','family'].includes(key))) throw deny(400);
+  const {access,serve,consent,setup,family}=options;
   if (!access || ['request','verify','session','logout'].some(key=>typeof access[key]!=='function')
     || (serve!==undefined && typeof serve!=='function')) throw deny(400);
   if(consent!==undefined&&(!consent||['status','record','withdraw'].some(k=>typeof consent[k]!=='function')))throw deny(400);
   if(setup!==undefined&&(!setup||['status','save'].some(k=>typeof setup[k]!=='function')))throw deny(400);
+  if(family!==undefined&&(!family||['index','read','open'].some(k=>typeof family[k]!=='function')))throw deny(400);
   const server=http.createServer({maxHeaderSize:8192,requestTimeout:10000,headersTimeout:10000},async(req,res)=>{
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -94,6 +95,9 @@ export function createSyntheticAdultAccessServer(options={}) {
       if (api) {
         if (url.search || url.hash || req.url!==url.pathname) return send(404,{error:'Request unavailable.'});
         if (req.method==='POST' && (count('origin')!==1 || req.headers.origin!==origin)) throw deny(403);
+        if(family&&url.pathname==='/adult/family'&&req.method==='GET')return send(200,await family.index(token));
+        if(family&&url.pathname==='/adult/family/read'&&req.method==='POST')return send(200,await family.read(token,await body(req,['view_context','child_id'])));
+        if(family&&url.pathname==='/adult/family/open'&&req.method==='POST')return send(200,await family.open(token,await body(req,[['view_context','child_id','entry_kind','assignment_id','revision_id'],['view_context','child_id','entry_kind','assignment_id','revision_id','play_id']])));
         if(setup&&url.pathname==='/adult/setup'&&req.method==='GET')return send(200,await setup.status(token));
         if(setup&&url.pathname==='/adult/setup'&&req.method==='POST')return send(200,await setup.save(token,await body(req,[['command_id','setup_context','operation','initial','profile'],['command_id','setup_context','operation','child_id','expected_profile_version','profile']])));
         if(consent && url.pathname==='/adult/consent' && req.method==='GET')return send(200,await consent.status(token));
