@@ -110,13 +110,21 @@ export function createSyntheticSavedServer(options){
       const count=name=>req.rawHeaders.filter((v,i)=>i%2===0&&v.toLowerCase()===name).length;
       if(count('host')!==1||req.headers.host!==host)reject(403);
       if(count('origin')>1||(req.headers.origin!==undefined&&req.headers.origin!=='http://'+host))reject(403);
+      const readonlyAssets=!api&&typeof serve==='function'&&['GET','HEAD'].includes(req.method);
       for(let i=0;i<req.rawHeaders.length;i+=2){
         const name=req.rawHeaders[i].toLowerCase();
         const identity=name!=='user-agent'&&/^(?:x-)?(?:household|child|assignment|play|revision|consent|identity|user)(?:-|$)/.test(name);
-        if(name==='authorization'||name==='proxy-authorization'||name==='cookie'||name==='forwarded'||name.startsWith('x-forwarded-')||identity)reject(403);
+        if(name==='authorization'||name==='proxy-authorization'||(name==='cookie'&&!readonlyAssets)||name==='forwarded'||name.startsWith('x-forwarded-')||identity)reject(403);
       }
       if(!api){
-        if(serve){await serve(req,res);if(res.writableEnded||res.headersSent)return;}
+        if(readonlyAssets){
+          // Incidental browser cookies confer no authority over public local
+          // assets and are not passed to their trusted development handler.
+          delete req.headers.cookie;
+          for(let i=req.rawHeaders.length-2;i>=0;i-=2)if(req.rawHeaders[i].toLowerCase()==='cookie')req.rawHeaders.splice(i,2);
+          res.setHeader('Cache-Control','no-store');
+          await serve(req,res);if(res.writableEnded||res.headersSent)return;
+        }
         reject(404);
       }
       // The asset callback never sees the saved namespace, even malformed URLs.

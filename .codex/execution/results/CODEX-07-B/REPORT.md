@@ -46,3 +46,7 @@ Confirmation remains single-host-process-recovery-only and production_ready:fals
 Architecture review obligations for journal failure/backfill continue through accepted07-A and the existing client retry envelope; broader reconciliation, keys, independent recovery and processor dispatch remain with their owning modules. Provider, privacy/G-E03, offer, capacity, content/voice and release gates remain open. DECISION-033 remains limited to its recorded eligibility/expiry selection.
 
 07-C retains grant renewal/expiry and full offline policy with08-A/10-B.09 retains durable attributed feedback and new-wonder intake;12/13 retain wider verification and release. No completion event, score, learning inference, content approval or family-data use is introduced. Native CUA and independent review are still required before any controller technical acceptance.
+
+## Controller native-browser finding and scoped correction
+
+Codex controller using actual IAB observed candidate4822ef20ba475de6ab421280a8b8d622a5232589 returning HTTP403 JSON instead of its page. The fixture logged header names only and confirmed an ordinary browser Cookie header; no values were read. The correction strips incidental cookies only from trusted read-only non-API assets, preserving all save API guards, and adds a real HTTP regression. Prior50tests/build/protected checks passed on4822; this changed revision requires fresh controller checks and native CUA before the first Claude review. No review was consumed or reset by this pre-review correction.

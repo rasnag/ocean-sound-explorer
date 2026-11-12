@@ -26,7 +26,7 @@ async function seed(db,s,a){
     await tx.query('INSERT INTO assignments VALUES($1,$2,$3,$4,$5)',[s.household_id,s.assignment_id,request,s.child_id,s.revision_id]);
   });
 }
-async function fixture(engine,work){
+async function fixture(engine,work,{serve}={}){
   const db=await createSyntheticDatabase(env),directory=await mkdtemp(path.join(os.tmpdir(),'saved-player-test-'));
   let server,journal,outage=false,lost=null;
   try{
@@ -35,7 +35,7 @@ async function fixture(engine,work){
     const adventure={...structuredClone(engine===1?fixtureAdventure:endingFixtureAdventure),revision_id:scope.revision_id};
     await seed(db,scope,adventure);
     journal=await createSyntheticPlayJournal({env,directory,testHooks:{beforeAppend:async()=>{if(outage)throw Error('Invented journal fault');}}});
-    server=createSyntheticSavedServer({db,journal,env,scope,adventure,testHooks:{beforeRespond:async r=>{if(lost?.(r)){lost=null;throw Error('Invented response loss');}return {forged:true};}}});
+    server=createSyntheticSavedServer({db,journal,env,scope,adventure,...(serve?{serve}:{}),testHooks:{beforeRespond:async r=>{if(lost?.(r)){lost=null;throw Error('Invented response loss');}return {forged:true};}}});
     assert.throws(()=>server.listen(0,'0.0.0.0'));
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
     const origin='http://127.0.0.1:'+server.address().port,calls=[];
@@ -46,13 +46,31 @@ async function fixture(engine,work){
       assert.equal(r.headers.get('referrer-policy'),'no-referrer');assert(r.headers.get('content-security-policy'));assert(!r.headers.has('access-control-allow-origin'));
       return {status:r.status,body:await r.json()};
     };
-    await work({db,scope,adventure,request,calls,client:()=>createSavedPlayerClient({request,newActionId:randomUUID}),fault:value=>{outage=value;},lose:fn=>{lost=fn;}});
+    await work({db,scope,adventure,origin,request,calls,client:()=>createSavedPlayerClient({request,newActionId:randomUUID}),fault:value=>{outage=value;},lose:fn=>{lost=fn;}});
   }finally{
     if(server?.listening){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
     if(journal)await journal.close();await db.close();
     assert.equal(path.dirname(directory),path.resolve(os.tmpdir()));await rm(directory,{recursive:true,force:true});
   }
 }
+test('ordinary browser cookies are stripped only for read-only trusted assets; saved APIs stay strict',async()=>{
+  let assetCalls=0;
+  await fixture(2,async({origin,request})=>{
+    const page=await fetch(origin+'/loop-preview/saved',{headers:{Cookie:'invented_test_cookie=1'}});
+    assert.equal(page.status,200);assert.equal(await page.text(),'Synthetic asset');assert.equal(assetCalls,1);
+    assert.equal(page.headers.get('cache-control'),'no-store');
+    const api=await request('/saved/open',{play_id:null},{Cookie:'invented_test_cookie=1'});
+    assert.equal(api.status,403);assert(!api.body.result);assert.equal(assetCalls,1);
+    const foreign=await fetch(origin+'/loop-preview/saved',{headers:{Cookie:'invented_test_cookie=1',Origin:'https://foreign.invalid'}});
+    assert.equal(foreign.status,403);assert.equal(assetCalls,1);
+    const post=await fetch(origin+'/loop-preview/saved',{method:'POST'});
+    assert.equal(post.status,404);assert.equal(assetCalls,1);
+  },{serve:async(req,res)=>{
+    assert(!Object.hasOwn(req.headers,'cookie'));
+    assert(!req.rawHeaders.some((name,index)=>index%2===0&&name.toLowerCase()==='cookie'));
+    assetCalls++;res.writeHead(200,{'Content-Type':'text/plain'});res.end('Synthetic asset');
+  }});
+});
 for(const engine of [1,2])test(`real saved HTTP/PG/journal engine${engine}: pending, retry, conflict, history and withdrawal`,async()=>{
   await fixture(engine,async({db,scope,adventure,request,calls,client,fault,lose})=>{
     const a=client();await a.open();assert.equal(a.snapshot().phase,'ready');
