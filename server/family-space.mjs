@@ -1,0 +1,113 @@
+// Local synthetic family-space projection. No real-family or public access.
+import {createHash} from 'node:crypto';
+import {resolveLoopConfig} from '../lib/loop/environment.mjs';
+import {validateAdventure} from '../lib/loop/player-engine.mjs';
+import {validateAssistedAdventure} from '../lib/loop/assisted-player.mjs';
+const policy='TEST-v1';
+const fail=(status=503)=>{throw Object.assign(new Error('Synthetic family space unavailable.'),{status});};
+function exact(v,required,optional=[]) {
+ if(!v||typeof v!=='object'||Array.isArray(v)||![Object.prototype,null].includes(Object.getPrototypeOf(v)))fail(400);
+ const own=Reflect.ownKeys(v);
+ if(required.some(k=>!Object.hasOwn(v,k))||own.some(k=>typeof k!=='string'||!required.includes(k)&&!optional.includes(k)||!Object.getOwnPropertyDescriptor(v,k).enumerable||!Object.hasOwn(Object.getOwnPropertyDescriptor(v,k),'value')))fail(400);
+}
+function method(object,key){const d=object&&Object.getOwnPropertyDescriptor(object,key);if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='function')fail(400);return d.value.bind(object);}
+const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+const integer=(v,min=0)=>{const n=Number(v);if(!Number.isSafeInteger(n)||n<min)fail();return n;};
+const clone=x=>structuredClone(x),hash=x=>createHash('sha256').update(x).digest('hex');
+const base=state=>({status:'family_space',synthetic_only:true,policy_version:policy,state});
+const bounded=rows=>{if(rows.length>100)fail();return rows;};
+const identity=r=>({assignment_id:r.assignment_id,request_id:r.request_id,revision_id:r.revision_id,source_scope_version:integer(r.source_scope_version,1),question:r.question});
+export async function createSyntheticFamilySpace(options={}) {
+ exact(options,['env','db','access','content','play','policyVersion'],['clock']);exact(options.env,[],Reflect.ownKeys(options.env));resolveLoopConfig(options.env);
+ const {db,access,content,play,policyVersion,clock=Date.now}=options;
+ if(policyVersion!==policy||typeof clock!=='function')fail(400);
+ const now=()=>{const n=clock();if(!Number.isSafeInteger(n)||n<0||n>8640000000000000)fail();return n;};now();
+ const withSession=method(access,'withSession'),question=method(content,'question'),revision=method(content,'revision'),resume=method(play,'resume'),reconcile=method(play,'reconcile');
+ const {PGlite}=await import('@electric-sql/pglite');if(!(db instanceof PGlite))fail(400);
+ if((await db.query('SELECT version FROM schema_migrations WHERE version=8')).rows.length!==1)fail();
+ async function scope(tx,actor,command) {
+  const consent=(await tx.query('SELECT * FROM service_consents WHERE household_id=$1 ORDER BY consent_epoch DESC LIMIT 1 FOR UPDATE',[actor.householdId])).rows[0];
+  if(!consent||consent.state!=='active'||consent.policy_version!==policy)return {denied:'permission_required'};
+  const epoch=integer(consent.consent_epoch,1),profiles=bounded((await tx.query('SELECT * FROM child_setup_profiles WHERE household_id=$1 ORDER BY is_initial DESC,child_id',[actor.householdId])).rows);
+  if(profiles.some(r=>integer(r.consent_epoch,1)!==epoch))return {denied:'setup_unavailable'};
+  if(!profiles.some(r=>r.is_initial))return {denied:'setup_required'};
+  const children=profiles.map(r=>({child_id:r.child_id,profile_version:integer(r.current_version,1),nickname:r.profile.nickname,is_initial:r.is_initial}));
+  const context=hash(JSON.stringify(['synthetic-family-space-v1',actor.adultId,actor.householdId,epoch,policy]));
+  const selected=command?children.find(c=>c.child_id===command.child_id):null;
+  if(command&&(context!==command.view_context||!selected))fail(403);
+  return {h:actor.householdId,epoch,context,children,selected};
+ }
+ function command(input,kind) {
+  if(kind==='read')exact(input,['view_context','child_id']);
+  else {exact(input,['view_context','child_id','entry_kind','assignment_id','revision_id'],['play_id']);if(input.entry_kind==='assignment')exact(input,['view_context','child_id','entry_kind','assignment_id','revision_id']);else if(input.entry_kind==='play')exact(input,['view_context','child_id','entry_kind','assignment_id','revision_id','play_id']);else fail(400);}
+  if(typeof input.view_context!=='string'||!/^[0-9a-f]{64}$/.test(input.view_context)||Object.keys(input).some(k=>k.endsWith('_id')&&!uuid(input[k])))fail(400);
+  const c=clone(input);for(const k of Object.keys(c))if(k.endsWith('_id'))c[k]=c[k].toLowerCase();return c;
+ }
+ async function text(tx,s,request,version) {
+  const row=(await tx.query('SELECT * FROM request_source_scopes WHERE household_id=$1 AND request_id=$2 AND source_scope_version=$3',[s.h,request,version])).rows[0];if(!row)fail();
+  try {const r=await question(tx,{household_id:s.h,request_id:request,source_scope_version:integer(version,1),payload_ref:row.payload_ref});exact(r,['question']);if(typeof r.question!=='string'||!r.question.trim()||r.question.length>4000)fail();return r.question;}catch{fail();}
+ }
+ async function assignment(tx,s,id,revisionId) {
+  const rows=(await tx.query(`SELECT a.*,r.source_scope_version,r.pattern_version,r.engine_version,r.payload_ref FROM assignments a
+   JOIN wonder_requests w ON w.household_id=a.household_id AND w.request_id=a.request_id AND w.child_id=a.child_id AND w.original_received_at IS NOT NULL
+   JOIN adventure_revisions r ON r.household_id=a.household_id AND r.revision_id=a.revision_id AND r.request_id=a.request_id
+   JOIN published_revisions p ON p.household_id=r.household_id AND p.revision_id=r.revision_id
+   JOIN capacity_reservations c ON c.household_id=a.household_id AND c.request_id=a.request_id AND c.source_scope_version=r.source_scope_version
+   JOIN entitlement_claims e ON e.household_id=a.household_id AND e.request_id=a.request_id
+   JOIN entitlement_transitions t ON t.household_id=e.household_id AND t.request_id=e.request_id AND t.kind='consume' AND t.expected_version+1=e.version
+   WHERE a.household_id=$1 AND a.child_id=$2 AND a.assignment_id=$3 AND a.revision_id=$4 AND r.status='published' AND c.state='completed' AND e.state='consumed'`,[s.h,s.selected.child_id,id,revisionId])).rows;
+  if(rows.length!==1)fail(403);const row=rows[0];row.question=await text(tx,s,row.request_id,row.source_scope_version);return row;
+ }
+ async function adventure(tx,s,row) {
+  try {const spec=await revision(tx,{household_id:s.h,request_id:row.request_id,revision_id:row.revision_id,source_scope_version:integer(row.source_scope_version,1),pattern_version:row.pattern_version,engine_version:row.engine_version,payload_ref:row.payload_ref});
+   if(row.engine_version==='fixture-engine-1')validateAdventure(spec);else if(row.engine_version==='fixture-engine-2')validateAssistedAdventure(spec);else fail();
+   if(spec.revision_id!==row.revision_id||spec.pattern_version!==row.pattern_version||spec.engine_version!==row.engine_version)fail();return clone(spec);
+  }catch{fail();}
+ }
+ async function projected(tx,s) {
+  const saved=[],requests=[],ready=[];
+  const rows=bounded((await tx.query('SELECT * FROM wonder_requests WHERE household_id=$1 AND child_id=$2 ORDER BY request_id',[s.h,s.selected.child_id])).rows);
+  for(const r of rows){const source=(await tx.query('SELECT source_scope_version FROM request_source_scopes WHERE household_id=$1 AND request_id=$2 ORDER BY source_scope_version DESC LIMIT 1',[s.h,r.request_id])).rows[0];if(!source)fail();
+   const item={request_id:r.request_id,source_scope_version:integer(source.source_scope_version,1),question:await text(tx,s,r.request_id,source.source_scope_version)};
+   const claims=(await tx.query('SELECT * FROM entitlement_claims WHERE household_id=$1 AND request_id=$2',[s.h,r.request_id])).rows,capacity=(await tx.query('SELECT * FROM capacity_reservations WHERE household_id=$1 AND request_id=$2',[s.h,r.request_id])).rows,assigned=(await tx.query('SELECT * FROM assignments WHERE household_id=$1 AND request_id=$2',[s.h,r.request_id])).rows;
+   if(r.original_received_at===null){if(claims.length||capacity.length||assigned.length)fail();saved.push(item);continue;}
+   const claim=claims[0],cap=capacity[0];if(claims.length!==1||capacity.length!==1)fail();
+   const state={pending:'received',reserved:'accepted',consumed:'ready',released:'closed'}[claim.state];if(!state||!({pending:['booked'],reserved:['booked'],consumed:['completed'],released:['released']}[claim.state].includes(cap.state)))fail();
+   const received=new Date(r.original_received_at).getTime(),due=received+86400000;if(!Number.isSafeInteger(received)||received<0||received>now()||!Number.isSafeInteger(due)||Number.isNaN(new Date(due).getTime()))fail();
+   requests.push({...item,received_at:new Date(received).toISOString(),due_at:new Date(due).toISOString(),state,overdue:!['ready','closed'].includes(state)&&now()>due});
+   if(state==='ready'){if(assigned.length!==1)fail();const a=await assignment(tx,s,assigned[0].assignment_id,assigned[0].revision_id);ready.push(identity(a));}else if(assigned.length)fail();
+  }
+  const periods=bounded((await tx.query("SELECT * FROM entitlement_periods WHERE household_id=$1 AND (allocation_scope='household' OR child_id=$2) ORDER BY period_id",[s.h,s.selected.child_id])).rows),allowances=[];
+  for(const p of periods){const counts={pending:0,reserved:0,consumed:0,released:0};for(const c of (await tx.query('SELECT state,count(*) n FROM entitlement_claims WHERE household_id=$1 AND period_id=$2 GROUP BY state',[s.h,p.period_id])).rows){if(!Object.hasOwn(counts,c.state))fail();counts[c.state]=integer(c.n);}
+   const allowance=integer(p.allowance,1),remaining=allowance-counts.pending-counts.reserved-counts.consumed,start=new Date(p.trial_start),end=new Date(p.trial_end);if(remaining<0||!Number.isSafeInteger(remaining)||Number.isNaN(+start)||Number.isNaN(+end)||+end<=+start||now()<+start)fail();
+   allowances.push({period_id:p.period_id,policy_version:p.policy_version,allocation_scope:p.allocation_scope,child_id:p.child_id,trial_start:start.toISOString(),trial_end:end.toISOString(),allowance,...counts,remaining,state:now()>=+end?'expired':'active'});
+  }
+  const sessions=bounded((await tx.query('SELECT p.*,m.binding,c.checkpoint FROM play_sessions p JOIN play_service_metadata m USING(household_id,play_id) JOIN play_checkpoints c USING(household_id,play_id) WHERE p.household_id=$1 AND p.child_id=$2 ORDER BY p.play_id',[s.h,s.selected.child_id])).rows);
+  const bindings=[];for(const p of sessions){const a=await assignment(tx,s,p.assignment_id,p.revision_id);if(p.binding.consent_epoch!==s.epoch||p.binding.child_id!==s.selected.child_id||p.binding.assignment_id!==a.assignment_id||p.binding.revision_id!==a.revision_id||p.binding.household_id!==s.h)fail();bindings.push({row:p,assignment:a,scope:{household_id:s.h,child_id:s.selected.child_id,assignment_id:p.assignment_id,revision_id:p.revision_id,play_id:p.play_id,consent_epoch:s.epoch}});}
+  return {saved_wonders:saved,requests,ready,allowances,bindings};
+ }
+ const signature=p=>JSON.stringify([p.context,p.selected,p.data]);
+ async function snapshot(token,c){return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied)fail(403);return {...s,data:await projected(tx,s)};});}
+ async function index(token){return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor);return s.denied?base(s.denied):{...base('select_child'),view_context:s.context,children:s.children};});}
+ async function read(token,input){const c=command(input,'read'),before=await snapshot(token,c),receipts=[];
+  for(const b of before.data.bindings){try{receipts.push(await resume(b.scope,{play_id:b.scope.play_id,revision_id:b.scope.revision_id,consent_epoch:b.scope.consent_epoch}));}catch{fail();}}
+  // Journal access happens outside actor transactions; then recheck all current bindings/progress.
+  const after=await snapshot(token,c);if(signature(before)!==signature(after))fail();
+  const plays=[],previous=new Map();for(let i=0;i<after.data.bindings.length;i++){const b=after.data.bindings[i],r=receipts[i],item={play_id:b.scope.play_id,assignment_id:b.assignment.assignment_id,revision_id:b.assignment.revision_id,source_scope_version:integer(b.assignment.source_scope_version,1),question:b.assignment.question};
+   if(r.status!=='acknowledged'){plays.push({...item,status:'confirmation_pending'});continue;}
+   const st=r.checkpoint?.state;if(r.play_id!==b.scope.play_id||st?.revision_id!==b.scope.revision_id||st.sequence!==integer(b.row.sequence)||JSON.stringify(r.checkpoint)!==JSON.stringify(b.row.checkpoint)||!Array.isArray(st.trials))fail();
+   plays.push({...item,status:'confirmed',last_action_sequence:integer(st.sequence),trial_count:st.trials.length});if(st.trials.length)previous.set(b.assignment.assignment_id,identity(b.assignment));
+  }
+  return {...base('child_space'),view_context:after.context,children:after.children,selected_child:after.selected,saved_wonders:after.data.saved_wonders,requests:after.data.requests,ready:after.data.ready,plays,previous:[...previous.values()],allowances:after.data.allowances};
+ }
+ async function open(token,input){const c=command(input,'open');
+  const first=await withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied)fail(403);const a=await assignment(tx,s,c.assignment_id,c.revision_id);let b;
+   if(c.entry_kind==='play'){const rows=(await tx.query('SELECT p.*,m.binding,c.checkpoint FROM play_sessions p JOIN play_service_metadata m USING(household_id,play_id) JOIN play_checkpoints c USING(household_id,play_id) WHERE p.household_id=$1 AND p.child_id=$2 AND p.assignment_id=$3 AND p.revision_id=$4 AND p.play_id=$5',[s.h,s.selected.child_id,c.assignment_id,c.revision_id,c.play_id])).rows;if(rows.length!==1||rows[0].binding.consent_epoch!==s.epoch)fail(403);b={household_id:s.h,child_id:s.selected.child_id,assignment_id:c.assignment_id,revision_id:c.revision_id,play_id:c.play_id,consent_epoch:s.epoch};}
+   return {s,a,b};});
+  let receipt;if(first.b){try{receipt=await resume(first.b,{play_id:c.play_id,revision_id:c.revision_id,consent_epoch:first.s.epoch});if(receipt.status!=='acknowledged')receipt=await reconcile(first.b);}catch{fail();}}
+  return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied||JSON.stringify(s.selected)!==JSON.stringify(first.s.selected))fail(403);const a=await assignment(tx,s,c.assignment_id,c.revision_id);if(JSON.stringify(a)!==JSON.stringify(first.a))fail();
+   if(first.b){if(receipt.status!=='acknowledged')return base('confirmation_pending');const row=(await tx.query('SELECT p.sequence,c.checkpoint FROM play_sessions p JOIN play_checkpoints c USING(household_id,play_id) WHERE household_id=$1 AND play_id=$2',[s.h,c.play_id])).rows[0];if(!row||receipt.play_id!==c.play_id||receipt.checkpoint?.state?.revision_id!==c.revision_id||receipt.checkpoint?.state?.sequence!==integer(row.sequence)||JSON.stringify(receipt.checkpoint)!==JSON.stringify(row.checkpoint))fail();}
+   const spec=await adventure(tx,s,a);return {...base(first.b?'resume':'introduction'),view_context:s.context,selected_child:s.selected,assignment:identity(a),adventure:spec,...(first.b?{receipt:clone(receipt)}:{})};});
+ }
+ return Object.freeze({index,read,open});
+}
