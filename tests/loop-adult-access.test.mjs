@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {randomUUID,createHash} from 'node:crypto';
+import {createRequire,registerHooks} from 'node:module';
+import {readFile,writeFile,unlink,access as fileAccess} from 'node:fs/promises';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import path from 'node:path';
 import {createSyntheticDatabase} from '../lib/loop/local-db.mjs';
 import {migrate} from '../db/migrate.mjs';
 import {createSyntheticAdultAccess} from '../server/adult-access.mjs';
@@ -187,4 +191,52 @@ test('adult HTTP: actual loopback, CSRF/header/cookie/body guards, rotation and 
     assert.deepEqual(await(await fetch(origin+'/adult/session',{headers:{Cookie:cookie}})).json(),out,'old browser cookie loses authority after recovery');
     const logout=await send('/adult/logout',{}, {Cookie:cookie});assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);
   } finally {await new Promise(resolve=>{server.close(resolve);server.closeAllConnections?.();});}
+}));
+
+
+test('passive signed-out tab cannot revoke a newer shared-cookie session',async()=>fixture(async({access,messages,advance})=>{
+  let failLogout=false;
+  const controlledAccess={...access,logout:async token=>{if(failLogout){failLogout=false;throw Error('Synthetic logout unavailable');}return access.logout(token);}};
+  const server=createSyntheticAdultAccessServer({access:controlledAccess,env});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const origin='http://127.0.0.1:'+server.address().port,require=createRequire(new URL('../package.json',import.meta.url));
+  const {JSDOM,VirtualConsole}=require('jsdom'),ts=require('typescript'),React=require('react');
+  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
+  const dom=new JSDOM('<div id="root"></div>',{url:origin+'/loop-preview/join',pretendToBeVisual:true,virtualConsole:vc});
+  const nativeFetch=globalThis.fetch,requests=[],pending=new Set();let cookie='',reactRoot,hook,owned=false;
+  const names=['window','document','navigator','HTMLElement','Node','Event','MouseEvent','requestAnimationFrame','cancelAnimationFrame','IS_REACT_ACT_ENVIRONMENT','fetch'];
+  const previous=new Map(names.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+  const browserFetch=(url,options={})=>{
+    const target=new URL(url,origin);assert.equal(target.origin,origin);const method=options.method??'GET',headers={...options.headers,...(method==='POST'?{Origin:origin}:{}),...(cookie?{Cookie:cookie}:{})};requests.push({path:target.pathname,method});
+    const work=nativeFetch(target,{...options,headers}).then(response=>{const set=response.headers.get('set-cookie');if(set){const part=set.split(';')[0];cookie=part==='loop_adult_session='?'':part;}return response;});pending.add(work);work.finally(()=>pending.delete(work)).catch(()=>{});return work;
+  };
+  const temporary=path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))),'app/.adult-passive-test.mjs');
+  try{
+    const first=await requestCode(access,messages,'passive@example.invalid');
+    assert.equal((await browserFetch('/adult/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:first})})).status,200);
+    for(const name of names)Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:name==='IS_REACT_ACT_ENVIRONMENT'?true:name==='fetch'?browserFetch:['requestAnimationFrame','cancelAnimationFrame'].includes(name)?dom.window[name].bind(dom.window):dom.window[name]});dom.window.fetch=browserFetch;
+    hook=registerHooks({load(url,context,next){if(url.endsWith('.css'))return {format:'module',source:'',shortCircuit:true};return next(url,context);}});
+    let exists=false;try{await fileAccess(temporary);exists=true;}catch{}assert(!exists,'preserve existing owned-test filename');
+    const source=await readFile(new URL('../app/LoopAdultAccess.tsx',import.meta.url),'utf8'),compiled=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}});await writeFile(temporary,compiled.outputText,{flag:'wx'});owned=true;
+    const {default:Component}=await import(pathToFileURL(temporary).href),{createRoot}=require('react-dom/client');const host=dom.window.document.getElementById('root');reactRoot=createRoot(host);
+    const phase=()=>host.querySelector('[data-testid="adult-status"]')?.getAttribute('data-phase');
+    const wait=async condition=>{const until=Date.now()+10000;while(!condition()){assert(Date.now()<until,'actual adult UI did not settle');await React.act(async()=>new Promise(resolve=>setTimeout(resolve,20)));}};
+    await React.act(async()=>reactRoot.render(React.createElement(Component)));await wait(()=>phase()==='restricted');
+    const signOut=[...host.querySelectorAll('button')].find(x=>x.textContent==='Sign out');assert(signOut);await React.act(async()=>signOut.click());await wait(()=>phase()==='signed-out'&&host.textContent.includes('Signed out of the local test.'));assert.equal(cookie,'');
+    // Another tab verifies through actual HTTP; browsers share this cookie jar.
+    advance(1001);const next=await requestCode(access,messages,'passive@example.invalid','recover');assert.equal((await browserFetch('/adult/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:next})})).status,200);const before=await(await browserFetch('/adult/session')).json();assert.equal(before.status,'restricted');const start=requests.length;
+    await React.act(async()=>{dom.window.dispatchEvent(new dom.window.Event('focus'));await new Promise(resolve=>setTimeout(resolve,0));while(pending.size)await Promise.allSettled([...pending]);});
+    const passive=requests.slice(start);assert(!passive.some(x=>x.path==='/adult/logout'),'passive focus must never issue logout for a newer shared-cookie session');
+    assert.equal(phase(),'signed-out','old tab stays locally signed out');assert.deepEqual(await(await browserFetch('/adult/session')).json(),before,'newer session remains active in the same intended household');// A fresh tab sees the newer session, then explicit logout fails once.
+    await React.act(async()=>reactRoot.unmount());reactRoot=createRoot(host);await React.act(async()=>reactRoot.render(React.createElement(Component)));await wait(()=>phase()==='restricted');failLogout=true;
+    const logoutButton=()=>[...host.querySelectorAll('button')].find(x=>x.textContent==='Sign out');
+    await React.act(async()=>logoutButton().click());await wait(()=>phase()==='error');assert(host.textContent.includes('could not be confirmed'));const failedCount=requests.filter(x=>x.path==='/adult/logout').length;
+    await React.act(async()=>{dom.window.dispatchEvent(new dom.window.Event('focus'));dom.window.dispatchEvent(new dom.window.Event('pageshow'));await new Promise(resolve=>setTimeout(resolve,0));while(pending.size)await Promise.allSettled([...pending]);});
+    assert.equal(phase(),'error','passive check cannot turn an unconfirmed logout into signed-out success');assert(logoutButton(),'explicit sign-out retry remains available');assert.equal(requests.filter(x=>x.path==='/adult/logout').length,failedCount,'passive events cannot repeat logout');assert.deepEqual(await(await browserFetch('/adult/session')).json(),before,'failed logout leaves the actual server session active');
+    assert(![...host.querySelectorAll('button')].some(x=>x.textContent==='Retry session check'),'do not offer a session-restore retry after local sign-out intent');
+    await React.act(async()=>logoutButton().click());await wait(()=>phase()==='signed-out'&&host.textContent.includes('Signed out of the local test.'));assert.deepEqual(await(await browserFetch('/adult/session')).json(),out,'explicit logout retry revokes the session');
+    assert.equal(errors.length,0,errors.map(String).join('\n'));
+  }finally{
+    if(reactRoot)await React.act(async()=>reactRoot.unmount());hook?.deregister();if(owned)await unlink(temporary);dom.window.close();for(const [name,descriptor]of previous){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}
+    await new Promise(resolve=>{server.close(resolve);server.closeAllConnections?.()});
+  }
 }));
