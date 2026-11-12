@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {pathToFileURL} from 'node:url';
+import {pathToFileURL,fileURLToPath} from 'node:url';
 import {mkdtemp,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -89,7 +89,7 @@ test('play acknowledged before withdrawal stays a recorded fact but future priva
 
 // Standalone repository regression: no planning checkout, probes or external service needed.
 test('standalone consent HTTP, role/isolation, lifecycle, SQL rollback, quota and log regression',async()=>{
-const root=process.cwd(),load=n=>import(pathToFileURL(path.join(root,n)).href);
+const root=fileURLToPath(new URL('../',import.meta.url)),load=n=>import(pathToFileURL(path.join(root,n)).href);
 // Deliberately fails import on the accepted pre-10-B application.
 const {createSyntheticConsentService}=await load('server/consent-service.mjs');
 const {createSyntheticDatabase}=await load('lib/loop/local-db.mjs');
