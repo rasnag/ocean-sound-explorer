@@ -20,3 +20,10 @@ The UI separates saved-only, requested/overdue, ready, distinct resumable plays,
 -08-A: OpenFamilyEntry is the exact current child/assignment/revision plus optional existing-play selection; wire private grant and Start. Current read-only introduction/acknowledged saved record creates no new play.
 
 These are incomplete downstream obligations, not hidden claims that all F04/F05/private gameplay is done.21-day trial intent and DECISION-033 submission-time eligibility remain approved; no live offer, allocation, price, payment channel, hosting or legal policy is selected. Local relational published fixtures are invented and unreviewed; no factual or human content approval is asserted.
+
+
+## Actual candidate check result — current runtime, November12
+
+All configured checks completed successfully on ad4815e (runtime d12ea93):68/68 app tests PASS31042.0749ms, normal production build PASS, all eight protected database/founder/adult/entitlement/play/consent/child/family probes PASS, actual76 selector identities PASS and seeded production private-source/bundle scan PASS. Full UTF-8 controller output is preserved at .agent-loop/family-root-card-checks.log (10068 characters). The outer terminal print subsequently hit CP1252 encoding for a checkmark; the already completed checks and saved UTF-8 result were unaffected. No rerun or fabricated success substitutes for a failed check.
+
+The new real HTTP/React test includes actual full allowance, CancelRequest kernel release with matching capacity, closed/not-overdue, accepted-overdue, unchanged due times, and existing scope/late-response/draft/withdrawal/reconsent/expiry behaviors. Fixture cancellation is not a family CancelRequest implementation;04-C remains downstream. The accepted child component diff was verified to add only one family-home link; actual native regression and all eight exact-candidate scenarios are still pending. No actual feature Claude verdict exists yet. Independent source handoff failures remain retained as three attempts, not a review or scope waiver.
