@@ -51,3 +51,178 @@ Native scenarios remain phone-keyboard-confirmation, save-submit-separation, no-
 WM-01/13 scheduler gap reconciliation, sustained-journal-outage operator alert, hosted independent recovery/multihost lock evidence and WM-10 privacy/key-deletion/restore work remain open.04-C owns production management;08-A owns readiness/private Start/delivery;09-C owns human continuity;11-C owns measured capacity. No other task is completed by this source bundle.
 
 Real provider/offer/privacy/retention/capacity/support/release choices remain within their existing gates. No messaging, billing, paid generation, real-family use, provisioning, deployment or admission is authorized or performed. Append subsequent controller evidence with exact candidate/date/exit status and limitations; do not relabel authored expectations as executed success.
+
+
+## Actual controller aggregate verification after staged drafts
+
+Both family native calls remain consumed; no third drafting call. Controller corrected one test comparing sorted keys with an unsorted expected array, then explicitly projected an already runtime-validated eligibility response into its declared UI fields to resolve one introduced typing diagnostic. The frozen27diagnostic baseline is unchanged. Actual full checks below passed on this corrected source; native CUA and actual Claude feature review are still pending. Earlier failed attempts are preserved, not relabelled. Remaining setup minor findings travel with the check-repair record.
+
+```text
+["npm.cmd", "test"]: exit 0
+
+> ocean-sound-explorer@0.1.0 test
+> node --test tests/*.test.mjs
+
+✔ native media starts synchronously in a tap and stop cannot award completion (1.9959ms)
+✔ the expedition has two confidence rounds followed by three ocean rounds (1.168ms)
+✔ Web Audio playback schedules every source during the initiating gesture (2.2921ms)
+✔ every public game has a distinct playable route and valid scripts (18.2808ms)
+✔ every game animal uses a bundled same-origin MP3 (9.2649ms)
+✔ adult service: delayed identity creation, one-use races, bound recovery, expiry and hash-only storage (8514.4097ms)
+✔ adult service: persistent cooldown, contending resends, global budgets, reset and delivery failure (3844.5956ms)
+✔ adult service: constructor/input guards and account binding cannot be supplied by callers (3575.7619ms)
+✔ adult HTTP: actual loopback, CSRF/header/cookie/body guards, rotation and assets on same server (3214.351ms)
+✔ passive signed-out tab cannot revoke a newer shared-cookie session (5806.9443ms)
+✔ interleaved assistance preserves actual trials: fast (9.8824ms)
+✔ interleaved assistance preserves actual trials: medium (3.2346ms)
+✔ interleaved assistance preserves actual trials: slow (2.0461ms)
+✔ finite profile and explicit construction reject unsupported content (0.8822ms)
+✔ media gestures, error fallback and stale promises remain independent (6.9858ms)
+✔ real local PostgreSQL and HTTP enforce synthetic founder boundaries (10441.8922ms)
+✔ child setup: real HTTP React flow preserves drafts, siblings, corrections, retries and withdrawal fences (15457.7852ms)
+✔ consent snapshots intent, rejects accessors, binds receipts to current adult and preserves refusal history (7796.6536ms)
+✔ withdrawal after primary play commit but before journal acknowledgement prevents private response (4341.2932ms)
+✔ play acknowledged before withdrawal stays a recorded fact but future private reads fail (3783.4679ms)
+Standalone app consent regression PASS: actual disposable PG, verified adult HTTP cookie, strict security, versioned permissions/refusal/dedupe/rollback, real play+entitlement withdrawal fencing and durable throttles. Synthetic single-connection evidence only.
+✔ standalone consent HTTP, role/isolation, lifecycle, SQL rollback, quota and log regression (6522.3342ms)
+✔ withSession retries actual SQL serialization/deadlock failures at most three times without partial writes (2473.2533ms)
+✔ logout at actual journal boundary denies final marker; fresh same-identity login reconciles exact committed provenance (9486.5772ms)
+✔ expiry at journal boundary denies old token; current fresh same-actor session can reconcile after expiry (4423.0985ms)
+✔ demotion before final acknowledgement denies; primary fact is not replaced or adopted by another founder (4000.895ms)
+✔ withdrawal at journal boundary denies marker and reconsent cannot attach the old epoch (3275.275ms)
+✔ journal contains actual primary-committed encrypted fact; reopen is exact, wrong household key and changed global namespace fail closed (3315.6837ms)
+✔ truncated/corrupt tail and file replacement are quarantined rather than treated as an empty receipt namespace (2766.4968ms)
+✔ replacement of an opened journal path denies status (2746.2666ms)
+✔ ordered rollback-before-primary has no journal fact; missing primary recovery range quarantines without new period or consumption (2717.9931ms)
+✔ primary-only continuation is inaccessible to BOTH projection and kernel, then exact retry acknowledges once (11031.4271ms)
+✔ strict snapshots, dates, allocation, same-key conflict, globally deduplicated references and rollback (4700.2977ms)
+✔ period end rejects a new hold; original pre-expiry claim reserves without moved dates or allowance (3983.6894ms)
+✔ actual founder password/TOTP HTTP, protected assets, adult-cookie isolation and safe request guards (3616.3923ms)
+✔ actual React discards delayed continuation status after withdrawal and leaves capture integration mounted (6391.7359ms)
+✔ local factory preserves guard failures and returns an empty real PostgreSQL engine (7236.3745ms)
+✔ two fresh databases reproduce scoped fixtures, constraints and household deletion (8020.3265ms)
+✔ assignment scope failures remain immediate while duplicate request assignments cannot commit (3127.5715ms)
+✔ migration checksums and actual SQL/registry failures preserve atomicity (2387.2176ms)
+✔ discovery validates every required field, exact keys, territory and safe clock boundary (6.4424ms)
+✔ real React controls keep local actions truthful, optional and closed after expiry (9717.9787ms)
+✔ ending fixture retains the complete accepted finite profile without editing its source (9.1256ms)
+✔ strict construction, paths and intents fail without state changes (5.8769ms)
+✔ ending preserves zero tests, pending input references, actual trials and optional handoffs (7.2875ms)
+✔ replay requests path-scoped identities atomically and retains engines across navigation (5.3177ms)
+✔ actual React navigation retains pending older and played newer groups in both directions (10333.0436ms)
+✔ explicit activation, terminal release and last-unit serialization use actual PostgreSQL (7509.4894ms)
+✔ outer rollback and actual SQL failure preserve caller transaction work (3577.4391ms)
+✔ stored receipt boundaries, immutable interval and current consent are enforced (3690.1937ms)
+✔ family space: real HTTP React scope, late replies, draft recovery and withdrawal (17963.7835ms)
+✔ exact local mode returns disconnected adapters and does not mutate input (2.6043ms)
+✔ missing, unknown, preview and production environments fail closed (0.7618ms)
+✔ connections, private browser variables and enabled adapters are refused (2.5123ms)
+✔ configuration rejection never includes the rejected value (0.6806ms)
+✔ preview requires every exact flag and remains off in production (0.3887ms)
+✔ real primary transitions and original retry receipts fixture-engine-1 (10327.7627ms)
+✔ real primary transitions and original retry receipts fixture-engine-2 (4498.3872ms)
+✔ unstarted resume rejects without quarantining later Start (3142.0246ms)
+✔ unstarted commit rejects without quarantining later Start (2876.2527ms)
+✔ transient SQL chain read failure does not quarantine present valid history (2786.0428ms)
+✔ present inconsistent checkpoint remains fail-closed after quarantine correction (2495.0996ms)
+✔ real service comparison of two committed trials fixture-engine-1 (2816.155ms)
+✔ real service comparison of two committed trials fixture-engine-2 (2618.8884ms)
+✔ real SQL rollback at each gameplay write boundary (2231.9941ms)
+✔ pending Configure and Test hide all progress over actual HTTP; backfill applies once (2509.8612ms)
+✔ independent process reopen, killed writer, checksum and truncation fail closed (2152.1817ms)
+✔ withdrawal-first denies duplicates and original epoch cannot be rewritten (2089.7506ms)
+✔ complete finite adventure contract rejects missing, extra, version, range and constant defects (10.9021ms)
+✔ two fresh button-shaped tries retain immutable provenance and trusted results (3.9709ms)
+✔ full envelope and unsupported-operation failures have no effects (8.7213ms)
+✔ caller mutation cannot replace pinned rules or committed input (0.7161ms)
+Not implemented: HTMLMediaElement's pause() method
+✔ actual React drawing shows chosen setup, reveals motion only on Test and retains visual tries (10006.9865ms)
+✔ first primary reply loss recovers through renewed HTTP status after 25 hours and a new bucket (11185.3232ms)
+✔ pending commit reopens, backfills once and retains command, actor and receipt (4718.6876ms)
+✔ different households compete for one global slot across service instances (3677.381ms)
+✔ different siblings share one allowance; child-specific period cannot cover a sibling (3335.8211ms)
+✔ released core capacity frees a slot; completed core capacity still counts (3643.1124ms)
+✔ fractional opening is save-only; fractional end rejects a fresh submit (2766.6786ms)
+✔ stale profile, withdrawal and rollback fault cannot create a production promise (2682.4666ms)
+✔ logout and malformed session tokens cannot recover a pending primary fact (2550.3679ms)
+✔ real React/HTTP separates saving from production, retains first uncertain intent and recovers after reload (16404.3225ms)
+✔ a held actual production reply cannot restore sibling or withdrawn private content (4149.4272ms)
+✔ actual core released capacity frees the configured window; completed usage remains counted (3800.0054ms)
+✔ actual React retries an uncertain Replay into the new introduction, retaining the old play (9187.9414ms)
+✔ ordinary browser cookies are stripped only for read-only trusted assets; saved APIs stay strict (2811.0113ms)
+✔ fresh client reconciles stored pending Test without the lost browser queue, engine1 (3232.147ms)
+✔ fresh client reconciles stored pending Test without the lost browser queue, engine2 (2958.9573ms)
+✔ Replay Start failure before primary commit never poisons original reads or duplicates the intent (3319.4087ms)
+✔ unsupported acknowledgement retains the selected replay and its revision pin for explicit reload (2571.693ms)
+✔ real saved HTTP/PG/journal engine1: pending, retry, conflict, history and withdrawal (3157.9413ms)
+✔ real saved HTTP/PG/journal engine2: pending, retry, conflict, history and withdrawal (3344.9875ms)
+✔ construction and malformed acknowledgement fail closed (0.8783ms)
+✔ actual HTTP/client stores exact separate words, duplicates and append-only corrections without production accounting (6006.7889ms)
+✔ primary-only correction hides older text, blocks family Saved, and explicit reconciliation survives reopen (3583.5156ms)
+✔ snapshots input before yield, rejects getters and proxies without invoking their traps, and isolates actors (3010.8438ms)
+✔ same key precedes CAS/throttle; competing corrections append one successor (2878.7854ms)
+✔ profile race and withdrawal at real journal boundary cannot acknowledge stale private results (2534.4734ms)
+✔ encrypted journal, key loss/wrong key, duplicate open, replacement and corrupt tail fail closed (2466.7613ms)
+✔ opened journal file replacement is not accepted as a fresh command history (2491.9172ms)
+✔ actual React and HTTP preserve save identity, recover pending correction after reload, and fence a withdrawn late acknowledgement (5927.3223ms)
+✔ capture producer preserves the accepted per-child family projection bound without blocking exact retries or corrections (2895.4844ms)
+ℹ tests 101
+ℹ suites 0
+ℹ pass 101
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42765.1693
+
+
+["npm.cmd", "run", "build"]: exit 0
+
+> ocean-sound-explorer@0.1.0 build
+> vite build
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 1868 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.73 kB │ gzip:   0.45 kB
+dist/client/assets/index-D5mvNC1p.css  174.94 kB │ gzip:  30.97 kB
+dist/client/assets/index-DQqS6wah.js   391.64 kB │ gzip: 116.99 kB
+
+✓ built in 742ms
+
+
+["C:\\Program Files\\Python314\\python.exe", "C:\\Users\\Arrgee\\.codex\\.chatgpt-projects\\g-p-6aa20bbf0df48191a58549f304e705de\\loop-adaptation\\.codex\\tools\\check_application_card.py", "--card", "CODEX-04-B"]: exit 0
+Real disposable Postgres passed reproducible migrations/fixtures, scoped references, immutable source lineage, publication binding, action/sequence uniqueness, range constraints, transaction rollback and scoped deletion. No production/RLS/backup proof is inferred.
+Actual local HTTP/Postgres authentication probe passed: password/TOTP, server roles, expiry, logout, concurrent replay, rate limiting, CSRF, cache and secret checks.
+Adult access controller PASS: real PG atomic one-use, recovery rotation/household isolation, persistent resend/global budgets, expiry, hash-only secrets, real HTTP cookie/CSRF/schema/no-cache and no child authority.
+Actual Postgres entitlement kernel passed explicit immutable activation, caller transaction/savepoint rollback, current consent/scope, last-unit serialization, command dedupe, original-time expiry, once-only consumption, release/source correction and child allocation. No receipt/durability, paid offer, multi-host race or identity claim.
+Actual PostgreSQL/HTTP/journal: derived finite engine1+2, idempotent lost response, old duplicate, CAS race, scoped auth/withdrawal, atomic rollback4boundaries, primary/journal failure/backfill, native child-process reopen/crash and truncation failure passed. Synthetic single-host process evidence only; no production durability/identity/content/privacy approval.
+Consent controller PASS: actual disposable PG, verified adult HTTP cookie, strict security, versioned permissions/refusal/dedupe/rollback, real play+entitlement withdrawal fencing and durable throttles. Synthetic single-connection evidence only.
+CODEX-02-C protected probe PASS (local synthetic only).
+CODEX-03-A protected family-space probe PASS (local invented data only).
+CODEX-04-A actual HTTP/PostgreSQL/journal capture probe PASS; synthetic only.
+Independent continuation probe PASS: actual founder/adult HTTP and PG, primary-only period denied by BOTH consumers, same-key fresh-session journal confirmation once, global reference dedupe, original invented provenance, other-founder denial, expiry, role/household/withdrawal-before-commit and private-output boundaries. Synthetic single-host evidence only.
+Independent production probe PASS: real HTTP/PG/capture, two-instance global last-slot and last-unit, source preserved on rollback, exact24h original receipt, pending projection hidden, cross-instance journal reconcile once, lost reply same key, exact expiry and current authorization. Synthetic local process evidence only.
+Known diagnostic comparison PASS:27 existing diagnostics over32 output lines unchanged. Whole-project typecheck still fails; no global typecheck PASS.
+Controller assertions passed: exact local mode, external adapters off, credential/config rejection, production preview disabled.
+
+> ocean-sound-explorer@0.1.0 build
+> vite build
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 1868 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.73 kB │ gzip:   0.45 kB
+dist/client/assets/index-D5mvNC1p.css  174.94 kB │ gzip:  30.97 kB
+dist/client/assets/index-Dy8f-IZs.js   391.64 kB │ gzip: 116.99 kB
+
+✓ built in 605ms
+Actual main.tsx router passed76 module-identity cases including trailing slashes: original pages preserved; synthetic routes dev-only.
+Seeded production build/source scan passed: server-only env secret, private VITE_ value, private local fixture; forced preview flag.
+
+
+```

@@ -35,7 +35,7 @@ function ProductionRequest({scope,visible,fence,saved,captureBusy,onStart,onAckn
  async function review(item:Saved){
   const s=current.current;if(!s||!shown.current||flight.current||captureBusy||!ready||closed||intent.current||pending.length||!online)return;
   const guard=generation.current;flight.current=true;setBusy(true);setTarget(item);setEligible(null);setMessage('Checking current eligibility. This does not book production.');
-  try{const r=await production.eligibility({selection:selection(s),wonder_id:item.request_id,wonder_version:item.source_scope_version});if(!live.current||guard!==generation.current||!shown.current)return;setEligible(r);setMessage(r.status==='eligible'?'Eligibility is advisory. Confirm explicitly to request production.':explanation[r.status]??'Production is unavailable.');}
+  try{const r=await production.eligibility({selection:selection(s),wonder_id:item.request_id,wonder_version:item.source_scope_version});if(!live.current||guard!==generation.current||!shown.current)return;setEligible({status:r.status,offer_version:r.offer_version,consent_epoch:r.consent_epoch,scope_version:r.scope_version});setMessage(r.status==='eligible'?'Eligibility is advisory. Confirm explicitly to request production.':explanation[r.status]??'Production is unavailable.');}
   catch(e){if(!live.current||guard!==generation.current)return;if((e as {status?:number}).status===403)onDenied();else setMessage('Eligibility could not be confirmed. Nothing was requested. Check access and review again.');}
   finally{if(live.current&&guard===generation.current){flight.current=false;setBusy(false);}}
  }
