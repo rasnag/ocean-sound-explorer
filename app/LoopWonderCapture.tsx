@@ -10,7 +10,9 @@ type ProductionPending={idempotency_key:string;wonder_id:string;wonder_version:n
 type Eligibility={status:string;offer_version?:string;consent_epoch?:number;scope_version?:number};
 type Phase='unsent'|'editing'|'confirming'|'saving'|'awaiting_confirmation'|'saved-only'|'conflict'|'denied';
 const accessWarning='Capture access could not be confirmed. Your unsent or uncertain page intent is retained. Retry access before continuing.';
-const api=createWonderCaptureClient(),production=createProductionClient();
+// Resolve the active transport per call, including across remounts/test sessions.
+const transport=(...args:Parameters<typeof fetch>)=>globalThis.fetch(...args);
+const api=createWonderCaptureClient(transport),production=createProductionClient(transport);
 const selection=(s:WonderScope)=>({view_context:s.view_context,child_id:s.child_id,profile_version:s.profile_version});
 const localTime=(s:string)=>new Date(s).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'});
 const explanation:Record<string,string>={no_capacity:'No production place is available. No investigation was requested.',quota_full:'No allowance is available for this request. No investigation was requested.',ineligible:'This saved wonder is not currently eligible for production. No investigation was requested.',configuration_missing:'Production is unavailable while test configuration or confirmation needs attention. No new investigation was requested.'};
@@ -23,7 +25,7 @@ function ProductionRequest({scope,visible,fence,saved,captureBusy,onStart,onAckn
  useLayoutEffect(()=>{++generation.current;++sequence.current;intent.current=null;flight.current=false;setTarget(null);setEligible(null);setPending([]);setReady(false);setClosed(false);setBusy(false);setMessage('');setUncertain(false);onLock(false);},[identity,onLock]);
  const refresh=useCallback(async()=>{
   const s=current.current;if(!s||!shown.current)return;const guard=generation.current,id=++sequence.current;
-  try{const r=await production.status(selection(s));if(!live.current||guard!==generation.current||id!==sequence.current||!shown.current)return;setPending(r.pending);setClosed(r.writes_closed);setReady(true);if(r.pending.length){setUncertain(true);onLock(true);setMessage('Confirmation pending. No production receipt is confirmed here. Recover the existing request; do not create another.');}}
+  try{const r=await production.status(selection(s));if(!live.current||guard!==generation.current||id!==sequence.current||!shown.current)return;setPending(r.pending);setClosed(r.writes_closed);setReady(true);if(r.pending.length){setUncertain(true);onLock(true);if(!intent.current)setMessage('Confirmation pending. No production receipt is confirmed here. Recover the existing request; do not create another.');}}
   catch(e){if(!live.current||guard!==generation.current||id!==sequence.current)return;setReady(false);setPending([]);if((e as {status?:number}).status===403){intent.current=null;setTarget(null);setEligible(null);setMessage('');onDenied();}else setMessage('Production access could not be confirmed. Any uncertain request identity is retained on this page. Retry production access.');}
  },[onDenied,onLock]);
  useEffect(()=>{live.current=true;const connect=()=>setOnline(navigator.onLine);connect();window.addEventListener('online',connect);window.addEventListener('offline',connect);return()=>{live.current=false;++generation.current;window.removeEventListener('online',connect);window.removeEventListener('offline',connect);};},[]);
@@ -97,7 +99,7 @@ export default function LoopWonderCapture({scope,visible,fence,onAcknowledged,on
   const guard=generation.current;inFlight.current=true;setBusy(true);setPhase('saving');setMessage('Checking confirmation…');onUncertain();
   try{const result=command?await api.save(command):await api.reconcile({...selection(s),command_id:pendingCommand!.command_id});if(!mounted.current||guard!==generation.current)return;
    if(result.state==='retryable_unacknowledged'){setPhase('awaiting_confirmation');setClosed(true);setMessage('Confirmation pending. This wonder is not confirmed saved. Keep this page open; retry this same command or reconcile its pending reference.');await refresh();return;}
-   intent.current=null;setQuestion('');setContext('');setTarget(null);setPhase('saved-only');setMessage('Wonder saved. No investigation has been requested. There is no production deadline.');await refresh();if(mounted.current&&guard===generation.current)await onAcknowledged();
+   intent.current=null;setQuestion('');setContext('');setTarget(null);setOpened(false);setPhase('saved-only');setMessage('Wonder saved. No investigation has been requested. There is no production deadline.');await refresh();if(mounted.current&&guard===generation.current)await onAcknowledged();
   }catch(error){if(!mounted.current||guard!==generation.current)return;const status=(error as {status?:number}).status;
    if(status===403){intent.current=null;setQuestion('');setContext('');setSaved([]);setPending([]);setPhase('denied');setMessage('Access changed. Select a child again after checking access.');onDenied();}
    else if(status===429){setPhase('conflict');setMessage('Save was not accepted. A local test limit was reached. Check pending commands, then discard this page intent to keep editing.');await refresh();if(mounted.current&&guard===generation.current)await onAcknowledged();}
@@ -123,6 +125,6 @@ export default function LoopWonderCapture({scope,visible,fence,onAcknowledged,on
   {phase==='conflict'&&!pending.length&&<button type="button" disabled={busy||productionLocked} onClick={discard}>Discard page intent after checking pending commands</button>}
   {ready&&<>{pending.length>0&&<div><h4>Pending confirmations</h4><p>These references do not mean Saved. Reconcile each existing command.</p>{pending.map((p,i)=><div className="family-card" key={p.command_id}><p>Pending capture {i+1} · source version {p.source_scope_version}</p><button type="button" disabled={busy||!online||productionLocked} onClick={()=>void perform(null,p)}>Reconcile pending capture {i+1}</button></div>)}</div>}<div><h4>Correct a saved-only source</h4>{uncertain?<p>Saved sources are hidden while this update awaits confirmation.</p>:saved.length?saved.map((item,i)=><div className="family-card" key={item.request_id}><p className="family-question">{item.question}</p><p>Source version {item.source_scope_version}</p><button type="button" disabled={busy||uncertain||closed||productionLocked} onClick={()=>beginCorrection(item)}>Correct saved wonder {i+1}</button></div>):<p>No capture-owned confirmed sources available for correction.</p>}</div></>}
  </section>}
- <ProductionRequest scope={scope} visible={visible&&activeIdentity.current===identity} fence={fence} saved={ready?saved:[]} captureBusy={busy||uncertain||Boolean(opened)} onStart={productionStart} onAcknowledged={productionAcknowledged} onDenied={onDenied} onLock={lockProduction}/>
+ <ProductionRequest scope={scope} visible={visible&&activeIdentity.current===identity} fence={fence} saved={ready?saved:[]} captureBusy={busy||uncertain||opened} onStart={productionStart} onAcknowledged={productionAcknowledged} onDenied={onDenied} onLock={lockProduction}/>
  </>;
 }

@@ -1,4 +1,4 @@
-// Authored stage-3 tests. Execution results belong to the controller report.
+// Authored stage-family tests. Exact execution evidence belongs to REPORT.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes} from 'node:crypto';
@@ -37,7 +37,7 @@ async function fixture(t){
  let production=await createSyntheticProductionSubmission({env,db,access,capture,kernel,journal,keys,capacity,clock,policyVersion});
  const family=await createSyntheticFamilySpace({env,db,access,clock,policyVersion,content:{question:capture.question,revision:async()=>{throw Error('No revision fixture');}},play:{resume:async()=>{throw Error('No play fixture');},reconcile:async()=>{throw Error('No play fixture');}}});
  server=createSyntheticAdultAccessServer({env,access,consent,setup,capture,family,production:{eligibility:(...a)=>production.eligibility(...a),status:(...a)=>production.status(...a),submit:(...a)=>production.submit(...a),reconcile:(...a)=>production.reconcile(...a)}});await new Promise(done=>server.listen(0,'127.0.0.1',done));
- return {db,adult,children,access,consent,clock,origin:'http://127.0.0.1:'+server.address().port,outage:v=>{outage=v;},advance:n=>{at+=n;},async reopen(){await journal.close();journal=await createSyntheticProductionJournal({env,directory:dirs[1],keys});production=await createSyntheticProductionSubmission({env,db,access,capture,kernel,journal,keys,capacity,clock,policyVersion});}};
+ return {db,adult,children,access,consent,kernel,capture,family,capacity,get production(){return production;},clock,origin:'http://127.0.0.1:'+server.address().port,outage:v=>{outage=v;},advance:n=>{at+=n;},async reopen(){await journal.close();journal=await createSyntheticProductionJournal({env,directory:dirs[1],keys});production=await createSyntheticProductionSubmission({env,db,access,capture,kernel,journal,keys,capacity,clock,policyVersion});}};
 }
 async function browser(t,f){
  const require=createRequire(new URL('../package.json',import.meta.url)),{JSDOM}=require('jsdom');const nativeFetch=globalThis.fetch,requests=[];let lose=false,held=false,release;
@@ -56,10 +56,10 @@ async function browser(t,f){
  async function unmount(){if(root){await act(async()=>root.unmount());root=null;}}
  async function click(label){const b=[...document.querySelectorAll('button')].find(b=>b.textContent===label);assert(b&&!b.disabled,'Required enabled action: '+label);await act(async()=>b.click());}
  async function input(id,value){await act(async()=>{const e=document.getElementById(id);Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value').set.call(e,value);e.dispatchEvent(new Event('input',{bubbles:true}));});}
- async function save(question){await click('Start a wonder');await input('family-wonder',question);await input('family-wonder-context','Invented separate context');await until(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='Review saved-only wonder'&&!b.disabled));await click('Review saved-only wonder');await click('Confirm saved-only wonder');await until(()=>text().includes('Wonder saved. No investigation has been requested.'));await until(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='Review production request 1'&&!b.disabled));}
+ async function save(question){await click('Start a wonder');await input('family-wonder',question);await input('family-wonder-context','Invented separate context');await until(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='Review saved-only wonder'&&!b.disabled));await click('Review saved-only wonder');await click('Confirm saved-only wonder');await until(()=>text().includes('Wonder saved. No investigation has been requested.'));await until(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='Review production request 1'&&!b.disabled));assert.equal(document.getElementById('family-wonder'),null,'Acknowledged save closes the editor so production review is reachable');}
  async function review(){await click('Review production request 1');await until(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='Confirm production request'&&!b.disabled));assert.equal(document.activeElement.id,'production-confirm-title');}
  t.after(async()=>{release?.();await unmount();hook.deregister();dom.window.close();for(const [n,d]of prior){if(d)Object.defineProperty(globalThis,n,d);else delete globalThis[n];}});
- return {text,until,mount,unmount,choose,click,save,review,requests,lose:()=>{lose=true;},hold:()=>{held=true;},release:async()=>{await act(async()=>{release?.();await new Promise(done=>setTimeout(done,20));});}};
+ return {text,until,mount,unmount,choose,click,save,review,requests,lose:()=>{lose=true;},hold:()=>{held=true;},isHeld:()=>typeof release==='function',release:async()=>{await act(async()=>{release?.();await new Promise(done=>setTimeout(done,20));});}};
 }
 
 test('real React/HTTP separates saving from production, retains first uncertain intent and recovers after reload',async t=>{
@@ -76,14 +76,30 @@ test('real React/HTTP separates saving from production, retains first uncertain 
 });
 
 test('a held actual production reply cannot restore sibling or withdrawn private content',async t=>{
- const f=await fixture(t),b=await browser(t,f);await b.mount();await b.save('Invented first child private words');await b.review();b.hold();await b.click('Confirm production request');await b.until(()=>b.requests.some(r=>r.route.endsWith('/submit')));await b.choose(1);await b.until(()=>b.text().includes('Invented Sibling’s wonders'));await b.release();assert(!b.text().includes('Invented first child private words'));assert(!b.text().includes('Request received. A production place is booked.'));
+ const f=await fixture(t),b=await browser(t,f);await b.mount();await b.save('Invented first child private words');await b.review();b.hold();await b.click('Confirm production request');await b.until(b.isHeld);
+ assert.equal((await f.db.query('SELECT * FROM production_acknowledgements')).rows.length,1,'Hold is after the actual acknowledged server result');
+ await b.choose(1);await b.until(()=>b.text().includes('Invented Sibling’s wonders'));await b.release();assert(!b.text().includes('Invented first child private words'));assert(!b.text().includes('Request received. A production place is booked.'));
  await f.consent.withdraw(f.adult.sessionToken,{command_id:randomUUID(),policy_version:policyVersion});await b.click('Retry production access');await b.until(()=>b.text().includes('Test permission needed'));assert(!document.getElementById('production-title'));assert(!b.text().includes('Invented Sibling'));
 });
 
 test('actual core released capacity frees the configured window; completed usage remains counted',async t=>{
- const f=await fixture(t);const rows=await f.db.query("SELECT column_name FROM information_schema.columns WHERE table_name='production_capacity_bookings'");assert(rows.rows.some(r=>r.column_name==='booking_id'));
- // Lifecycle behavior is exercised by the real service/kernel recovery suite.
- // This integration assertion additionally pins the production SQL to its actual
- // core-state join rather than a duplicated browser/booking status counter.
- const require=createRequire(import.meta.url),source=require('node:fs').readFileSync(new URL('../server/production-submission.mjs',import.meta.url),'utf8');assert.match(source,/c\.state IN \('booked','completed'\)/);assert.doesNotMatch(source,/c\.state IN \('booked','released'\)/);
+ const f=await fixture(t),index=await f.family.index(f.adult.sessionToken),child=f.children[0],selection={view_context:index.view_context,child_id:child.child_id,profile_version:child.profile_version},intents=[];
+ for(let i=0;i<3;i++){
+  const saved=await f.capture.save(f.adult.sessionToken,{...selection,command_id:randomUUID(),operation:'create',question:'Invented capacity lifecycle '+i,parent_context:null});assert.equal(saved.state,'acknowledged');
+  const e=await f.production.eligibility(f.adult.sessionToken,{selection,wonder_id:saved.request_id,wonder_version:saved.source_scope_version});assert.equal(e.status,'eligible');
+  intents.push({selection,command:{contract_version:'1.1.0',record_type:'submit',command:'SubmitProduction',idempotency_key:randomUUID(),child_id:child.child_id,wonder_id:saved.request_id,wonder_version:saved.source_scope_version,consent_epoch:e.consent_epoch,offer_version:e.offer_version,scope_version:e.scope_version}});
+ }
+ const first=await f.production.submit(f.adult.sessionToken,intents[0]);assert.equal(first.status,'acknowledged');assert.equal((await f.production.submit(f.adult.sessionToken,intents[1])).status,'no_capacity');
+ await f.db.transaction(async tx=>{
+  await f.kernel.apply(tx,{household_id:f.adult.householdId,consent_epoch:1},{contract_version:'1.1.0',transition_id:randomUUID(),request_id:first.receipt.request_id,period_id:first.receipt.period_id,policy_version:'ui-test-trial',expected_version:1,consent_epoch:1,quantity:1,kind:'release',from:'pending',to:'released',cause:'CancelRequest',cause_id:randomUUID()},{});
+  await tx.query("UPDATE capacity_reservations SET state='released' WHERE household_id=$1 AND reservation_id=$2",[f.adult.householdId,first.receipt.booking_id]);
+ });
+ const second=await f.production.submit(f.adult.sessionToken,intents[1]);assert.equal(second.status,'acknowledged');
+ // Trusted capacity lifecycle fixture only; no assignment readiness/publication
+ // or human content approval is claimed by setting this core usage state.
+ await f.db.query("UPDATE capacity_reservations SET state='completed' WHERE household_id=$1 AND reservation_id=$2",[f.adult.householdId,second.receipt.booking_id]);
+ const denied=await f.production.submit(f.adult.sessionToken,intents[2]);assert.equal(denied.status,'no_capacity');assert(!Object.hasOwn(denied,'receipt'));
+ const counts=(await f.db.query("SELECT c.state,count(*) n FROM production_capacity_bookings b JOIN capacity_reservations c ON c.household_id=b.household_id AND c.request_id=b.request_id AND c.reservation_id=b.booking_id WHERE b.bucket_id=$1 GROUP BY c.state",[f.capacity.bucket_id])).rows;assert.deepEqual(Object.fromEntries(counts.map(r=>[r.state,Number(r.n)])),{released:1,completed:1});
+ assert.deepEqual(await f.production.submit(f.adult.sessionToken,intents[0]),first);assert.deepEqual(await f.production.submit(f.adult.sessionToken,intents[1]),second);
+ assert.equal((await f.db.query('SELECT * FROM production_commands')).rows.length,2);assert.equal((await f.db.query('SELECT original_received_at FROM wonder_requests WHERE request_id=$1',[intents[2].command.wonder_id])).rows[0].original_received_at,null);
 });

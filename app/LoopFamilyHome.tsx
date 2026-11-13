@@ -12,7 +12,8 @@ type Allowance={period_id:string;policy_version:string;allocation_scope:string;t
 type Index={state:string;view_context?:string;children?:Child[]};
 type Home=Index&{selected_child:Child;saved_wonders:Source[];requests:Request[];ready:Assignment[];plays:Play[];previous:Assignment[];allowances:Allowance[]};
 type Entry=Index&{selected_child:Child;assignment:Assignment;adventure:{revision_id:string;opening:string;limits:string};receipt?:{play_id:string;checkpoint:{state:{sequence:number;revision_id:string;trials:Array<{prediction:string;configuration:string;outcome:string}>}}}};
-const api=createFamilySpaceClient(),continuation=createContinuationClient(),date=(value:string)=>new Date(value).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'});
+const transport=(...args:Parameters<typeof fetch>)=>globalThis.fetch(...args);
+const api=createFamilySpaceClient(transport),continuation=createContinuationClient(transport),date=(value:string)=>new Date(value).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'});
 export default function LoopFamilyHome(){
  const [index,setIndex]=useState<Index|null>(null),[home,setHome]=useState<Home|null>(null),[entry,setEntry]=useState<Entry|null>(null);
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[captureScope,setCaptureScope]=useState<WonderScope|null>(null),[captureFence,setCaptureFence]=useState(0),[continuationState,setContinuationState]=useState<string|null>(null);
