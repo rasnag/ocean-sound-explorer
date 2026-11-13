@@ -1,6 +1,7 @@
 import http from 'node:http';
 import {types} from 'node:util';
 import {resolveLoopConfig} from '../lib/loop/environment.mjs';
+import {ownMethod,parseStrictJSON} from './continuation-journal.mjs';
 
 const deny=status=>Object.assign(new Error('Request denied.'),{status});
 const tokenOK=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value)&&Buffer.from(value,'base64url').toString('base64url')===value;
@@ -12,14 +13,14 @@ function cookies(req){
  for(const part of header.split(';')){const match=/^\s*([!#$%&'*+.^_`|~0-9A-Za-z-]+)=([\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*)\s*$/.exec(part);if(!match||seen.has(match[1]))throw deny(400);seen.add(match[1]);if(match[1]===cookieName){if(!tokenOK(match[2]))throw deny(400);token=match[2];}}
  return token;
 }
-async function body(req,keys,limit=4096){
+async function body(req,keys,limit=4096,strict=false){
  const length=req.headers['content-length'];
  if(length!==undefined&&(typeof length!=='string'||!/^\d+$/.test(length)||!Number.isSafeInteger(Number(length))||Number(length)>limit))throw deny(413);
  if(!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))throw deny(415);
  if(req.headers['content-encoding']!==undefined)throw deny(415);
  const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>limit)throw deny(413);chunks.push(chunk);}
  if(length!==undefined&&Number(length)!==size)throw deny(400);
- let value;try{value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{throw deny(400);}
+ let value;try{const text=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));value=strict?parseStrictJSON(text):JSON.parse(text);}catch{throw deny(400);}
  if(!value||typeof value!=='object'||Array.isArray(value)||!(Array.isArray(keys[0])?keys:[keys]).some(shape=>Object.keys(value).length===shape.length&&shape.every(key=>Object.hasOwn(value,key))))throw deny(400);
  return value;
 }
@@ -34,13 +35,14 @@ function captureMethods(value){
 /** Local HTTP only; production identity and cookie policy remain unconfigured. */
 export function createSyntheticAdultAccessServer(options={}){
  resolveLoopConfig(options?.env);
- if(!options||typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['access','env','serve','consent','setup','family','capture'].includes(key)))throw deny(400);
+ if(!options||typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['access','env','serve','consent','setup','family','capture','continuation'].includes(key)))throw deny(400);
  const {access,serve,consent,setup,family}=options;
  if(!access||['request','verify','session','logout'].some(key=>typeof access[key]!=='function')||serve!==undefined&&typeof serve!=='function')throw deny(400);
  if(consent!==undefined&&(!consent||['status','record','withdraw'].some(k=>typeof consent[k]!=='function')))throw deny(400);
  if(setup!==undefined&&(!setup||['status','save'].some(k=>typeof setup[k]!=='function')))throw deny(400);
  if(family!==undefined&&(!family||['index','read','open'].some(k=>typeof family[k]!=='function')))throw deny(400);
  const capture=options.capture===undefined?undefined:captureMethods(options.capture);
+ const continuationStatus=options.continuation===undefined?undefined:ownMethod(options.continuation,'familyStatus');
  const select=['view_context','child_id','profile_version'],create=[...select,'command_id','operation','question','parent_context'];
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:10000,headersTimeout:10000},async(req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
@@ -60,6 +62,10 @@ export function createSyntheticAdultAccessServer(options={}){
    if(api){
     if(url.search||url.hash||req.url!==url.pathname)return send(404,{error:'Request unavailable.'});
     if(req.method==='POST'&&(count('origin')!==1||req.headers.origin!==origin))throw deny(403);
+    if(continuationStatus&&req.method==='POST'&&url.pathname==='/adult/continuation/status'){
+     for(const name of ['content-type','content-length','content-encoding'])if(count(name)>1)throw deny(400);
+     return send(200,await continuationStatus(token,await body(req,['view_context','child_id'],4096,true)));
+    }
     if(capture&&req.method==='POST'&&url.pathname==='/adult/wonder/status')return send(200,await capture.status(token,await body(req,select,65536)));
     if(capture&&req.method==='POST'&&url.pathname==='/adult/wonder/save'){
      const input=await body(req,[create,[...create,'request_id','expected_source_scope_version']],65536);

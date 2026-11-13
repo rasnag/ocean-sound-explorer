@@ -1,5 +1,6 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {createFamilySpaceClient} from '../lib/loop/family-space-client.mjs';
+import {createContinuationClient} from '../lib/loop/continuation-client.mjs';
 import LoopWonderCapture,{type WonderScope} from './LoopWonderCapture';
 import './loop-family-home.css';
 type Child={child_id:string;profile_version:number;nickname:string;is_initial:boolean};
@@ -7,25 +8,32 @@ type Source={request_id:string;source_scope_version:number;question:string};
 type Assignment=Source&{assignment_id:string;revision_id:string};
 type Play=Omit<Assignment,'request_id'>&{play_id:string;status:string;last_action_sequence?:number;trial_count?:number};
 type Request=Source&{received_at:string;due_at:string;state:string;overdue:boolean};
-type Allowance={period_id:string;allocation_scope:string;trial_start:string;trial_end:string;allowance:number;pending:number;reserved:number;consumed:number;released:number;remaining:number;state:string};
+type Allowance={period_id:string;policy_version:string;allocation_scope:string;trial_start:string;trial_end:string;allowance:number;pending:number;reserved:number;consumed:number;released:number;remaining:number;state:string};
 type Index={state:string;view_context?:string;children?:Child[]};
 type Home=Index&{selected_child:Child;saved_wonders:Source[];requests:Request[];ready:Assignment[];plays:Play[];previous:Assignment[];allowances:Allowance[]};
 type Entry=Index&{selected_child:Child;assignment:Assignment;adventure:{revision_id:string;opening:string;limits:string};receipt?:{play_id:string;checkpoint:{state:{sequence:number;revision_id:string;trials:Array<{prediction:string;configuration:string;outcome:string}>}}}};
-const api=createFamilySpaceClient(),date=(value:string)=>new Date(value).toLocaleString();
+const api=createFamilySpaceClient(),continuation=createContinuationClient(),date=(value:string)=>new Date(value).toLocaleString();
 export default function LoopFamilyHome(){
  const [index,setIndex]=useState<Index|null>(null),[home,setHome]=useState<Home|null>(null),[entry,setEntry]=useState<Entry|null>(null);
- const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[captureScope,setCaptureScope]=useState<WonderScope|null>(null),[captureFence,setCaptureFence]=useState(0);
+ const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[captureScope,setCaptureScope]=useState<WonderScope|null>(null),[captureFence,setCaptureFence]=useState(0),[continuationState,setContinuationState]=useState<string|null>(null);
  const live=useRef(false),generation=useRef(0),authSequence=useRef(0),readSequence=useRef(0),openSequence=useRef(0);
  const authority=useRef<Index|null>(null),selected=useRef<Child|null>(null),chosen=useRef<Home|null>(null);
- const clearSelection=useCallback(()=>{++generation.current;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);},[]);
+ const clearSelection=useCallback(()=>{++generation.current;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);setContinuationState(null);},[]);
  const read=useCallback(async(next:Index,child:Child)=>{
-  const guard=generation.current,id=++readSequence.current;
+  const guard=generation.current,id=++readSequence.current;setContinuationState(null);
   try{const result:Home=await api.read({view_context:next.view_context,child_id:child.child_id});
    if(!live.current||guard!==generation.current||id!==readSequence.current||selected.current?.child_id!==child.child_id)return;
    if(result.state!=='child_space'||result.view_context!==next.view_context||result.selected_child?.child_id!==child.child_id||result.selected_child.profile_version!==child.profile_version)throw Error('Changed scope');
    chosen.current=result;setHome(result);setError('');
    setEntry(previous=>{if(!previous)return null;const assignment=result.ready.find(a=>a.assignment_id===previous.assignment.assignment_id&&a.revision_id===previous.assignment.revision_id);if(!assignment)return null;if(previous.receipt){const play=result.plays.find(p=>p.play_id===previous.receipt?.play_id);if(play?.status!=='confirmed'||play.last_action_sequence!==previous.receipt.checkpoint.state.sequence)return null;}return previous;});
-  }catch(failure){if(live.current&&guard===generation.current&&id===readSequence.current){chosen.current=null;setHome(null);setEntry(null);setError('Family details could not be confirmed. Pending capture confirmation may need reconciliation below. Retry to check access.');if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();}}}
+   // Optional status cannot delay or replace the accepted family response.
+   void continuation.status({view_context:next.view_context,child_id:child.child_id}).then(status=>{
+    if(live.current&&guard===generation.current&&id===readSequence.current&&selected.current?.child_id===child.child_id&&selected.current.profile_version===child.profile_version&&authority.current?.view_context===next.view_context)setContinuationState(status.state);
+   }).catch((failure:unknown)=>{
+    if(!live.current||guard!==generation.current||id!==readSequence.current)return;
+    if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();setError('Family access changed. Retry access and choose a child again.');}else setContinuationState('unavailable');
+   });
+  }catch(failure){if(live.current&&guard===generation.current&&id===readSequence.current){chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setError('Family details could not be confirmed. Pending capture confirmation may need reconciliation below. Retry to check access.');if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();}}}
   finally{if(live.current&&guard===generation.current&&id===readSequence.current)setBusy(false);}
  },[clearSelection]);
  const refresh=useCallback(async()=>{
@@ -37,9 +45,9 @@ export default function LoopFamilyHome(){
    const current=child&&next.children.find(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version);
    if(child&&!current)clearSelection();authority.current=next;setIndex(next);setError('');
    if(current){setCaptureScope({view_context:next.view_context,child_id:current.child_id,profile_version:current.profile_version,nickname:current.nickname});await read(next,current);}else setBusy(false);
-  }catch(failure){if(live.current&&id===authSequence.current&&guard===generation.current){if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}else ++generation.current;chosen.current=null;setHome(null);setEntry(null);setIndex(null);setBusy(false);setError('Family access could not be confirmed. Retry or sign in again.');}}
+  }catch(failure){if(live.current&&id===authSequence.current&&guard===generation.current){if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}else ++generation.current;chosen.current=null;setHome(null);setEntry(null);setIndex(null);setContinuationState(null);setBusy(false);setError('Family access could not be confirmed. Retry or sign in again.');}}
  },[clearSelection,read]);
- const captureUncertain=useCallback(()=>{++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setBusy(false);setNotice('Capture update awaiting confirmation. Other family details return after a fresh check.');},[]);
+ const captureUncertain=useCallback(()=>{++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setBusy(false);setNotice('Capture update awaiting confirmation. Other family details return after a fresh check.');},[]);
  const captureDenied=useCallback(()=>{clearSelection();authority.current=null;setIndex(null);setError('Family access changed. Check access and explicitly choose a child again.');void refresh();},[clearSelection,refresh]);
  const captureAcknowledged=useCallback(async()=>{setNotice('');const next=authority.current,child=selected.current;if(next&&child)await read(next,child);},[read]);
  useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState!=='hidden')void refresh();};const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);
@@ -52,7 +60,7 @@ export default function LoopFamilyHome(){
    if(!live.current||guard!==generation.current||id!==openSequence.current)return;
    if(result.state==='confirmation_pending'){setNotice('Your saved progress is awaiting confirmation. Retry opening it when ready.');return;}
    if(!['introduction','resume'].includes(result.state)||result.view_context!==selectedHome.view_context||result.selected_child?.child_id!==selectedHome.selected_child.child_id||result.assignment?.assignment_id!==item.assignment_id||result.adventure?.revision_id!==item.revision_id||kind==='play'&&result.receipt?.play_id!==(item as Play).play_id)throw Error('Changed investigation');setEntry(result);
-  }catch{if(live.current&&guard===generation.current&&id===openSequence.current){chosen.current=null;setHome(null);setEntry(null);setError('That investigation could not be confirmed. Retry checking access.');}}
+  }catch{if(live.current&&guard===generation.current&&id===openSequence.current){chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setError('That investigation could not be confirmed. Retry checking access.');}}
   finally{if(live.current&&guard===generation.current&&id===openSequence.current)setBusy(false);}
  }
  const childPosition=index?.children?.findIndex(c=>c.child_id===selected.current?.child_id)??-1;
@@ -73,7 +81,8 @@ export default function LoopFamilyHome(){
    <section><h3>Ready investigations</h3>{home.ready.length?home.ready.map(a=><div className="family-card" key={a.assignment_id}><p className="family-question">{a.question}</p><button type="button" onClick={()=>void open(a,'assignment')}>Open investigation introduction</button></div>):<p>Nothing ready yet.</p>}</section>
    <section><h3>Saved plays</h3>{home.plays.length?home.plays.map(p=><div className="family-card" key={p.play_id}><p className="family-question">{p.question}</p><p>{p.status==='confirmed'?`${p.trial_count} confirmed ${p.trial_count===1?'try':'tries'}`:'Progress awaiting confirmation'}</p><button type="button" onClick={()=>void open(p,'play')}>Open saved investigation</button></div>):<p>No saved plays yet.</p>}</section>
    <section><h3>Previously tried</h3>{home.previous.length?home.previous.map(a=><p key={a.assignment_id} className="family-question">{a.question}</p>):<p>Investigations appear here after a confirmed try. This does not mean completed.</p>}</section>
-   <section><h3>Trial and allowance</h3>{home.allowances.length?home.allowances.map(a=><div key={a.period_id} className="family-card"><p>{a.state==='expired'?'Trial ended':'Trial active'} · {a.allocation_scope==='household'?'Shared family allowance':'This child’s allowance'}</p><p>{date(a.trial_start)} to {date(a.trial_end)}</p>{a.remaining===0&&<p>No allowance remaining in this period. Existing requests and permitted investigations stay listed. New production eligibility needs a separate current check.</p>}<p>{a.remaining} available · {a.pending} pending · {a.reserved} reserved · {a.consumed} used · {a.released} released</p>{a.state==='expired'&&<p>Previously submitted requests keep their submission-time eligibility. Existing permitted investigations and saved progress remain available. New requests need a separate current eligibility check.</p>}</div>):<p>Trial not activated. Opening this page does not start one.</p>}</section>
+   <section className="family-continuation" aria-label="Test continuation status"><h3>Continuation status</h3>{continuationState==='confirmation_pending'?<p role="status">Test continuation awaiting confirmation. It adds no usable allowance.</p>:continuationState==='recorded_active'?<p>Test continuation recorded. No payment was collected or verified.</p>:continuationState==='recorded_expired'?<p>Test continuation ended. No renewal occurs.</p>:continuationState==='none'?<p>No test continuation recorded. Contact the founder for help; no purchase or sending is available here.</p>:<p>Continuation status could not be confirmed. No purchase or paid status is claimed.</p>}<button type="button" onClick={()=>void refresh()}>Refresh continuation and family details</button></section>
+   <section><h3>Trial and allowance</h3>{home.allowances.length?home.allowances.map(a=><div key={a.period_id} className="family-card"><p>{a.policy_version==='TEST-CONTINUATION-v1'?(a.state==='expired'?'Test continuation ended':'Test continuation recorded'):(a.state==='expired'?'Trial ended':'Trial active')} · {a.allocation_scope==='household'?'Shared family allowance':'This child’s allowance'}</p><p>{date(a.trial_start)} to {date(a.trial_end)}</p>{a.remaining===0&&<p>No allowance remaining in this period. Existing requests and permitted investigations stay listed. New production eligibility needs a separate current check.</p>}<p>{a.remaining} {a.state==='expired'?'remaining in ended period':'available'} · {a.pending} pending · {a.reserved} reserved · {a.consumed} used · {a.released} released</p>{a.state==='expired'&&<><p>{a.policy_version==='TEST-CONTINUATION-v1'?'Test continuation ended — contact the founder.':'Trial ended — contact the founder.'}</p><p>Previously submitted requests keep their submission-time eligibility. Existing permitted investigations and saved progress remain available. New requests need a separate current eligibility check.</p></>}</div>):<p>Trial not activated. Opening this page does not start one.</p>}</section>
   </article>}
   {home&&entry&&<section className="family-entry" aria-label="Opened investigation"><h2>{entry.receipt?'Saved investigation':'Investigation introduction'}</h2><p className="family-question">{entry.assignment.question}</p><p>{entry.adventure.opening}</p><p>{entry.adventure.limits}</p><p>Grown-up: read together and ask what your child thinks will happen.</p>{entry.receipt&&<><h3>Confirmed tries</h3>{entry.receipt.checkpoint.state.trials.length?entry.receipt.checkpoint.state.trials.map((t,i)=><p key={i}>Try {i+1}: predicted {t.prediction}, placed {t.configuration}, result {t.outcome}.</p>):<p>No confirmed tests in this play yet.</p>}</>}<p>This local view opens the exact introduction or confirmed saved record. It does not start a new play.</p><button type="button" onClick={()=>setEntry(null)}>Close investigation view</button></section>}
  </main>;

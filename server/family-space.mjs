@@ -78,7 +78,21 @@ export async function createSyntheticFamilySpace(options={}) {
    if(state==='ready'){if(assigned.length!==1)fail();const a=await assignment(tx,s,assigned[0].assignment_id,assigned[0].revision_id);ready.push(identity(a));}else if(assigned.length)fail();
   }
   const periods=bounded((await tx.query("SELECT * FROM entitlement_periods WHERE household_id=$1 AND (allocation_scope='household' OR child_id=$2) ORDER BY period_id",[s.h,s.selected.child_id])).rows),allowances=[];
-  for(const p of periods){const counts={pending:0,reserved:0,consumed:0,released:0};for(const c of (await tx.query('SELECT state,count(*) n FROM entitlement_claims WHERE household_id=$1 AND period_id=$2 GROUP BY state',[s.h,p.period_id])).rows){if(!Object.hasOwn(counts,c.state))fail();counts[c.state]=integer(c.n);}
+  for(const p of periods){
+   // Recognized continuation rows are invisible until a matching current-epoch
+   // trusted durability marker exists. Old policy readers remain unchanged.
+   if(p.policy_version==='TEST-CONTINUATION-v1'){
+    const marker=(await tx.query(`SELECT g.period_id FROM continuation_grants g
+     JOIN continuation_commands c ON c.household_id=g.household_id AND c.command_id=g.command_id
+     AND c.period_id=g.period_id AND c.entitlement_id=g.entitlement_id AND c.consent_epoch=g.consent_epoch
+     AND c.policy_version=g.policy_version AND c.actor_id=g.actor_id AND c.canonical_digest=g.canonical_digest
+     AND c.primary_commit_id=g.primary_commit_id AND c.result_ref=g.result_ref
+     WHERE g.household_id=$1 AND g.period_id=$2 AND g.entitlement_id=$3 AND g.consent_epoch=$4
+     AND g.policy_version='TEST-CONTINUATION-v1' AND c.acknowledged=true
+     AND g.durability_ref='continuation-fsync:'||c.record_id::text`,[s.h,p.period_id,p.entitlement_id,s.epoch])).rows[0];
+    if(!marker)continue;
+   }
+   const counts={pending:0,reserved:0,consumed:0,released:0};for(const c of (await tx.query('SELECT state,count(*) n FROM entitlement_claims WHERE household_id=$1 AND period_id=$2 GROUP BY state',[s.h,p.period_id])).rows){if(!Object.hasOwn(counts,c.state))fail();counts[c.state]=integer(c.n);}
    const allowance=integer(p.allowance,1),remaining=allowance-counts.pending-counts.reserved-counts.consumed,start=new Date(p.trial_start),end=new Date(p.trial_end);if(remaining<0||!Number.isSafeInteger(remaining)||Number.isNaN(+start)||Number.isNaN(+end)||+end<=+start||now()<+start)fail();
    allowances.push({period_id:p.period_id,policy_version:p.policy_version,allocation_scope:p.allocation_scope,child_id:p.child_id,trial_start:start.toISOString(),trial_end:end.toISOString(),allowance,...counts,remaining,state:now()>=+end?'expired':'active'});
   }
