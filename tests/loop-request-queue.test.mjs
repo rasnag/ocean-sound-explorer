@@ -69,10 +69,11 @@ async function browser(f){
 }
 async function founderBrowser(f,b){
  const require=createRequire(new URL('../package.json',import.meta.url)),{JSDOM}=require('jsdom'),page=await f.fetcher('/founder/queue');assert.equal(page.status,200);assert.match(page.headers.get('cache-control'),/no-store/);const dom=new JSDOM(await page.text(),{url:f.origins[1]+'/founder/queue',pretendToBeVisual:true,runScripts:'outside-only'}),w=dom.window;
- w.fetch=(...args)=>f.fetcher(...args);Object.defineProperty(w.crypto,'randomUUID',{value:randomUUID,configurable:true});w.Date.now=f.clock;for(const name of ['getItem','setItem','removeItem','clear'])w.Storage.prototype[name]=()=>{throw Error('Private founder storage forbidden');};
+ // Bridge the emulated browser's signal to the real Node fetch transport.
+ w.AbortController=globalThis.AbortController;w.fetch=(...args)=>f.fetcher(...args);Object.defineProperty(w.crypto,'randomUUID',{value:randomUUID,configurable:true});w.Date.now=f.clock;for(const name of ['getItem','setItem','removeItem','clear'])w.Storage.prototype[name]=()=>{throw Error('Private founder storage forbidden');};
  const script=await f.fetcher('/founder/queue.js');assert.equal(script.status,200);const source=await script.text();w.eval(source);f.cleanup(async()=>{w.dispatchEvent(new w.Event('pagehide'));w.close();});
  const $=id=>w.document.getElementById(id),find=label=>[...w.document.querySelectorAll('button')].find(e=>e.textContent===label),ready=()=>!$('queue-refresh').disabled&&$('queue-status').textContent==='Current committed queue checked. Select a booked wonder.';
- await b.until(ready);
+ try{await b.until(ready);}catch(e){e.message+='; founder status='+$('queue-status').textContent+'; alert='+$('queue-alert').textContent;throw e;}
  async function refresh(){await b.run(async()=>$('queue-refresh').click());await b.until(ready);assert.equal($('queue-alert').textContent,'');}
  async function select(words){await refresh();const row=[...w.document.querySelectorAll('.queue-row')].find(e=>e.textContent.endsWith(' · '+words));assert(row);await b.run(async()=>row.click());assert($('queue-detail').textContent.includes(words));}
  async function action(words,label,fields={}){await select(words);for(const [id,value]of Object.entries(fields))$(id).value=value;const button=find(label);assert(button&&!button.disabled,'Founder action must be enabled');await b.run(async()=>button.click());await b.until(ready);assert.equal($('queue-alert').textContent,'');}
