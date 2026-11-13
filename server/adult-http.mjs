@@ -35,7 +35,7 @@ function captureMethods(value){
 /** Local HTTP only; production identity and cookie policy remain unconfigured. */
 export function createSyntheticAdultAccessServer(options={}){
  resolveLoopConfig(options?.env);
- if(!options||typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['access','env','serve','consent','setup','family','capture','continuation'].includes(key)))throw deny(400);
+ if(!options||typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['access','env','serve','consent','setup','family','capture','continuation','production'].includes(key)))throw deny(400);
  const {access,serve,consent,setup,family}=options;
  if(!access||['request','verify','session','logout'].some(key=>typeof access[key]!=='function')||serve!==undefined&&typeof serve!=='function')throw deny(400);
  if(consent!==undefined&&(!consent||['status','record','withdraw'].some(k=>typeof consent[k]!=='function')))throw deny(400);
@@ -43,6 +43,7 @@ export function createSyntheticAdultAccessServer(options={}){
  if(family!==undefined&&(!family||['index','read','open'].some(k=>typeof family[k]!=='function')))throw deny(400);
  const capture=options.capture===undefined?undefined:captureMethods(options.capture);
  const continuationStatus=options.continuation===undefined?undefined:ownMethod(options.continuation,'familyStatus');
+ const production=options.production===undefined?undefined:Object.freeze(Object.fromEntries(['eligibility','submit','status','reconcile'].map(k=>[k,ownMethod(options.production,k)])));
  const select=['view_context','child_id','profile_version'],create=[...select,'command_id','operation','question','parent_context'];
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:10000,headersTimeout:10000},async(req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
@@ -62,6 +63,15 @@ export function createSyntheticAdultAccessServer(options={}){
    if(api){
     if(url.search||url.hash||req.url!==url.pathname)return send(404,{error:'Request unavailable.'});
     if(req.method==='POST'&&(count('origin')!==1||req.headers.origin!==origin))throw deny(403);
+    if(production&&req.method==='POST'&&url.pathname.startsWith('/adult/production/')){
+     for(const name of ['content-type','content-length','content-encoding'])if(count(name)>1)throw deny(400);
+     const route=url.pathname.slice('/adult/production/'.length);
+     if(route==='eligibility')return send(200,await production.eligibility(token,await body(req,['selection','wonder_id','wonder_version'],4096,true)));
+     if(route==='status')return send(200,await production.status(token,await body(req,select,4096,true)));
+     if(route==='reconcile')return send(200,await production.reconcile(token,await body(req,['selection','idempotency_key'],4096,true)));
+     if(route==='submit'){const r=await production.submit(token,await body(req,['selection','command'],4096,true));return send(r.status==='retryable_unacknowledged'?202:200,r);}
+     return send(404,{error:'Request unavailable.'});
+    }
     if(continuationStatus&&req.method==='POST'&&url.pathname==='/adult/continuation/status'){
      for(const name of ['content-type','content-length','content-encoding'])if(count(name)>1)throw deny(400);
      return send(200,await continuationStatus(token,await body(req,['view_context','child_id'],4096,true)));
