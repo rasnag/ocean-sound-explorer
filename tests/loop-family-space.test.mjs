@@ -65,7 +65,11 @@ try {
  const transport=async(route,options={})=>nativeFetch(new URL(route,origin),{...options,headers:{...(options.headers??{}),Cookie:cookie,...(options.method==='POST'?{Origin:origin}:{})}});
  for(const n of names)Object.defineProperty(globalThis,n,{value:n==='IS_REACT_ACT_ENVIRONMENT'?true:n==='fetch'?transport:dom.window[n],writable:true,configurable:true});
  for(const name of ['getItem','setItem','removeItem','clear'])dom.window.Storage.prototype[name]=()=>{throw Error('Browser storage forbidden');};
- const hook=registerHooks({load(url,context,next){if(url.endsWith('.css'))return{format:'module',source:'',shortCircuit:true};return next(url,context);}});
+ const captureURL=pathToFileURL(resolve(root,'app/LoopWonderCapture.tsx')).href;
+ const hook=registerHooks({
+  resolve(specifier,context,next){if(specifier==='./LoopWonderCapture')return{url:captureURL,shortCircuit:true};return next(specifier,context);},
+  load(url,context,next){if(url.endsWith('.css'))return{format:'module',source:'',shortCircuit:true};if(url===captureURL){const ts=require('typescript'),source=require('node:fs').readFileSync(new URL(url),'utf8'),compiled=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext},fileName:'LoopWonderCapture.tsx',reportDiagnostics:true});assert(!(compiled.diagnostics??[]).some(d=>d.category===ts.DiagnosticCategory.Error));return{format:'module',source:compiled.outputText,shortCircuit:true};}return next(url,context);}
+ });
  const React=require('react'),{createRoot}=require('react-dom/client'),{act}=React;const ts=require('typescript'),temporary=resolve(root,'app/.family-space-unit-'+randomUUID()+'.mjs');const source=await readFile(resolve(root,'app/LoopFamilyHome.tsx'),'utf8');const compiled=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext},fileName:'LoopFamilyHome.tsx',reportDiagnostics:true});assert(!(compiled.diagnostics??[]).some(d=>d.category===ts.DiagnosticCategory.Error));await writeFile(temporary,compiled.outputText,{flag:'wx'});const {default:Home}=await import(pathToFileURL(temporary).href);const rootElement=createRoot(document.getElementById('root'));
  const pause=()=>new Promise(resolve=>setTimeout(resolve,15));
  async function until(predicate){for(let i=0;i<180;i++){await act(async()=>{await pause();});if(predicate())return;}throw Error('Prototype condition timed out');}
