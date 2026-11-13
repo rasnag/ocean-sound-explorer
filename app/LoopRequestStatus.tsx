@@ -1,5 +1,5 @@
-// The actual component is colocated with the existing family route so accepted
-// native Node test loaders do not need a new TSX import hook. This is the public
-// typed entry point to that same implementation, not a second UI or placeholder.
+// Public typed entry to the actual F06 implementation. Colocation in the
+// existing family source preserves accepted Node TSX test loaders without
+// changing old tests or adding another loader/dependency.
 export {LoopRequestStatus as default} from './LoopFamilyHome';
 export type {QueueStatusProps} from './LoopFamilyHome';

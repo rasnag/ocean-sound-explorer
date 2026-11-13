@@ -1,77 +1,75 @@
-# CODEX-04-C — screens-and-complete-journey authored source
+# CODEX-04-C screens-and-complete-journey — attempt2 of2
 
-2026-11-13 · Codex · response-only staged drafting. Eight complete source files returned. No writes, checks, installation, commit, API/external action, model/settings change, sending, spending, provisioning or deployment was performed. Controller owns saving and actual verification. This is not intermediate acceptance, whole-card acceptance, a review pass or merge.
+2026-11-13 · Codex · local synthetic, response-only. Eight complete raw source outputs returned. No writes/checks/installations/commits/external actions/model-setting changes/sending/spend/provisioning/deployment were performed. Controller owns saving exact source, counters and actual checks. No intermediate acceptance, feature-review PASS or merge is claimed.
 
-Preserve all three original unsuccessful calls, both service-stage attempts (including the first syntax failure and second repair), data/journal evidence, setup-review evidence and persisted counters. This report does not reset or consume controller review counters. Whole-card feature review remains maximum3; the supplied stage record initially recorded0 used. Exact current counters must remain controller-owned.
+Preserve attempt1 and its actual111-test result, both service-stage attempts, stage1 evidence, all three original unsuccessful calls, setup-review history and persisted counters. This is the second and final source attempt for this stage, not a reset or new review allowance. Whole-card feature review remains max3, initially0 used in the supplied grant.
 
-## Authority and reading
+## Actual supplied failure and authored repair
 
-Inline originals were read as supplied: AGENTS/GOVERNANCE/SOURCE_OF_TRUTH, approvals/product/task, full engineeringv1.2/guide/review notes, F06/O02, accepted04-B handoff, actual stage1 SQL/journal, completed queue/service/host/family/production sources, actual recovery tests, prior client/capture/family sources and protected queue probe. They were not separately reread from disk.
+Controller output reports111 tests,109 passed,2 failed. Both new journeys stopped during fixture construction: createFounderAuth rejected sessionTtlMs172800000. The actual original issuer permits a positive maximum3600000. Attempt1 was incorrect to use48hours for founder auth. This revision uses3600000 and exposes actual loginAgain using the existing password/TOTP issuer; the late-time journey logs in again after its original due-time advance. No issuer/policy/setting is changed or validator weakened.
 
-Additional actual local reads: PROJECT_CONTEXT START HERE and applicable DECISION-027–034/open-question records; queue_staged_recovery.json and stage contract; applicable00-B production/readiness/recovery contracts; product decisions and WM04 module entry;04-A/03-C acceptance notes; actual01-C/04-B accepted status; LOOP-POLICY-001 and exact04-C execution entry; queue profile/scenario list; actual prior production React/HTTP test loader; package.json; current consent-service projection; previous service-stage REPORT. Broad reads with truncated output are not claimed as complete historical reads, fresh-main verification or digest verification. Available records are the supplied pinned local snapshot; no Git-cleanliness/current-main claim is made.
+Further source review found a conditional-precedence error in pending-reference validation; explicit parentheses now distinguish operator versus household checks. Added positive real-shape pending-reference tests and malformed-ID rejection. AcceptRequest response validation now requires exact common1.1.0 whenever that action was requested, rather than selecting the schema from an untrusted response field.
 
-The React best-practices skill was consulted for authored hook/cleanup/accessibility review. It supplied no product authority, permission gate or execution result. No external documentation/API was accessed.
+Recovery mounting no longer waits for a child home that must be suppressed while primary-only evidence exists. Specific unknown-reply messaging survives status refresh. Separate status/read cursors and sequential polling avoid mutual cancellation. Visibility/offline changes fence old mutations/reads while retaining same-scope uncertain intent for explicit retry. Founder conflict discard requires a real no-pending status check and disabled acceptance gates survive control refresh. Actual served founder HTML/script controls are included in authored journeys. Teardown closes DOM/timers before hosts/database. Physical encrypted-journal scans replace the prior irrelevant missing-file assertion.
 
-Engineeringv1.2 / APPROVAL-004 registered SHA-256 `02adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79`; WM04, ADR-E01/E02/E05, current authorization, household-before-consent/domain locks, unchanged source/receipt/booking/claim/period identity and independent committed evidence govern. DECISION-033 explicitly permits original eligible submission acceptance after trial expiry. No trial extension or new charge is introduced.
+These are authored repairs from actual source inspection. Revision2 was not executed; no revised pass count is invented.
 
-## Returned source and design
+## Source reading and authority
 
-- server/queue-page.mjs: real static founder HTML/CSS/authored script; actual service endpoints for selection/filter, clarify/propose/accept/decline, late support DRAFT, intake pause and exact-key recovery. Text nodes render untrusted private text. No sending, generation or publishing control.
-- lib/loop/queue-client.mjs: RAM transport with descriptor-aware exact command validation, bounded recursive JSON response inspection, exact common AcceptRequest shape and receipt binding, status/reconcile/intake APIs and abort signal forwarding. Uses actual consent projection before parent read; never guesses consent epoch1.
-- app/LoopRequestStatus.tsx: public typed re-export of the real component colocated in LoopFamilyHome. This preserves old accepted TSX test hooks, which transpile only existing family/capture sources. No placeholder UI or absent eager import is used.
-- app/LoopFamilyHome.tsx: actual F06 component and preserved existing home/capture/continuation/introduction/saved-play/allowance UI. Original/current words, interpretation, exact-scope agreement, correction, cancellation, late draft/estimate/history and uncertain-command recovery are reachable. Selection/fence/abort/sequence checks suppress late private replies; no private persistent browser state.
-- app/loop-family-home.css: existing rules retained with responsive request/detail/form/focus presentation.
-- tests/loop-request-queue.test.mjs: two authored integrated local journeys plus malformed/accessor transport test using real React/HTTP/PGlite/accepted services and encrypted queue reopen. No checks were executed by the drafter.
-- docs/loop/REQUEST_QUEUE_CONTRACT.md: service/client/result/SQL/recovery/clock/privacy/native-verification contract and explicit known integration seams.
+Original applicable full inline authority/architecture/product/task/F06/O02/probe/service/schema/journal/contracts from attempt1 remain attributable. This attempt did not restart unrelated history. Necessary actual rereads: current founder-auth including original TTL/login/session rules; current queue-client and recovery/status/result paths; current family status/hooks/home integration; founder page/runtime; authored journey fixture/browser helpers; wonder journal physical filename. Broad output with truncation is not claimed as complete new source coverage; full earlier inline/current originals remain visible in session. No fresh-main, clean-Git, source-hash recomputation or remote-authority claim is made.
 
-The actual component is colocated to preserve the original accepted test adapter rather than editing old tests or adding loader dependencies. LoopRequestStatus.tsx exports that same implementation and props for downstream consumers. This is an explicit integration choice, not a claim of separate duplicate screen implementation.
+Exact task execution blob1ea2e0beef82994870e0d880aa8fba4bd826b4a8, DECISION-032/034, LOOP-POLICY-001 and bounded staged grant govern. Registered engineeringv1.2 / APPROVAL-004 SHA-256 `02adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79`: WM04, ADR-E01/E02/E05, household-before-consent/domain locks, current authorization, immutable original receipt/source/resource identity and independent committed evidence. DECISION-033 permits acceptance after original trial expiry for a submission eligible at receipt, without a new period or charge.
 
-## Exact existing SQL and encrypted bindings retained
+The previously consulted React best-practices skill informed authored hook cleanup/focus/accessibility review only. It supplied no product authority or executed result. No external API/documentation was accessed.
 
-No migration/service/journal is changed in this stage. Actual012 tables:
+## Complete outputs
+
+server/queue-page.mjs supplies actual static founder HTML/CSS/script for queue selection/filter, fit/clarification/proposal/acceptance/decline, late DRAFT, intake pause and exact-command recovery. It uses text nodes, current HTTP checks and private RAM only.
+
+lib/loop/queue-client.mjs supplies strict snapshot transport/response validation for actual family/founder/status/reconcile/intake APIs and abort support. It obtains the actual epoch from existing consent projection; no guessed1 or changed queue wire field.
+
+app/LoopRequestStatus.tsx is the public typed entry to the actual F06 implementation colocated in LoopFamilyHome. This preserves the accepted existing Node TSX loaders without changing old tests or adding dependencies. It is not a placeholder or a second duplicate implementation.
+
+app/LoopFamilyHome.tsx retains capture, continuation, allowance, introduction, saved plays and previous tries while supplying actual request management/history/original-current separation and late-response/recovery fences. CSS retains old rules and adds accessible responsive request forms/details.
+
+tests/loop-request-queue.test.mjs supplies two complete authored queue journeys using actual React, served founder DOM/script, real HTTP/auth/consent/setup/capture/production/queue, migrated PGlite, kernel accounting and encrypted journal reopen, plus strict pending/accessor tests. docs/loop/REQUEST_QUEUE_CONTRACT.md documents exact interfaces/bindings and limits.
+
+## Actual SQL and payload bindings retained
+
+No service, migration, old journal or unowned file is changed by this stage.
 
 | Table | Exact columns |
 | --- | --- |
-| queue_journal_namespace | singleton, namespace_verifier |
-| queue_requests | household_id, request_id, child_id, receipt_id, original_source_scope_version |
-| queue_commands | household_id, command_id, request_id, actor_id, actor_kind, original_session_hash, consent_epoch, aggregate_version, recorded_at, canonical_digest, namespace_verifier, record_id, primary_commit_id, sealed_record |
-| queue_scopes | household_id, request_id, scope_version, previous_scope_version, kind, command_id, record_id, payload_ref |
-| queue_history | household_id, request_id, aggregate_version, command_id, record_id, scope_version, agreement_version, state, breach_observed, payload_ref |
-| queue_acknowledgements | household_id, command_id, record_id, primary_commit_id, durability_ref, acknowledged_at |
+| queue_journal_namespace | singleton,namespace_verifier |
+| queue_requests | household_id,request_id,child_id,receipt_id,original_source_scope_version |
+| queue_commands | household_id,command_id,request_id,actor_id,actor_kind,original_session_hash,consent_epoch,aggregate_version,recorded_at,canonical_digest,namespace_verifier,record_id,primary_commit_id,sealed_record |
+| queue_scopes | household_id,request_id,scope_version,previous_scope_version,kind,command_id,record_id,payload_ref |
+| queue_history | household_id,request_id,aggregate_version,command_id,record_id,scope_version,agreement_version,state,breach_observed,payload_ref |
+| queue_acknowledgements | household_id,command_id,record_id,primary_commit_id,durability_ref,acknowledged_at |
 | queue_intake_lock | singleton |
-| queue_operator_commands | command_id, actor_id, original_session_hash, aggregate_version, paused, recorded_at, record_id, primary_commit_id, canonical_digest, namespace_verifier, sealed_record |
-| queue_operator_acknowledgements | command_id, record_id, primary_commit_id, durability_ref, acknowledged_at |
+| queue_operator_commands | command_id,actor_id,original_session_hash,aggregate_version,paused,recorded_at,record_id,primary_commit_id,canonical_digest,namespace_verifier,sealed_record |
+| queue_operator_acknowledgements | command_id,record_id,primary_commit_id,durability_ref,acknowledged_at |
 
-All new tables have real primary keys. Composite request/receipt/source references cascade for household privacy removal. Immutable guards permit privacy deletes but prohibit history/source updates. Scope numbering starts at1 independently of capture source numbering; aggregate starts0 before the first queue mutation. Positive safe-integer/range/version and deferred command/history/reference constraints remain.
+All have real PKs. Composite original request/receipt/source FKs cascade for household erasure. Immutable updates, safe integer/range/version/deferred history/reference checks remain. Queue scope begins1 independently of capture numbering; aggregate begins0 before first mutation. payload_ref is queue-fact:<record_id>. Private effect.snapshot/history/scopes and operator effect.intake remain encrypted. Original context is a bound original capture reference; corrected context is encrypted queue data. No raw words/interpretation/history/result metadata is added.
 
-Private content lives in authenticated encrypted facts: effect.snapshot=current state; effect.history=one attributed server transition; effect.scopes[String(version)]=introduced lineage; effect.intake=operator state/reason. payload_ref is queue-fact:<record_id>. Original context remains bound to original capture payload_ref; corrected context is encrypted queue content. No question/answer/interpretation/history/result plaintext is added to SQL or physical journal metadata.
+## Runtime invariants retained
 
-## Interfaces and transactional invariants
+Current founder enabled role/exact token_hash/expiry/revocation and parent actual withSession/consent/epoch/profile/selection/request checks remain server authority. Original authorized retries precede fresh CAS/time/pause checks. Unknown replies retain original keys; primary-only is retryable_unacknowledged without receipt/durability/primary fields. ACK requires stored PRIMARY-COMMITTED fact, independent append/reopen/authentication, current-authority recheck and acknowledgement marker. No intent-only success.
 
-Original service APIs are retained exactly. Family uses selection={view_context,child_id,profile_version}; read/command/status/reconcile. Founder uses filter read, exact founder command, readIntake/setIntake, household or operator status/reconcile. HTTP uses existing cookie/origin/strict JSON/body/no-store/CSP/127.0.0.1 guards. Founder assets are dynamically imported only on actual authorized GET.
+AcceptRequest result remains exact common1.1.0. Existing pending hold converts once with actual kernel.apply in the outer queue transaction. Pending/reserved pre-ready cancellation/decline releases actual unconsumed claim and mapped booked capacity once. Consumed/completed/assigned paths fail closed pending owning policy. Receipt/period/claim/booking/source identities and original received+86400 deadline are immutable. Agreement is not acceptance; replaced proposal/correction clears agreement and fit. Original question remains distinct from current correction/interpretation; capture.question uses its real original payload. currentScope explicitly marks generation unimplemented.
 
-Actual founder session/role/expiry/revocation and family current epoch/profile/child/request checks remain backend authority. UI controls confer none. Duplicate replay is current-authorized before fresh CAS/time/pause checks. Exact original common receipt remains unchanged across corrections/clarification/alternative/accept/recovery/cancel.
+Persisted pause maps fresh advisory eligibility to ineligible/intake_paused and fresh SubmitProduction to old no_capacity without receipt. Committed retries remain recoverable before pause; saved capture/existing acceptance are separate. Late update remains DRAFT/sent=false, estimate separately canonical/future, original breach persists. No consumption/assignment/generation/publication/delivery/send is created.
 
-Accept converts the actual pending hold once under outer transaction. Pre-ready terminal transitions release real unconsumed pending/reserved claim and mapped booked capacity once. Parent agreement alone is not acceptance. Replaced alternatives/corrections clear agreement and fit. Original capture.question remains bound to real capture source/payload; downstream currentScope explicitly separates original/current question/interpretation and marks generation unimplemented.
+## Remaining concrete integration seams
 
-Journal append follows PRIMARY-COMMITTED fact, not intent. Independent fsync/reopen/authentication/current-authority recheck precede ACK. Missing evidence is pending/quarantined, never success. Separate operator material has no household fallback. No consumption/assignment/revision/publish/send is created here.
+1. Completed production-service negative paused eligibility includes reason:intake_paused; old strict production-client expects only status. That client is outside this stage. It currently fails closed with generic unavailable wording. Do not claim paused production UX passes or add a new enum. Controller must resolve this precise client/service seam in authorized scope before whole-card acceptance; this draft does not silently change an unowned file or contract.
+2. Founder listing can be hidden by household primary-only evidence before returning a household recovery reference. Same-page intent retains known scope; founder page accepts an explicit opaque controller reference after reload. Automatic scope discovery/other-actor pending recovery remain constrained by current service API. No private metadata bypass is introduced.
+3. All revision2 checks remain unexecuted by the drafter. Neither supplied109 passes nor repairs establish the two journeys, build, compiler baseline, native UI or whole-card acceptance.
 
-## Integration issues requiring disposition before acceptance
+## Actual verification required from controller
 
-1. Completed production service paused eligibility includes `{status:'ineligible',reason:'intake_paused'}`; accepted production-client only accepts a one-field negative object. That older client is outside this stage's owned paths. It fails closed with generic eligibility-unavailable copy. Do not claim paused production UX passes, remove the reason silently or invent a result status. Controller must resolve this precise service/client seam in authorized scope before whole-card acceptance.
-2. Founder listing fails closed if a household latest queue mutation is primary-only. After reload, service status requires an opaque household reference that listing may not return. The authored founder UI supports manual controller-supplied opaque UUID recovery, and RAM intents retain known household IDs. Automatic pending-scope discovery and another actor's pending recovery remain constrained by current API; no private metadata is disclosed to bypass it.
-3. The authored tests and sources still require actual controller syntax/runtime verification. There is no test count, build result, compiler comparison, native scenario or review verdict in this drafting result. Missing verification is not PASS.
+Save all exact files and pin hashes/head. Run all app tests/build, protected queue plus all11 prior probes, fixed compiler comparison with known27 diagnostics (NOT globaltscPASS),76 public-route identities and private source/build scans. Resolve actual failures without weakening old tests/probes. Then perform eight actual source-bound scenarios: phone-keyboard-queue; original-question-and-clock; clarification-and-correction; exact-alternative-agreement; decline-cancel-release; late-update-draft; intake-pause-existing-request; pending-retry-and-authority. Attach commands/exit statuses/head and actual observations before whole-card independent Claude review(max3) and exact-head protected merge. No intermediate acceptance. Missing evidence is not PASS.
 
-## Authored coverage and controller sequence
+Carry actual04-A/03-C/04-B findings: local serial promise/single-connection PGlite is not real PostgreSQL/multihost contention/deadlock proof; prior household-lock minor must remain disclosed even with current corrected paths; generic precommit-outage copy; other-adult pending recovery closure; stale403/fresh409 recovery nit; advisory already-booked eligibility; historical headers and unchanged27diagnostic limitations; Windows ACL/local directory-entry/fsync/failure-domain restrictions. Scheduler gap reconciliation/operator sustained-outage alert, independent revocations/key destruction/deletion/hosted restore and historical-prefix rollback detection remain owning-module gates.
 
-Journey1: actual family save→explicit production, real founder HTTP/client clarification, parent answer/correction, original/current lineage and receipt preservation, alternative1 agreement→replacement→old acceptance409, exact new agreement, acceptance after original expiry, late draft/estimate with original breach, reserved cancellation/release and zero assignment/consumption.
-
-Journey2: first queue reply loss and independent append outage, primary-only state, actual encrypted journal close/reopen and React reload/status/reconcile with original key, pause and saved-only capture, pending cancellation, held actual private read after sibling switch and withdrawal denial. These are authored assertions only. The separate client test rejects malformed response keys and an accessor command without invoking its getter.
-
-Controller must save source, record exact hashes/head and run all application tests/build, protected queue probe plus all11 previous probes, fixed compiler comparison against known27 diagnostics (NOT globaltscPASS),76 route identities and private source/build scans. Then execute actual source-bound eight native scenarios: phone-keyboard-queue; original-question-and-clock; clarification-and-correction; exact-alternative-agreement; decline-cancel-release; late-update-draft; intake-pause-existing-request; pending-retry-and-authority. Resolve actual failures without weakening probes or old tests. Only then whole-card Claude review within max3, exact-head protected merge and delegated technical acceptance may occur. No intermediate stage acceptance.
-
-## Carried findings and open gates
-
-Retain actual04-A/03-C/04-B findings: local serial promise/PGlite single-connection last-slot proof is not real PostgreSQL/multihost contention or deadlock proof; original late household-lock finding must not be hidden by current corrected-path claims; generic precommit-outage wording; other-adult pending closure gap; stale403/fresh409 recovery UX; already-booked advisory eligibility; historical status/report labels; unchanged27 diagnostics rather than global typecheck success; local journal initial-directory/fsync/Windows ACL and failure-domain limits.
-
-Scheduler-owned gap reconciliation and sustained-outage alert, independent revocation/key destruction/restore, hosted durability and historical-prefix rollback detection remain owning-module gates. G-E01 infrastructure, G-E02 provider/model/context/bounds, G-E03 privacy/policy, G-E04 offer/continuation/post-ready policy, G-E05 measured cap/coverage/support and G-E06 real reviewed content remain unresolved. G-E04a is resolved only in DECISION-033's explicit scope. Sending a counsel packet is not clearance. No real data, consent wording, payment, spending, generation, publication, messaging, provisioning, deployment or public admission is authorized or claimed.
+G-E01/02/03, offer/continuation/post-ready policy, measured capacity/support and real reviewed content remain open. G-E04a is resolved only in DECISION-033's scope. Counsel preparation is not clearance. Real family data/consent/payment/price/renewal, provider/model/API spending, generation/publishing/sending, provisioning/deployment/public admission remain unauthorized. No unrelated task is completed or accepted by this result.
