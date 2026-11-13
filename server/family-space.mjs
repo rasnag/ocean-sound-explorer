@@ -25,6 +25,15 @@ export async function createSyntheticFamilySpace(options={}) {
  const withSession=method(access,'withSession'),question=method(content,'question'),revision=method(content,'revision'),resume=method(play,'resume'),reconcile=method(play,'reconcile');
  const {PGlite}=await import('@electric-sql/pglite');if(!(db instanceof PGlite))fail(400);
  if((await db.query('SELECT version FROM schema_migrations WHERE version=8')).rows.length!==1)fail();
+ // Legacy fixtures without migration 011 keep their accepted projection contract.
+ const hasProduction=(await db.query('SELECT version FROM schema_migrations WHERE version=11')).rows.length===1;
+ async function productionVisible(tx,s,requestId){
+  if(!hasProduction)return true;
+  const c=(await tx.query('SELECT * FROM production_commands WHERE household_id=$1 AND request_id=$2',[s.h,requestId])).rows[0];
+  if(!c)return true;
+  if(integer(c.consent_epoch,1)!==s.epoch)return false;
+  const a=(await tx.query(`SELECT a.command_id FROM production_acknowledgements a JOIN production_commands c USING(household_id,command_id,record_id,primary_commit_id) JOIN production_receipts r ON r.household_id=c.household_id AND r.receipt_id=c.receipt_id AND r.request_id=c.request_id JOIN wonder_requests w ON w.household_id=r.household_id AND w.request_id=r.request_id AND w.original_received_at=r.original_received_at WHERE a.household_id=$1 AND a.command_id=$2 AND a.durability_ref='production-fsync:'||c.record_id::text`,[s.h,c.command_id])).rows[0];return !!a;
+ }
  async function scope(tx,actor,command) {
   const consent=(await tx.query('SELECT * FROM service_consents WHERE household_id=$1 ORDER BY consent_epoch DESC LIMIT 1 FOR UPDATE',[actor.householdId])).rows[0];
   if(!consent||consent.state!=='active'||consent.policy_version!==policy)return {denied:'permission_required'};
@@ -56,7 +65,7 @@ export async function createSyntheticFamilySpace(options={}) {
    JOIN entitlement_claims e ON e.household_id=a.household_id AND e.request_id=a.request_id
    JOIN entitlement_transitions t ON t.household_id=e.household_id AND t.request_id=e.request_id AND t.kind='consume' AND t.expected_version+1=e.version
    WHERE a.household_id=$1 AND a.child_id=$2 AND a.assignment_id=$3 AND a.revision_id=$4 AND r.status='published' AND c.state='completed' AND e.state='consumed'`,[s.h,s.selected.child_id,id,revisionId])).rows;
-  if(rows.length!==1)fail(403);const row=rows[0];row.question=await text(tx,s,row.request_id,row.source_scope_version);return row;
+  if(rows.length!==1)fail(403);const row=rows[0];if(!await productionVisible(tx,s,row.request_id))fail(503);row.question=await text(tx,s,row.request_id,row.source_scope_version);return row;
  }
  async function adventure(tx,s,row) {
   try {const spec=await revision(tx,{household_id:s.h,request_id:row.request_id,revision_id:row.revision_id,source_scope_version:integer(row.source_scope_version,1),pattern_version:row.pattern_version,engine_version:row.engine_version,payload_ref:row.payload_ref});
@@ -67,7 +76,10 @@ export async function createSyntheticFamilySpace(options={}) {
  async function projected(tx,s) {
   const saved=[],requests=[],ready=[];
   const rows=bounded((await tx.query('SELECT * FROM wonder_requests WHERE household_id=$1 AND child_id=$2 ORDER BY request_id',[s.h,s.selected.child_id])).rows);
-  for(const r of rows){const source=(await tx.query('SELECT source_scope_version FROM request_source_scopes WHERE household_id=$1 AND request_id=$2 ORDER BY source_scope_version DESC LIMIT 1',[s.h,r.request_id])).rows[0];if(!source)fail();
+  for(const r of rows){
+   // A primary-only production command is neither saved-only nor Received.
+   if(!await productionVisible(tx,s,r.request_id))continue;
+   const source=(await tx.query('SELECT source_scope_version FROM request_source_scopes WHERE household_id=$1 AND request_id=$2 ORDER BY source_scope_version DESC LIMIT 1',[s.h,r.request_id])).rows[0];if(!source)fail();
    const item={request_id:r.request_id,source_scope_version:integer(source.source_scope_version,1),question:await text(tx,s,r.request_id,source.source_scope_version)};
    const claims=(await tx.query('SELECT * FROM entitlement_claims WHERE household_id=$1 AND request_id=$2',[s.h,r.request_id])).rows,capacity=(await tx.query('SELECT * FROM capacity_reservations WHERE household_id=$1 AND request_id=$2',[s.h,r.request_id])).rows,assigned=(await tx.query('SELECT * FROM assignments WHERE household_id=$1 AND request_id=$2',[s.h,r.request_id])).rows;
    if(r.original_received_at===null){if(claims.length||capacity.length||assigned.length)fail();saved.push(item);continue;}
@@ -79,8 +91,6 @@ export async function createSyntheticFamilySpace(options={}) {
   }
   const periods=bounded((await tx.query("SELECT * FROM entitlement_periods WHERE household_id=$1 AND (allocation_scope='household' OR child_id=$2) ORDER BY period_id",[s.h,s.selected.child_id])).rows),allowances=[];
   for(const p of periods){
-   // Recognized continuation rows are invisible until a matching current-epoch
-   // trusted durability marker exists. Old policy readers remain unchanged.
    if(p.policy_version==='TEST-CONTINUATION-v1'){
     const marker=(await tx.query(`SELECT g.period_id FROM continuation_grants g
      JOIN continuation_commands c ON c.household_id=g.household_id AND c.command_id=g.command_id
@@ -105,7 +115,6 @@ export async function createSyntheticFamilySpace(options={}) {
  async function index(token){return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor);return s.denied?base(s.denied):{...base('select_child'),view_context:s.context,children:s.children};});}
  async function read(token,input){const c=command(input,'read'),before=await snapshot(token,c),receipts=[];
   for(const b of before.data.bindings){try{receipts.push(await resume(b.scope,{play_id:b.scope.play_id,revision_id:b.scope.revision_id,consent_epoch:b.scope.consent_epoch}));}catch{fail();}}
-  // Journal access happens outside actor transactions; then recheck all current bindings/progress.
   const after=await snapshot(token,c);if(signature(before)!==signature(after))fail();
   const plays=[],previous=new Map();for(let i=0;i<after.data.bindings.length;i++){const b=after.data.bindings[i],r=receipts[i],item={play_id:b.scope.play_id,assignment_id:b.assignment.assignment_id,revision_id:b.assignment.revision_id,source_scope_version:integer(b.assignment.source_scope_version,1),question:b.assignment.question};
    if(r.status!=='acknowledged'){plays.push({...item,status:'confirmation_pending'});continue;}
