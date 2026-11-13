@@ -26,7 +26,7 @@ function instant(v){
  if(!Number.isSafeInteger(n)||n<0||n>253402214399000||new Date(n).toISOString()!==v)fail('validation_failed');return n;
 }
 function receiptTime(n){
- if(!Number.isSafeInteger(n)||n%1000||n<0)fail('ineligible');const s=new Date(n).toISOString();
+ if(!Number.isSafeInteger(n)||n%1000||n<0||n>253402300799000)fail('ineligible');const s=new Date(n).toISOString();
  if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.000Z$/.test(s))fail('ineligible');return s.replace('.000Z','Z');
 }
 function capacityCopy(input){
@@ -146,10 +146,10 @@ export async function createSyntheticProductionSubmission(input){
      if(prior){own(prior,scoped);if(prior.canonical_digest!==digest)fail('conflict');return prior;}
      if(c.consent_epoch!==scoped.epoch)fail('denied');const w=await source(tx,scoped,c.wonder_id,c.wonder_version);
      if(c.scope_version!==c.wonder_version)fail('conflict');if(w.original_received_at!==null||list.some(r=>r.request_id===c.wonder_id))fail('conflict');
-     const p=await period(tx,scoped,now()),b=await bucket(tx,true),actual=now(),received=timeAllowed(p,b,actual);await available(tx,b);
+     const p=await period(tx,scoped,now()),b=await bucket(tx,true),received=timeAllowed(p,b,now());await available(tx,b);
      if(c.offer_version!==offer(key,scoped,p,c.wonder_id,c.wonder_version))fail('conflict');
      if(list.some((r,i)=>!before.facts[i]?.ack)||list.length>=1000)fail('configuration_missing');
-     // All new effects are in this issuer/household/request/period/bucket transaction.
+     // All new effects share the issuer/household/request/period/bucket transaction.
      const commandId=randomUUID(),recordId=randomUUID(),commitId=randomUUID(),bookingId=randomUUID();
      await tx.query('UPDATE wonder_requests SET original_received_at=$3 WHERE household_id=$1 AND request_id=$2 AND original_received_at IS NULL',[scoped.h,c.wonder_id,receiptTime(received)]);
      await apply(tx,{household_id:scoped.h,consent_epoch:scoped.epoch},{contract_version:'1.1.0',transition_id:commandId,request_id:c.wonder_id,period_id:p.period_id,policy_version:p.policy_version,expected_version:0,consent_epoch:scoped.epoch,quantity:1,kind:'hold',from:'none',to:'pending',cause:'SubmitProduction',cause_id:c.idempotency_key},{});
@@ -159,7 +159,7 @@ export async function createSyntheticProductionSubmission(input){
      await tx.query('INSERT INTO production_receipts(household_id,receipt_id,request_id,booking_id,claim_id,period_id,original_received_at,original_due_at,deadline_interval_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8,86400)',[scoped.h,r.receipt_id,r.request_id,r.booking_id,r.claim_id,r.period_id,r.original_received_at,r.original_due_at]);
      const sealed=seal({format:'production-committed-fact-v1',household_id:scoped.h,adult_id:scoped.adult,command_id:commandId,record_id:recordId,primary_commit_id:commitId,canonical_digest:digest,namespace_verifier:namespace,command:c,receipt:r,binding:{profile_version:scoped.profile,consent_epoch:scoped.epoch,wonder_version:c.wonder_version,scope_version:c.scope_version}});
      await tx.query('INSERT INTO production_commands(household_id,command_id,idempotency_key,adult_id,child_id,profile_version,consent_epoch,request_id,wonder_version,scope_version,receipt_id,canonical_digest,namespace_verifier,primary_commit_id,record_id,sealed_record) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',[scoped.h,commandId,c.idempotency_key,scoped.adult,scoped.child,scoped.profile,scoped.epoch,c.wonder_id,c.wonder_version,c.scope_version,r.receipt_id,digest,namespace,commitId,recordId,JSON.stringify(sealed)]);
-     // Crossing expiry while doing SQL rolls the entire NEW command back.
+     // Crossing expiry during SQL rolls back the entire NEW command.
      timeAllowed(p,b,now());return await first(tx,'SELECT * FROM production_commands WHERE household_id=$1 AND command_id=$2',[scoped.h,commandId]);
     }finally{key.fill(0);}
    });}catch(e){if(benign.has(e?.code))return result(c.idempotency_key,randomUUID(),e.code);throw e;}
