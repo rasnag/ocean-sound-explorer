@@ -276,3 +276,7 @@ Seeded production build/source scan passed: server-only env secret, private VITE
 
 
 ```
+
+
+### Controller browser correction: conflicting overview status
+Actual CUA on 2cc6fcb3d5bf93b7eaf8e6299fd0ca9daeeec578 found current scope4 detail correctly invalidated agreement while the adjacent family overview still showed scope3 agreed. Needs changes, not a browser pass. Successful explicit request reads now refresh the family overview, then re-check existing authority/generation/read/selection guards before revealing private detail. The integrated regression checks the overview immediately after opening the changed alternative, without manual family refresh. All three queue journey/client tests passed (14.202s); whole checks and renewed exact-source CUA/Claude remain required. No additional native drafting call or feature review consumed.
