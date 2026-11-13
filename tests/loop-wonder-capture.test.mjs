@@ -120,8 +120,8 @@ test('actual React and HTTP preserve save identity, recover pending correction a
  const family=await createSyntheticFamilySpace({env,db:f.db,access:f.access,policyVersion,
   content:{question:f.service.question,revision:async()=>{throw Error('No revision exists in this source-only fixture');}},
   play:{resume:async()=>{throw Error('No play exists in this source-only fixture');},reconcile:async()=>{throw Error('No play exists in this source-only fixture');}}});
- let holdSave=false,saveHeld=false,releaseSave,loseResponse=false,rootElement,hook,dom;
- const capture={...f.service,save:async(...args)=>{const result=await f.service.save(...args);if(holdSave){holdSave=false;saveHeld=true;await new Promise(done=>releaseSave=done);}return result;}};
+ let holdSave=false,saveHeld=false,releaseSave,loseResponse=false,statusUnavailable=false,rootElement,hook,dom;
+ const capture={...f.service,status:async(...args)=>{if(statusUnavailable)throw Error('Invented transient capture status outage');return f.service.status(...args);},save:async(...args)=>{const result=await f.service.save(...args);if(holdSave){holdSave=false;saveHeld=true;await new Promise(done=>releaseSave=done);}return result;}};
  const origin=await f.start({family,capture}),nativeFetch=globalThis.fetch,cookie='loop_adult_session='+f.A.sessionToken,commands=[];
  const names=['window','document','navigator','HTMLElement','Node','Event','MouseEvent','IS_REACT_ACT_ENVIRONMENT','fetch'];
  const prior=new Map(names.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
@@ -145,7 +145,12 @@ test('actual React and HTTP preserve save identity, recover pending correction a
   async function click(label){const button=[...document.querySelectorAll('button')].find(b=>b.textContent===label);assert(button&&!button.disabled,'Required actual UI action is unavailable');await act(async()=>button.dispatchEvent(new MouseEvent('click',{bubbles:true})));}
   async function enter(id,value){await act(async()=>{const input=document.getElementById(id);assert(input);Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});}
   async function reviewAndConfirm(){await until(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='Review saved-only wonder'&&!b.disabled));await click('Review saved-only wonder');await until(()=>document.getElementById('wonder-confirm-title'));await click('Confirm saved-only wonder');}
-  await mount();await click('Start a wonder');await enter('family-wonder','  Invented UI question 🛶\n  ');await enter('family-wonder-context','Parent context stays separate.');loseResponse=true;await reviewAndConfirm();
+  await mount();await click('Start a wonder');await enter('family-wonder','  Invented UI question 🛶\n  ');await enter('family-wonder-context','Parent context stays separate.');
+  statusUnavailable=true;await act(async()=>window.dispatchEvent(new Event('focus')));await until(()=>text().includes('Capture access could not be confirmed.'));
+  const retainedQuestion=document.getElementById('family-wonder').value;
+  statusUnavailable=false;await click('Retry capture access');await until(()=>!text().includes('Capture access could not be confirmed.'));
+  assert.equal(document.getElementById('family-wonder').value,retainedQuestion);assert.equal(document.getElementById('family-wonder-context').value,'Parent context stays separate.');
+  loseResponse=true;await reviewAndConfirm();
   await until(()=>text().includes('The response may have been lost.'));assert(!document.querySelector('[aria-label="Selected child space"]'));
   await click('Retry original save');await until(()=>text().includes('Wonder saved. No investigation has been requested.'));await until(()=>document.querySelector('[aria-label="Selected child space"]'));
   assert.equal(commands.length,2);assert.equal(commands[0].command_id,commands[1].command_id);assert.equal(Number((await f.db.query('SELECT count(*) n FROM wonder_requests')).rows[0].n),1);

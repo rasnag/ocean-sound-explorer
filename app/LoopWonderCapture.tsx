@@ -5,6 +5,7 @@ type Saved={request_id:string;source_scope_version:number;question:string;parent
 type Pending={command_id:string;request_id:string;source_scope_version:number;child_id:string};
 type Command={view_context:string;child_id:string;profile_version:number;command_id:string;operation:'create'|'correct';question:string;parent_context:string;request_id?:string;expected_source_scope_version?:number};
 type Phase='unsent'|'editing'|'confirming'|'saving'|'awaiting_confirmation'|'saved-only'|'conflict'|'denied';
+const accessWarning='Capture access could not be confirmed. Your unsent or uncertain page intent is retained. Retry access before continuing.';
 const api=createWonderCaptureClient();
 export default function LoopWonderCapture({scope,visible,fence,onAcknowledged,onDenied,onUncertain}:{scope:WonderScope|null;visible:boolean;fence:number;onAcknowledged:()=>Promise<void>;onDenied:()=>void;onUncertain:()=>void}){
  const [phase,setPhase]=useState<Phase>('unsent'),[question,setQuestion]=useState(''),[context,setContext]=useState(''),[opened,setOpened]=useState(false);
@@ -21,10 +22,10 @@ export default function LoopWonderCapture({scope,visible,fence,onAcknowledged,on
  const refresh=useCallback(async()=>{
   const s=current.current;if(!s||!shown.current)return;const guard=generation.current,id=++statusSequence.current;
   try{const result=await api.status(selection(s));if(!mounted.current||guard!==generation.current||id!==statusSequence.current||!shown.current)return;
-   setSaved(result.saved);setPending(result.pending);setClosed(result.writes_closed);setReady(true);
+   setSaved(result.saved);setPending(result.pending);setClosed(result.writes_closed);setReady(true);setMessage(previous=>previous===accessWarning?'':previous);
   }catch(error){if(!mounted.current||guard!==generation.current||id!==statusSequence.current)return;setReady(false);setSaved([]);setPending([]);
    if((error as {status?:number}).status===403){intent.current=null;setQuestion('');setContext('');setOpened(false);setPhase('denied');onDenied();}
-   else setMessage('Capture access could not be confirmed. Your unsent or uncertain page intent is retained. Retry access before continuing.');
+   else setMessage(accessWarning);
   }
  },[onDenied,selection]);
  useEffect(()=>{mounted.current=true;const connectivity=()=>setOnline(navigator.onLine);connectivity();window.addEventListener('online',connectivity);window.addEventListener('offline',connectivity);return()=>{mounted.current=false;++generation.current;window.removeEventListener('online',connectivity);window.removeEventListener('offline',connectivity);};},[]);

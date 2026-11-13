@@ -155,3 +155,6 @@ Seeded production build/source scan passed: server-only env secret, private VITE
 
 
 ```
+
+### Controller browser correction
+Actual candidate browser verification found an obsolete access-warning after successful reconnect. Successful current status now clears only that exact transient warning, preserving unsent fields and other pending/conflict notices. The actual React/HTTP regression includes a transient status outage and restored service, verifies warning removal and exact draft/context retention, then continues lost-response, pending-reload/reconcile and withdrawal checks. Focused regression passed (1 test, 5269.742 ms). An initial local test-file encoding write failed; the file was restored from committed UTF-8 before applying and running the genuine regression; the empty-file invocation is not validation evidence. Full protected checks and fresh source-bound CUA remain required.
