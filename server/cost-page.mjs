@@ -102,7 +102,7 @@ function costBrowser(createClient){
  }
  async function perform(method){
   if(writing||!visible()||!intent||!selection||key(selection)!==key(intent.input)||intent.resolved)return;
-  const original=intent,seq=sequence,op=++operation;writing=true;error.textContent='';hide();recover();lock();
+  const original=intent,seq=sequence,op=++operation;writing=true;error.textContent='';status.textContent='Original operation in progress. No new saved effect is confirmed.';hide();recover();lock();
   try{
    const input=method==='command'?original.input:{...scope(original.input),command_id:original.input.command?.command_id??original.input.command_id};
    const r=await call(method,input);
