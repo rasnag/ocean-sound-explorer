@@ -1,0 +1,96 @@
+import {createGenerationClient} from '../lib/loop/generation-client.mjs';
+export const generationCSS=`:root{font:17px/1.55 system-ui,sans-serif;color:#173b3b;background:#edf5f2}*{box-sizing:border-box}body{margin:0}main{max-width:1050px;margin:auto;padding:clamp(14px,3vw,32px)}h1,h2,h3{line-height:1.2}nav{display:flex;flex-wrap:wrap;gap:20px}section{background:#fff;border:1px solid #aac4bd;border-radius:14px;padding:18px;margin:18px 0;min-width:0}button,input,textarea,select{font:inherit;max-width:100%;min-height:48px}button{background:#075d62;color:white;border:2px solid #075d62;border-radius:8px;padding:10px 16px;cursor:pointer;margin:7px 7px 7px 0;overflow-wrap:anywhere}button:disabled{opacity:.5;cursor:default}select,textarea{display:block;width:100%;padding:10px;border:2px solid #47766b;border-radius:7px;background:white;color:inherit}label{display:block;font-weight:650;margin-top:14px}textarea{min-height:130px}pre,.private-text{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit}p,li,dd,dt,summary{overflow-wrap:anywhere}pre{background:#f0f6f4;border-radius:8px;padding:12px}dt{font-weight:bold}dd{margin:0 0 12px}a{color:#075d62}*:focus-visible,[tabindex='-1']:focus{outline:3px solid #bd5d16;outline-offset:3px}#gen-error{color:#922c1e}#gen-status{font-weight:650}.badge{border-left:6px solid #bf711d;padding-left:16px}.muted{color:#4b625d}.history{border-top:1px solid #aac4bd;margin-top:16px;padding-top:10px}@media(min-width:760px){.comparison{display:grid;grid-template-columns:1fr 1fr;gap:18px}}`;
+export const generationPage=`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Local mock draft workbench</title><link rel="stylesheet" href="/founder/generation.css"><a href="#generation-main">Skip to draft workbench</a><main id="generation-main"><p class="badge">SYNTHETIC TEST ONLY · invented questions · no AI provider connected</p><h1>Local draft workbench</h1><p>Exercise the draft workflow with fixed toy responses. These are not validated investigations. This screen cannot approve, publish, deliver or assign a game.</p><nav aria-label="Founder workspace"><a href="/founder">Founder home</a><a href="/founder/queue">Request queue</a><a href="/login">Sign in again</a></nav><p id="gen-status" role="status" tabindex="-1">Checking founder access…</p><p id="gen-error" role="alert"></p><button id="gen-check" type="button">Check current draft</button><section aria-label="Choose an accepted request"><h2>Accepted test requests</h2><label for="gen-request">Which request?</label><select id="gen-request"><option value="">Choose an accepted request</option></select><p>Only currently accepted requests appear. Selecting one does not generate or deliver anything.</p></section><div id="gen-recovery"></div><div id="gen-view"></div></main><script src="/founder/generation.js" defer></script></html>`;
+function generationBrowser(createClient){
+ const api=createClient((...args)=>fetch(...args)),$=id=>document.getElementById(id),status=$('gen-status'),error=$('gen-error'),select=$('gen-request'),container=$('gen-view'),recovery=$('gen-recovery');
+ let rows=[],selection=null,view=null,intent=null,conflict=false,writing=false,reading=false,listFlight=false,dirty=false,live=true,sequence=0,readSequence=0,reader=null;
+ const controllers=new Set(),key=s=>s?JSON.stringify([s.household_id,s.request_id,s.scope_version]):'',scope=s=>({household_id:s.household_id,request_id:s.request_id,scope_version:s.scope_version});
+ const element=(tag,text,attrs={})=>{const e=document.createElement(tag);if(text!==null)e.textContent=text;for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);return e;};
+ const section=title=>{const e=element('section',null),h=element('h2',title);e.append(h);return e;};
+ const paragraph=(parent,text)=>parent.append(element('p',text));
+ const button=(parent,label,action,disabled=false)=>{const b=element('button',label,{type:'button'});b.disabled=disabled;b.addEventListener('click',action);parent.append(b);return b;};
+ const field=(parent,label,id,options)=>{parent.append(element('label',label,{for:id}));const e=element('select',null,{id});for(const[value,text]of options)e.append(element('option',text,{value}));parent.append(e);return e;};
+ const clearPrivate=()=>{view=null;dirty=false;container.replaceChildren();recovery.replaceChildren();};
+ const abortReads=()=>{++readSequence;reader?.abort();reader=null;reading=false;};
+ const lock=()=>{if(!live)return;select.disabled=writing||!!intent;$('gen-check').disabled=writing;};
+ function setRows(next){rows=next;const selectedKey=key(selection);select.replaceChildren(element('option','Choose an accepted request',{value:''}));rows.forEach((r,i)=>select.append(element('option','Accepted request '+(i+1)+' · '+r.request_id.slice(0,8),{value:String(i)})));const index=rows.findIndex(r=>key(r)===selectedKey);select.value=index<0?'':String(index);if(index>=0)selection=rows[index];lock();}
+ function denied(message){++sequence;abortReads();selection=null;intent=null;writing=false;clearPrivate();setRows([]);status.textContent='Private draft details hidden.';error.textContent=message;lock();}
+ function recover(){
+  if(!live)return;recovery.replaceChildren();if(!intent&&view?.status!=='generation_pending')return;const box=section('Confirmation and recovery');paragraph(box,'Unknown or pending is not saved. Keep the original change; do not create replacement work.');
+  if(intent&&!conflict)button(box,'Retry original draft change',()=>void perform(intent),writing);
+  if(intent&&conflict)button(box,'Discard conflicted page edit and refresh',()=>{intent=null;conflict=false;lock();if(selection)void read(true);else void poll();},writing);
+  if(view?.status==='generation_pending'){
+   if(!view.pending.length)paragraph(box,'Confirmation requires the local controller or another request selection. No private draft is shown.');
+   view.pending.forEach((p,i)=>button(box,'Reconcile pending draft change '+(i+1),()=>{intent={kind:'reconcile',input:{...scope(selection),command_id:p.command_id}};void perform(intent);},writing));
+  }
+  recovery.append(box);lock();
+ }
+ function render(focus){
+  if(!live)return;container.replaceChildren();recover();if(!view||view.status!=='generation_view')return;const q=view.request,j=view.job;
+  const source=section('Original question and scope'),heading=source.querySelector('h2');heading.tabIndex=-1;source.append(element('h3','Original words'),element('p',q.original_question,{class:'private-text'}),element('h3','Current question'),element('p',q.current_question,{class:'private-text'}),element('h3','Separate agreed interpretation'),element('p',q.interpretation??'No different interpretation.',{class:'private-text'}));
+  const received=element('time',new Date(q.receipt.original_received_at).toLocaleString(),{datetime:q.receipt.original_received_at}),due=element('time',new Date(q.receipt.original_due_at).toLocaleString(),{datetime:q.receipt.original_due_at});paragraph(source,'Original receipt and 24-hour deadline are unchanged by mock work.');source.append(element('p','Originally received: '));source.lastChild.append(received);source.append(element('p','Original due time: '));source.lastChild.append(due);container.append(source);
+  const controls=section('Run a local fixture');paragraph(controls,'Fixed invented balance rules only. No scientific fit or human content approval is established.');
+  const response=field(controls,'Test response','gen-case',[['valid','Valid toy draft'],['invalid','Invalid toy rules'],['unsupported','Unsupported fixture'],['timeout','Timeout'],['delayed','Slow fixture']]);
+  const locked=writing||!!intent;response.disabled=locked||!!j&&['queued','running'].includes(j.state);if(j&&['queued','running'].includes(j.state)){response.value=j.mock_case;paragraph(controls,'The response case was fixed when this mock request was saved.');}
+  if(!j)button(controls,'Save mock generation request',()=>send('RequestGeneration',{mock_case:response.value}),locked);
+  else{
+   const labels={queued:'Mock request saved; not run yet.',running:'Mock work running; no draft is confirmed.',draft_ready:'Unreviewed fixture draft. Factual and human review remain pending.',failed:'Invalid or failed mock response. No valid draft is confirmed.',unsupported:'Unsupported fixture. Nothing was published.',cancelled:'Mock job cancelled. Late work cannot replace it.',uncertain:'Mock outcome uncertain. No automatic retry or saved draft is claimed.'};paragraph(controls,labels[j.state]??'State unknown.');
+   if(j.state==='queued')button(controls,'Run mock generation',()=>send('StartMock',{}),locked||!j.is_current);
+   if(j.state!=='cancelled')button(controls,'Cancel mock job',()=>send('CancelJob',{reason:'Founder explicitly cancelled the invented mock job.'}),locked||!j.is_current);
+   paragraph(controls,'Publishing, approval, family assignment and delivery are unavailable.');
+  }
+  container.append(controls);
+  const current=j&&view.revisions.find(r=>r.revision_id===j.current_revision_id);
+  if(current){
+   const preview=section('Unreviewed draft preview'),a=current.adventure;
+   preview.append(element('h3','Opening'),element('p',a.opening,{class:'private-text'}),element('h3','Model limits'),element('p',a.limits,{class:'private-text'}));
+   paragraph(preview,'Supported toy configurations: balanced → stable; offset → tips. This is a fixture, not a physical model.');const help=element('ol',null);a.help.forEach(line=>help.append(element('li',line)));preview.append(element('h3','Optional help'),help,element('h3','Off-screen placeholder'),element('p',a.offscreen,{class:'private-text'}));
+   const provenance=element('details',null);provenance.append(element('summary','Draft provenance'),element('pre',JSON.stringify({revision:current.revision_id,parent_revision:current.parent_revision_id,lineage:current.lineage,validation:current.validation,usage:current.usage},null,2)));preview.append(provenance);container.append(preview);
+   const edit=section('Edit a new revision'),which=field(edit,'Field to edit','gen-field',[['opening','Opening'],['help','Three help steps'],['offscreen','Off-screen placeholder']]);edit.append(element('label','New draft text',{for:'gen-value'}));const value=element('textarea',null,{id:'gen-value',maxlength:'6002'}),unsent=element('p','Edits are unsent until explicitly confirmed.'),comparison=element('div',null,{class:'comparison'});edit.append(value,unsent,comparison);
+   function displayEdit(){const before=a[which.value],after=which.value==='help'?value.value.split('\n'):value.value;comparison.replaceChildren();const old=element('div',null),next=element('div',null);old.append(element('h3','Current revision'),element('pre',Array.isArray(before)?before.join('\n'):before));next.append(element('h3','Unsent proposed revision'),element('pre',Array.isArray(after)?after.join('\n'):after));comparison.append(old,next);}
+   function resetValue(){value.value=Array.isArray(a[which.value])?a[which.value].join('\n'):a[which.value];dirty=false;displayEdit();}which.addEventListener('change',resetValue);value.addEventListener('input',()=>{dirty=true;error.textContent='';displayEdit();});resetValue();value.disabled=locked||!j.is_current;which.disabled=locked||!j.is_current;
+   button(edit,'Confirm new draft revision',()=>send('EditRevision',{revision_id:current.revision_id,field:which.value,value:which.value==='help'?value.value.split('\n'):value.value}),locked||!j.is_current);paragraph(edit,'Every edit creates a successor. No review or approval is inherited.');container.append(edit);
+   const history=section('Revision history and differences');view.revisions.forEach((r,i)=>{const row=element('div',null,{class:'history'});paragraph(row,'Revision '+(i+1)+' · '+r.revision_id+(r.revision_id===j.current_revision_id?' · current':''));paragraph(row,'Parent: '+(r.parent_revision_id??'none')+' · unreviewed');const parent=view.revisions.find(x=>x.revision_id===r.parent_revision_id);for(const d of r.diff){row.append(element('h3','Changed '+d.field));if(parent)row.append(element('pre',Array.isArray(parent.adventure[d.field])?parent.adventure[d.field].join('\n'):parent.adventure[d.field]));else paragraph(row,'Previous revision belongs to the earlier mock job; its lineage is retained.');row.append(element('pre',Array.isArray(r.adventure[d.field])?r.adventure[d.field].join('\n'):r.adventure[d.field]));}history.append(row);});container.append(history);
+  }
+  if(j&&['draft_ready','failed','unsupported','cancelled','uncertain'].includes(j.state)){
+   const regen=section('Explicit regeneration'),field=fieldSelect(regen);paragraph(regen,'Creates a new mock job and successor. No automatic repair or review carry-over.');button(regen,'Save regeneration request',()=>send('Regenerate',{revision_id:j.current_revision_id,field:field.value,mock_case:response.value}),locked||!j.is_current);container.append(regen);
+  }
+  if(focus)heading.focus();lock();
+ }
+ function fieldSelect(parent){return field(parent,'Part to regenerate','gen-regenerate-field',view?.job?.current_revision_id?[['all','Whole draft'],['opening','Opening only'],['help','Help only'],['offscreen','Off-screen only']]:[['all','Whole draft']]);}
+ async function read(focus=false){
+  if(!selection||writing||!live)return false;const selected=scope(selection),guard=sequence,id=++readSequence,c=new AbortController();reader?.abort();reader=c;controllers.add(c);reading=true;clearPrivate();status.textContent='Checking the current committed draft…';
+  try{
+   const r=await api.read({...selected,job_id:null},{signal:c.signal});if(!live||guard!==sequence||id!==readSequence||key(selection)!==key(selected))return false;
+   // A response held since before withdrawal/source change cannot restore old
+   // private data: independently check current request availability again.
+   const fresh=await api.list({}, {signal:c.signal});if(!live||guard!==sequence||id!==readSequence||key(selection)!==key(selected))return false;setRows(fresh.requests);const current=rows.find(row=>key(row)===key(selected));
+   if(!current){selection=null;clearPrivate();status.textContent='This request is no longer currently available. Choose an accepted request again.';return false;}
+   if(r.status==='generation_view'&&(r.request.scope_version!==selected.scope_version||(r.job?.job_id??null)!==current.job_id)){clearPrivate();status.textContent='Current draft changed during the check. Check again before editing.';return false;}
+   view=r;if(focus)error.textContent='';status.textContent=r.status==='generation_pending'?'Confirmation pending. No private draft is shown.':'Current committed draft checked. It is not approved or published.';render(focus);return true;
+  }catch(e){if(!live||guard!==sequence||id!==readSequence)return false;clearPrivate();if(e.status===401||e.status===403)denied('Founder or test permission changed. Sign in and select the request again.');else if(e.status===409){selection=null;setRows(rows);error.textContent='Request scope changed. Choose a currently accepted request again.';}else error.textContent='Draft state could not be confirmed. Check current access or recover the original change.';recover();return false;}
+  finally{controllers.delete(c);if(reader===c)reader=null;if(guard===sequence&&id===readSequence)reading=false;lock();}
+ }
+ function send(action,payload){if(!selection||!view||view.status!=='generation_view'||writing||intent)return;const j=view.job;intent={kind:'command',input:{...scope(selection),command:{command_id:crypto.randomUUID(),job_id:j?.job_id??null,expected_version:j?.version??0,action,payload}}};void perform(intent);}
+ async function perform(original){
+  if(writing||!live||!selection)return;const guard=sequence,c=new AbortController();controllers.add(c);writing=true;abortReads();conflict=false;clearPrivate();lock();recover();status.textContent='Confirmation pending. No new draft or edit is confirmed.';
+  try{
+   const result=await api[original.kind](original.input,{signal:c.signal});if(!live||guard!==sequence)return;
+   if(result.status==='acknowledged'){intent=null;writing=false;const checked=await read(true);if(checked)status.textContent='Change independently confirmed. Any draft remains unreviewed.';}
+   else{writing=false;await read(false);status.textContent='Confirmation pending. Reconcile or retry the exact original change.';}
+  }catch(e){if(!live||guard!==sequence)return;writing=false;if(e.status===401||e.status===403){denied('Current authority changed. Private draft details are hidden.');return;}if([400,413,415].includes(e.status)){intent=null;const checked=await read(false);if(checked)error.textContent='The proposed change was rejected. No new revision was confirmed.';return;}conflict=e.status===409;error.textContent=conflict?'This change conflicts with current history. It has not been confirmed.':'Confirmation unknown. Retry the same change or reconcile; do not create replacement work.';await read(false);}
+  finally{controllers.delete(c);if(guard===sequence)writing=false;recover();lock();}
+ }
+ async function poll(){
+  if(!live||document.visibilityState==='hidden'||writing||listFlight)return;listFlight=true;const guard=sequence;
+  try{const r=await api.list({});if(!live||guard!==sequence)return;const old=key(selection);setRows(r.requests);if(old&&!rows.some(row=>key(row)===old)){++sequence;abortReads();selection=null;intent=null;clearPrivate();status.textContent='Request access or scope changed. Private details hidden.';return;}if(selection&&!reading&&!dirty&&!intent)await read(false);else if(!selection)status.textContent=rows.length?'Choose an accepted test request.':'No currently accepted test requests are available.';}
+  catch(e){if(!live||guard!==sequence)return;denied(e.status===401||e.status===403?'Founder access changed. Sign in again.':'Current access could not be confirmed. Private details hidden.');}
+  finally{listFlight=false;lock();}
+ }
+ select.addEventListener('change',()=>{if(writing||intent)return;++sequence;abortReads();clearPrivate();error.textContent='';selection=select.value===''?null:rows[Number(select.value)];if(selection)void read(true);else status.textContent='Choose an accepted request.';});
+ $('gen-check').addEventListener('click',()=>{if(selection&&!writing)void read(true);else void poll();});
+ const focus=()=>void poll(),visibility=()=>{if(document.visibilityState==='hidden'){++sequence;for(const c of controllers)c.abort();abortReads();writing=false;clearPrivate();status.textContent='Private details hidden while this page is not visible.';lock();}else void poll();};
+ window.addEventListener('focus',focus);window.addEventListener('pageshow',focus);document.addEventListener('visibilitychange',visibility);window.addEventListener('beforeunload',e=>{if(intent){e.preventDefault();e.returnValue='';}});
+ const timer=setInterval(()=>void poll(),500);window.addEventListener('pagehide',()=>{live=false;++sequence;clearInterval(timer);for(const c of controllers)c.abort();clearPrivate();window.removeEventListener('focus',focus);window.removeEventListener('pageshow',focus);document.removeEventListener('visibilitychange',visibility);});void poll();
+}
+export const generationScript=`(${generationBrowser.toString()})(${createGenerationClient.toString()});`;
