@@ -95,7 +95,7 @@ function parseCommand(value){
   p=ownData(c.payload,['fixture_id']);if(p.fixture_id!=='comparison-v1')fail('validation_failed');
  }else if(c.action==='RecordAttemptUsage'){
   p=ownData(c.payload,['entry_id','attempt_id','supersedes_entry_id','input_tokens','output_tokens','cash_state','cash_micro_usd','rate']);
-  if(!uuid(p.attempt_id)||!uuid(p.supersedes_entry_id))fail('validation_failed');
+  if(!uuid(p.attempt_id))fail('validation_failed');
   nullable(p.input_tokens,1000000000);nullable(p.output_tokens,1000000000);cash(p);
   if(p.rate!==null){
    const r=ownData(p.rate,['kind','rate_id','input_micro_usd_per_token','output_micro_usd_per_token']);
