@@ -24,6 +24,7 @@ const copy=v=>JSON.parse(canonical(v));
 const same=(a,b)=>canonical(a)===canonical(b);
 const positive=v=>Number.isSafeInteger(v)&&v>0&&v<Number.MAX_SAFE_INTEGER;
 const hex=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
+const ABSENCE_LIMIT=64;
 const checkNames=['facts','age','safety','outcomes','help','difficulty','playtest'];
 const pinNames=['child_id','consent_epoch','profile_version','scope_version','job_id','job_version','fence','state','revision_id','output_digest','valid'];
 const revisionNames=['revision_id','parent_revision_id','adventure','output_digest','diff','source_scope_version','request_scope_version','status','publish_authority','lineage','validation','review_evidence','usage','pattern_classification'];
@@ -241,6 +242,13 @@ async function buildService(input){
  async function history(tx,h){
   const rows=(await tx.query('SELECT c.*,a.command_id AS ack,a.record_id AS ack_record,a.primary_commit_id AS ack_commit FROM review_slice_commands c LEFT JOIN review_slice_acknowledgements a USING(household_id,command_id) WHERE c.household_id=$1 ORDER BY c.request_id,c.aggregate_version LIMIT 1001',[h])).rows;
   if(rows.length>1000)fail('recovery_quarantined');
+  const absences=(await tx.query('SELECT * FROM review_slice_absences WHERE household_id=$1 LIMIT 65',[h])).rows;
+  if(absences.length>ABSENCE_LIMIT)fail('recovery_quarantined');
+  for(const marker of absences){
+   if(!uuid(marker.command_id)||!uuid(marker.request_id)||!uuid(marker.actor_id)||rows.some(x=>x.command_id===marker.command_id)
+    ||!await first(tx,'SELECT request_id FROM wonder_requests WHERE household_id=$1 AND request_id=$2',[h,marker.request_id])
+    ||!await first(tx,'SELECT identity_id FROM founder_identities WHERE identity_id=$1',[marker.actor_id]))fail('recovery_quarantined');
+  }
   const independent=await records(h),seen=new Set(),versions=new Map(),out=[];
   for(const r of independent){
    const row=rows.find(x=>x.command_id===r.command_id);
@@ -254,14 +262,14 @@ async function buildService(input){
    const f=await decoded(row),version=(versions.get(row.request_id)??0)+1;versions.set(row.request_id,version);
    if(integer(row.aggregate_version,1)!==version||row.ack&&(!seen.has(row.command_id)||row.ack_record!==row.record_id||row.ack_commit!==row.primary_commit_id))fail('recovery_quarantined');
    const r=reviews.find(x=>x.command_id===row.command_id),s=snapshots.find(x=>x.command_id===row.command_id),w=withdrawals.find(x=>x.command_id===row.command_id);
-   if(f.effect.review){
+   if(row.ack&&f.effect.review){
     nr++;if(!r||r.request_id!==row.request_id||r.revision_id!==row.revision_id||r.output_digest!==row.output_digest)fail('recovery_quarantined');
    }else if(r)fail('recovery_quarantined');
-   if(f.effect.snapshot){
+   if(row.ack&&f.effect.snapshot){
     ns++;const x=f.effect.snapshot;
     if(!s||s.request_id!==row.request_id||s.snapshot_id!==x.snapshot_id||s.revision_id!==x.revision_id||s.output_digest!==x.output_digest||s.predecessor_snapshot_id!==x.predecessor_snapshot_id)fail('recovery_quarantined');
    }else if(s)fail('recovery_quarantined');
-   if(f.effect.withdrawal){
+   if(row.ack&&f.effect.withdrawal){
     nw++;if(!w||w.request_id!==row.request_id||w.snapshot_id!==f.effect.withdrawal.snapshot_id)fail('recovery_quarantined');
    }else if(w)fail('recovery_quarantined');
    out.push({row,f});
@@ -269,12 +277,32 @@ async function buildService(input){
   if(nr!==reviews.length||ns!==snapshots.length||nw!==withdrawals.length)fail('recovery_quarantined');
   return out;
  }
- function pending(rows,a,s){
-  if(!rows.some(x=>!x.row.ack))return null;
-  return {status:'review_pending',synthetic_only:true,pending:rows.filter(x=>!x.row.ack&&x.row.actor_id===a.id&&integer(x.row.consent_epoch,1)===a.epoch&&x.row.request_id===s.request_id&&integer(x.row.scope_version,1)===s.scope_version).map(x=>({command_id:x.row.command_id}))};
+ function fenced(rows,item,a,s,pin){
+  return rows.some(x=>x.row.request_id===s.request_id&&integer(x.row.aggregate_version,1)>integer(item.row.aggregate_version,1))
+   ||!same(item.f.effect.pin,pin)||!same(item.f.effect.request,a.request);
  }
+ async function livePending(tx,rows,a,s,pin){
+  const live=[];
+  for(const item of rows.filter(x=>!x.row.ack&&x.row.request_id===s.request_id)){
+   if(fenced(rows,item,a,s,pin))continue;
+   // Original session is provenance. A new current session may recover it.
+   // No extra cross-household identity locks: a higher committed request version
+   // fences superseded work even if the old actor is restored concurrently.
+   const actor=await first(tx,'SELECT role,enabled FROM founder_identities WHERE identity_id=$1',[item.row.actor_id]);
+   if(actor?.enabled&&actor.role==='founder')live.push(item);
+  }
+  return live;
+ }
+ async function pending(tx,rows,a,s,pin){
+  const live=await livePending(tx,rows,a,s,pin);
+  return live.length?{status:'review_pending',synthetic_only:true,pending:live.filter(x=>x.row.actor_id===a.id).map(x=>({command_id:x.row.command_id}))}:null;
+ }
+ async function absence(tx,a,id){
+  return first(tx,'SELECT * FROM review_slice_absences WHERE household_id=$1 AND command_id=$2',[a.h,id]);
+ }
+ async function refuseRetired(tx,a,id){if(await absence(tx,a,id))fail('conflict');}
  function projection(rows,s,b){
-  const selected=rows.filter(x=>x.row.request_id===s.request_id),current=selected.filter(x=>same(x.f.effect.pin,b.pin));
+  const all=rows.filter(x=>x.row.request_id===s.request_id),selected=all.filter(x=>x.row.ack),current=selected.filter(x=>same(x.f.effect.pin,b.pin));
   const review=b.revision?current.filter(x=>x.f.effect.review).at(-1)?.f.effect.review??null:null;
   const withdrawn=new Set(selected.filter(x=>x.f.effect.withdrawal).map(x=>x.f.effect.withdrawal.snapshot_id));
   const snapshots=selected.filter(x=>x.f.effect.snapshot).map(x=>{
@@ -282,37 +310,56 @@ async function buildService(input){
    return {...copy(snap),withdrawn:withdrawn.has(snap.snapshot_id),is_current_revision:!!b.revision&&same(x.f.effect.pin,b.pin)};
   });
   const missing=!b.revision?['revision']:review?checkNames.filter(k=>!review.checks[k]):[...checkNames,'notes'];
-  return {status:'review_view',synthetic_only:true,request:copy(b.request),version:selected.length?integer(selected.at(-1).row.aggregate_version,1):0,
+  return {status:'review_view',synthetic_only:true,request:copy(b.request),version:all.length?integer(all.at(-1).row.aggregate_version,1):0,
    revision:copy(b.revision),review:copy(review),snapshots,readiness:{eligible:missing.length===0,missing},pending:[]};
  }
  function ownRow(row,a,s){
-  if(!row||row.actor_id!==a.id||integer(row.consent_epoch,1)!==a.epoch||row.request_id!==s.request_id
-   ||integer(row.scope_version,1)!==s.scope_version||row.child_id!==a.child||integer(row.profile_version,1)!==a.profile_version)fail('denied');
+  if(!row||row.actor_id!==a.id||row.request_id!==s.request_id)fail('denied');
  }
- async function verifyRow(tx,a,s,row,b){
-  ownRow(row,a,s);await pinSource(tx,s,a,b,true);
-  const rows=await history(tx,a.h),found=rows.find(x=>x.row.command_id===row.command_id);
-  if(!found||!same(found.row.sealed_fact,row.sealed_fact)||!same(found.f.effect.pin,b.pin)||!same(found.f.effect.request,b.request))fail('conflict');
-  return found;
+ async function currentRow(tx,a,s,row){
+  ownRow(row,a,s);await refuseRetired(tx,a,row.command_id);
+  const rows=await history(tx,a.h),item=rows.find(x=>x.row.command_id===row.command_id);
+  if(!item||!same(item.row.sealed_fact,row.sealed_fact))fail('recovery_quarantined');
+  return {rows,item};
  }
- async function finish(token,s,row){
+ async function finish(token,s,row,reconciling=false){
+  // Historical bare ACK is not current-source review eligibility.
+  const early=await authority(token,s,async(tx,a)=>{
+   const {item}=await currentRow(tx,a,s,row);return item.row.ack?acknowledgement(row):null;
+  });if(early)return early;
   let b=await source(token,s);
-  const before=await authority(token,s,(tx,a)=>verifyRow(tx,a,s,row,b));
-  if(before.row.ack)return acknowledgement(row);
-  let ref;
-  try{ref=await append(row.sealed_fact);}catch(e){
+  async function verify(tx,a){
+   const state=await currentRow(tx,a,s,row);if(state.item.row.ack)return {...state,done:acknowledgement(row)};
+   const pin=await currentPin(tx,s,a);
+   if(fenced(state.rows,state.item,a,s,pin)){
+    if(!reconciling)fail('conflict');
+    return {...state,done:acknowledgement(row,'review_command_fenced')};
+   }
+   await pinSource(tx,s,a,b,true);return state;
+  }
+  const before=await authority(token,s,verify);if(before.done)return before.done;
+  try{
+   // Preserve older superseded intents as forensic facts only. Never apply/ACK.
+   const older=before.rows.filter(x=>!x.row.ack&&x.row.request_id===s.request_id&&integer(x.row.aggregate_version,1)<integer(row.aggregate_version,1));
+   for(const x of [...older,before.item]){
+    const ref=await append(x.row.sealed_fact);if(ref!=='queue-fsync:'+x.row.record_id)fail('recovery_quarantined');
+   }
+  }catch(e){
    if(e?.code==='recovery_quarantined')throw e;
    b=await source(token,s);
-   return authority(token,s,async(tx,a)=>{await verifyRow(tx,a,s,row,b);return acknowledgement(row,'retryable_unacknowledged');});
+   return authority(token,s,async(tx,a)=>{const v=await verify(tx,a);return v.done??acknowledgement(row,'retryable_unacknowledged');});
   }
-  if(ref!=='queue-fsync:'+row.record_id)fail('recovery_quarantined');
-  // Neither a previous generation.read nor a primary commit is reveal authority.
-  // Fresh public validation plus locked head/job/revision comparison follows I/O.
   b=await source(token,s);
   return authority(token,s,async(tx,a)=>{
-   await verifyRow(tx,a,s,row,b);
+   const state=await verify(tx,a);if(state.done)return state.done;
    if(!(await records(a.h)).some(r=>same(r,row.sealed_fact)))fail('recovery_quarantined');
-   await tx.query('INSERT INTO review_slice_acknowledgements(household_id,command_id,record_id,primary_commit_id,acknowledged_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',[a.h,row.command_id,row.record_id,row.primary_commit_id,iso()]);
+   const effect=state.item.f.effect,c=state.item.f.command.command;
+   // Materialized facts and ACK are atomic, after independent durability and
+   // current authority/source rechecks. Unacknowledged intents have no effects.
+   if(effect.review)await tx.query('INSERT INTO review_slice_reviews(household_id,request_id,command_id,revision_id,output_digest) VALUES($1,$2,$3,$4,$5)',[a.h,s.request_id,c.command_id,c.revision_id,c.output_digest]);
+   if(effect.snapshot){const x=effect.snapshot;await tx.query('INSERT INTO review_slice_snapshots(household_id,request_id,snapshot_id,command_id,revision_id,output_digest,predecessor_snapshot_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[a.h,s.request_id,x.snapshot_id,c.command_id,x.revision_id,x.output_digest,x.predecessor_snapshot_id]);}
+   if(effect.withdrawal)await tx.query('INSERT INTO review_slice_withdrawals(household_id,request_id,snapshot_id,command_id) VALUES($1,$2,$3,$4)',[a.h,s.request_id,effect.withdrawal.snapshot_id,c.command_id]);
+   await tx.query('INSERT INTO review_slice_acknowledgements(household_id,command_id,record_id,primary_commit_id,acknowledged_at) VALUES($1,$2,$3,$4,$5)',[a.h,row.command_id,row.record_id,row.primary_commit_id,iso()]);
    return acknowledgement(row);
   });
  }
@@ -322,7 +369,7 @@ async function buildService(input){
   const n=await first(tx,'SELECT * FROM review_slice_namespace WHERE singleton=true FOR UPDATE');
   if(!n)fail('configuration_missing');
   if(n.namespace_verifier===null){
-   const counts=await first(tx,'SELECT (SELECT count(*) FROM review_slice_commands)+(SELECT count(*) FROM review_slice_reviews)+(SELECT count(*) FROM review_slice_snapshots)+(SELECT count(*) FROM review_slice_withdrawals)+(SELECT count(*) FROM review_slice_acknowledgements) AS n');
+   const counts=await first(tx,'SELECT (SELECT count(*) FROM review_slice_absences)+(SELECT count(*) FROM review_slice_commands)+(SELECT count(*) FROM review_slice_reviews)+(SELECT count(*) FROM review_slice_snapshots)+(SELECT count(*) FROM review_slice_withdrawals)+(SELECT count(*) FROM review_slice_acknowledgements) AS n');
    if(integer(counts.n)!==0||await claimFreshNamespace()!==namespace)fail('recovery_quarantined');
    await tx.query('UPDATE review_slice_namespace SET namespace_verifier=$1 WHERE singleton=true',[namespace]);
   }else if(n.namespace_verifier!==namespace)fail('recovery_quarantined');
@@ -333,11 +380,9 @@ async function buildService(input){
 
  async function read(token,input){
   const s=copy(scope(input));
-  const p=await authority(token,s,async(tx,a)=>pending(await history(tx,a.h),a,s));
-  if(p)return p;
   const b=await source(token,s);
   return authority(token,s,async(tx,a)=>{
-   const rows=await history(tx,a.h),p=pending(rows,a,s);if(p)return p;
+   const rows=await history(tx,a.h),pin=await currentPin(tx,s,a),p=await pending(tx,rows,a,s,pin);if(p)return p;
    await pinSource(tx,s,a,b);return projection(rows,s,b);
   });
  }
@@ -366,6 +411,7 @@ async function buildService(input){
   const c=parseCommand(v.command),envelope={...s,command:c};
   // Original-key lookup precedes CAS, pending throttles and source validation.
   const prior=await authority(token,s,async(tx,a)=>{
+   await refuseRetired(tx,a,c.command_id);
    const rows=await history(tx,a.h),old=rows.find(x=>x.row.command_id===c.command_id);
    if(!old)return null;
    ownRow(old.row,a,s);
@@ -374,9 +420,10 @@ async function buildService(input){
   if(prior)return finish(token,s,prior);
   const b=await source(token,s);
   const row=await authority(token,s,async(tx,a)=>{
+   await refuseRetired(tx,a,c.command_id);
    const rows=await history(tx,a.h),old=rows.find(x=>x.row.command_id===c.command_id);
    if(old){ownRow(old.row,a,s);if(old.row.canonical_digest!==digest(a.h,a.id,a.epoch,envelope))fail('conflict');return old.row;}
-   if(rows.some(x=>!x.row.ack))fail('journal_unavailable');
+   if((await livePending(tx,rows,a,s,await currentPin(tx,s,a))).length)fail('journal_unavailable');
    if(rows.length>=1000)fail('configuration_missing');
    await pinSource(tx,s,a,b,true);
    const view=projection(rows,s,b);
@@ -402,9 +449,6 @@ async function buildService(input){
    const sealed=await seal(f);
    await tx.query('INSERT INTO review_slice_commands(household_id,command_id,request_id,scope_version,child_id,profile_version,actor_id,consent_epoch,original_session_hash,aggregate_version,action,generation_job_id,generation_version,generation_fence,revision_id,output_digest,recorded_at,record_id,primary_commit_id,canonical_digest,namespace_verifier,sealed_fact) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb)',
     [a.h,c.command_id,s.request_id,s.scope_version,a.child,a.profile_version,a.id,a.epoch,a.session_hash,version,c.action,b.pin.job_id,b.pin.job_version,b.pin.fence,c.revision_id,c.output_digest,recorded_at,record_id,primary_commit_id,canonical_digest,namespace,JSON.stringify(sealed)]);
-   if(effect.review)await tx.query('INSERT INTO review_slice_reviews(household_id,request_id,command_id,revision_id,output_digest) VALUES($1,$2,$3,$4,$5)',[a.h,s.request_id,c.command_id,c.revision_id,c.output_digest]);
-   if(effect.snapshot){const x=effect.snapshot;await tx.query('INSERT INTO review_slice_snapshots(household_id,request_id,snapshot_id,command_id,revision_id,output_digest,predecessor_snapshot_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[a.h,s.request_id,x.snapshot_id,c.command_id,x.revision_id,x.output_digest,x.predecessor_snapshot_id]);}
-   if(effect.withdrawal)await tx.query('INSERT INTO review_slice_withdrawals(household_id,request_id,snapshot_id,command_id) VALUES($1,$2,$3,$4)',[a.h,s.request_id,effect.withdrawal.snapshot_id,c.command_id]);
    return first(tx,'SELECT * FROM review_slice_commands WHERE household_id=$1 AND command_id=$2',[a.h,c.command_id]);
   });
   return finish(token,s,row);
@@ -412,10 +456,20 @@ async function buildService(input){
  async function reconcile(token,input){
   const v=scope(input,['command_id']);if(!uuid(v.command_id))fail('validation_failed');
   const s=copy({household_id:v.household_id,request_id:v.request_id,scope_version:v.scope_version});
-  const row=await authority(token,s,async(tx,a)=>{
-   const rows=await history(tx,a.h),found=rows.find(x=>x.row.command_id===v.command_id);ownRow(found?.row,a,s);return found.row;
+  const outcome=await authority(token,s,async(tx,a)=>{
+   const rows=await history(tx,a.h),found=rows.find(x=>x.row.command_id===v.command_id);
+   if(found){ownRow(found.row,a,s);return {row:found.row};}
+   const old=await absence(tx,a,v.command_id);
+   if(old&&(old.actor_id!==a.id||old.request_id!==s.request_id))fail('denied');
+   if(!old){
+    const n=await first(tx,'SELECT count(*) AS n FROM review_slice_absences WHERE household_id=$1',[a.h]);
+    if(integer(n.n)>=ABSENCE_LIMIT)fail('configuration_missing');
+    await tx.query('INSERT INTO review_slice_absences(household_id,command_id,request_id,actor_id,recorded_at) VALUES($1,$2,$3,$4,$5)',[a.h,v.command_id,s.request_id,a.id,iso()]);
+   }
+   const selected=rows.filter(x=>x.row.request_id===s.request_id);
+   return {result:{status:'review_command_absent',synthetic_only:true,command_id:v.command_id,version:selected.length?integer(selected.at(-1).row.aggregate_version,1):0}};
   });
-  return finish(token,s,row);
+  return outcome.result??finish(token,s,outcome.row,true);
  }
  const guarded=fn=>async(...args)=>{try{return await fn(...args);}catch(e){throw normalized(e);}};
  return Object.freeze({list:guarded(list),read:guarded(read),command:guarded(command),reconcile:guarded(reconcile),close(){closed=true;}});

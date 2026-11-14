@@ -8,6 +8,7 @@ import {createRequire} from 'node:module';
 import {access} from 'node:fs/promises';
 import {reviewFixture,readyReviewRequest,reviewRead,reviewCommand,ALL_CHECKS} from './loop-review-service.test.mjs';
 import {bookAccepted,startDraft,waitDraft,draftCommand} from './loop-generation-service.test.mjs';
+import {createReviewClient} from '../lib/loop/review-client.mjs';
 import {createSyntheticAuthServer} from '../server/loop-auth.mjs';
 
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -83,7 +84,7 @@ async function browser(f,h){
  const dom=new JSDOM(page.text,{url:h.origin+'/founder/review',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
  w.AbortController=globalThis.AbortController;w.TextEncoder=globalThis.TextEncoder;
  Object.defineProperty(w.crypto,'randomUUID',{value:randomUUID,configurable:true});
- const sent=[],flights=new Set(),intervals=new Set(),errors=[];let lose=false,stopped=false;
+ const sent=[],flights=new Set(),intervals=new Set(),errors=[];let lose=false,stopped=false,beforeCommand=null,earlyDrop=null;
  const set=w.setInterval.bind(w),clear=w.clearInterval.bind(w);
  w.setInterval=(fn,ms,...args)=>{const id=set(fn,ms,...args);intervals.add(id);return id;};
  w.clearInterval=id=>{intervals.delete(id);clear(id);};
@@ -95,7 +96,14 @@ async function browser(f,h){
   assert.equal(options.referrerPolicy,'no-referrer');
   const entry={route:String(route),body:JSON.parse(options.body),completed:false};sent.push(entry);
   const flight=(async()=>{
-   const response=await h.request(route,{method:options.method,body:options.body,headers:options.headers,signal:options.signal});
+   if(String(route)==='/founder/review/command'&&beforeCommand){const hook=beforeCommand;beforeCommand=null;await hook(entry);}
+   const actual=h.request(route,{method:options.method,body:options.body,headers:options.headers,signal:options.signal});
+   if(String(route)==='/founder/review/command'&&earlyDrop){
+    const wait=earlyDrop;earlyDrop=null;flights.add(actual);
+    actual.then(response=>{entry.status=response.status;entry.completed=true;flights.delete(actual);},()=>flights.delete(actual));
+    await wait;throw Error('Invented client reply loss while actual HTTP command is still in flight');
+   }
+   const response=await actual;
    entry.status=response.status;entry.completed=true;
    if(String(route)==='/founder/review/command'&&lose){lose=false;throw Error('Invented lost actual HTTP command response');}
    // Real browser response.json creates objects in that browser's realm.
@@ -128,7 +136,7 @@ async function browser(f,h){
  async function confirmed(){await until(()=>$('review-notes')&&$('review-status').textContent.startsWith('Original TEST command independently acknowledged'),'independent ACK and authorized reread');}
  async function record(note='Invented browser checklist only.',values=ALL_CHECKS){for(const k of checks)tick(k,values[k]);input('review-notes',note);await click('review-record');await confirmed();}
  async function polls(n=3){const before=sent.filter(x=>x.route==='/founder/review/list'&&x.completed).length;await until(()=>sent.filter(x=>x.route==='/founder/review/list'&&x.completed).length>=before+n,'multiple completed authority polls');}
- return {w,$,text,sent,choose,input,select,tick,click,confirmed,record,polls,stop,lose(){lose=true;}};
+ return {w,$,text,sent,choose,input,select,tick,click,confirmed,record,polls,stop,dropBeforeReply(wait){earlyDrop=wait;},beforeCommand(fn){beforeCommand=fn;},lose(){lose=true;}};
 }
 
 // Canonical full rows, not counts: review operations must leave all other
@@ -256,7 +264,7 @@ test('review UI: lost actual replies retain original identity through ACK uncert
   f.reviewOutage(outage);b.lose();for(const k of checks)b.tick(k,true);b.input('review-notes','Invented original recovery notes.');await b.click('review-record');
   await until(()=>b.$('review-error').textContent.includes('Outcome unknown'),'lost transport result');
   const original=b.sent.find(x=>x.route==='/founder/review/command').body;
-  assert.equal(await count(f,'review_slice_commands'),1);assert.equal(await count(f,'review_slice_reviews'),1);assert.equal(await count(f,'review_slice_acknowledgements'),outage?0:1);
+  assert.equal(await count(f,'review_slice_commands'),1);assert.equal(await count(f,'review_slice_reviews'),outage?0:1);assert.equal(await count(f,'review_slice_acknowledgements'),outage?0:1);
   await b.polls(3);assert.equal(b.$('review-view').childElementCount,0);assert(!b.text().includes(words));assert(!b.text().includes('Invented original recovery notes.'));assert(!b.$('review-status').textContent.includes('independently acknowledged and reread'));
   assert.equal(b.sent.filter(x=>x.route==='/founder/review/command').length,1,'polling cannot dispatch a replacement');assert(b.text().includes(original.command.command_id));
   if(outage){
@@ -321,4 +329,38 @@ test('review UI: hidden/pagehide clear private controls, stop polling/requests; 
  });
  // The child test's fixture after-hook has now run, including its path guards.
  await assert.rejects(()=>access(reviewDirectory),e=>e.code==='ENOENT');await assert.rejects(()=>access(generationDirectory),e=>e.code==='ENOENT');
+});
+
+test('review UI: real stale-source409 reconciles retired absence then explicitly rereads and saves fresh evidence',async t=>{
+ const f=await reviewFixture(t),s=await readyReviewRequest(f),h=await founderHost(f),b=await browser(f,h);await b.choose(s);let hookReached=false;
+ b.beforeCommand(async()=>{hookReached=true;const g=await f.generation.read(f.founderToken,{...s,job_id:null});await f.generation.command(f.founderToken,draftCommand(s,'EditRevision',g.job,{revision_id:g.job.current_revision_id,field:'opening',value:'Invented source changed immediately before HTTP submit.'}));});
+ for(const k of checks)b.tick(k,true);b.input('review-notes','Invented stale UI evidence.');await b.click('review-record');await until(()=>b.sent.some(x=>x.route==='/founder/review/command'&&x.completed&&x.status===409),'actual stale409');assert(hookReached);const id=b.sent.find(x=>x.route==='/founder/review/command').body.command.command_id;assert.equal(await count(f,'review_slice_commands'),0);
+ await b.click('review-reconcile');await until(()=>b.$('review-dismiss'),'explicit final-absence dismissal');assert(b.text().includes('permanently retired'));assert(!b.text().includes('Founder or test authority changed'));assert(b.$('review-request').value);assert.equal(b.sent.find(x=>x.route==='/founder/review/reconcile').body.command_id,id);
+ await b.click('review-dismiss');await until(()=>b.$('review-notes')&&!b.$('review-record').disabled,'reread current revision');await b.record('Invented fresh review after exact absent-key retirement.');const records=b.sent.filter(x=>x.route==='/founder/review/command');assert.notEqual(records.at(-1).body.command.command_id,id);assert.equal((await reviewRead(f,s)).review.notes,'Invented fresh review after exact absent-key retirement.');assert.equal(await count(f,'review_slice_absences'),1);
+});
+test('review UI: stale pending original Retry conflicts then reconcile exposes fenced dismissal',async t=>{
+ const f=await reviewFixture(t),s=await readyReviewRequest(f),h=await founderHost(f),b=await browser(f,h);await b.choose(s);f.reviewOutage(true);for(const k of checks)b.tick(k,true);b.input('review-notes','Invented uncertain stale review.');await b.click('review-record');await until(()=>b.sent.some(x=>x.route==='/founder/review/command'&&x.completed&&x.status===202)&&b.$('review-retry')&&!b.$('review-retry').disabled,'actual primary-only original response');assert.equal(await count(f,'review_slice_commands'),1);const original=b.sent.find(x=>x.route==='/founder/review/command').body.command.command_id;
+ const g=await f.generation.read(f.founderToken,{...s,job_id:null});await f.generation.command(f.founderToken,draftCommand(s,'EditRevision',g.job,{revision_id:g.job.current_revision_id,field:'opening',value:'Invented changed source while original review pending.'}));f.reviewOutage(false);
+ await b.click('review-retry');await until(()=>b.sent.some(x=>x.route==='/founder/review/command'&&x.completed&&x.status===409),'original retry409');await b.click('review-reconcile');await until(()=>b.$('review-dismiss'),'fenced explicit dismissal');assert(b.text().includes('permanently fenced'));assert.equal(b.sent.filter(x=>x.route==='/founder/review/command').every(x=>x.body.command.command_id===original),true);assert.equal(await count(f,'review_slice_reviews'),0);await b.click('review-dismiss');await until(()=>b.$('review-notes'),'new source reread');await b.record('Invented fresh review after fenced dismissal.');
+});
+test('review client: recovery responses require exact ids, shape, HTTP200 and status-specific version range',async()=>{
+ const input={household_id:randomUUID(),request_id:randomUUID(),scope_version:1,command_id:randomUUID()};
+ const response=(value,status)=>({ok:status>=200&&status<300,status,headers:{get:()=> 'application/json'},json:async()=>value});
+ for(const kind of ['review_command_absent','review_command_fenced']){
+  const value={status:kind,synthetic_only:true,command_id:input.command_id,version:kind==='review_command_absent'?0:1};assert.equal((await createReviewClient(async()=>response(value,200)).reconcile(input)).status,kind);
+  for(const [bad,http]of [[{...value,extra:true},200],[value,202],[{...value,command_id:randomUUID()},200],[{...value,version:-1},200],...(kind==='review_command_fenced'?[[{...value,version:0},200]]:[])])await assert.rejects(()=>createReviewClient(async()=>response(bad,http)).reconcile(input));
+ }
+});
+
+test('review UI: actual request scope correction clears pending private state without acknowledgement',async t=>{
+ const f=await reviewFixture(t),s=await readyReviewRequest(f,'Invented old scoped private question.'),h=await founderHost(f),b=await browser(f,h);await b.choose(s);f.reviewOutage(true);for(const k of checks)b.tick(k,true);b.input('review-notes','Invented scope-bound pending note.');await b.click('review-record');await until(()=>b.$('review-reconcile'),'pending intent');const original=b.sent.find(x=>x.route==='/founder/review/command').body.command.command_id;
+ const d=(await f.queueAdapter.familyRead(f.adult.sessionToken,{selection:f.selection(),request_id:s.request_id})).request;await f.queueAdapter.familyCommand(f.adult.sessionToken,{selection:f.selection(),command:{command_id:randomUUID(),request_id:s.request_id,expected_version:d.aggregate_version,consent_epoch:1,action:'CorrectRequest',payload:{question:'Invented actually corrected request scope.',parent_context:null}}});
+ await until(()=>!b.$('review-request').value&&b.$('review-view').childElementCount===0,'obsolete scope cleared');assert(!b.text().includes('Invented scope-bound pending note.'));assert(!b.text().includes('independently acknowledged and reread'));assert.equal((await f.db.query('SELECT * FROM review_slice_acknowledgements WHERE command_id=$1',[original])).rows.length,0);await assert.rejects(()=>f.review.reconcile(f.founderToken,{...s,command_id:original}),e=>e.status===409&&e.code==='conflict');
+});
+
+test('review UI: actual unknown in-flight command cannot appear after absent retirement and explicit dismissal',async t=>{
+ const f=await reviewFixture(t),s=await readyReviewRequest(f),h=await founderHost(f),b=await browser(f,h);await b.choose(s);let signal,release,reachedHold=false;const reached=new Promise(r=>signal=r),gate=new Promise(r=>release=r);
+ b.beforeCommand(()=>f.beforeReviewSourceRead(async()=>{reachedHold=true;signal();await gate;}));b.dropBeforeReply(reached);
+ for(const k of checks)b.tick(k,true);b.input('review-notes','Invented still-running uncertain command.');await b.click('review-record');await reached;await until(()=>b.$('review-reconcile')&&!b.$('review-reconcile').disabled,'unknown original outcome while server held');assert(reachedHold);
+ const first=b.sent.find(x=>x.route==='/founder/review/command'),id=first.body.command.command_id;assert.equal(first.completed,false);await b.click('review-reconcile');await until(()=>b.$('review-dismiss'),'final retired absence');assert(b.text().includes('permanently retired'));assert.equal(await count(f,'review_slice_commands'),0);await b.click('review-dismiss');await until(()=>b.$('review-notes'),'explicit reread before releasing original');release();await until(()=>first.completed,'original server command finishes');assert.equal(first.status,409);assert.equal(await count(f,'review_slice_commands'),0);assert.equal(await count(f,'review_slice_reviews'),0);assert.equal(await count(f,'review_slice_snapshots'),0);await b.record('Invented explicit fresh review after late old command denied.');assert.notEqual(b.sent.filter(x=>x.route==='/founder/review/command').at(-1).body.command.command_id,id);
 });

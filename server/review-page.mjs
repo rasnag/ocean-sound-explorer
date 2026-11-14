@@ -60,7 +60,7 @@ function reviewBrowser(createClient){
  }
  function recover(){
   if(!visible())return;
-  const stamp=JSON.stringify([key(selection),commandId(intent),intent?.kind,intent?.ack?.version,intent?.rejected,writing,pending]);
+  const stamp=JSON.stringify([key(selection),commandId(intent),intent?.kind,intent?.ack?.version,intent?.rejected,intent?.resolved,writing,pending]);
   if(stamp===recoveryStamp)return;const focus=focusState();recoveryStamp=stamp;recovery.replaceChildren();
   if(!intent&&!pending.length){restoreFocus(focus);return;}
   const box=section('Original command recovery');
@@ -68,7 +68,10 @@ function reviewBrowser(createClient){
   if(intent){
    paragraph(box,'Original command ID: '+commandId(intent));
    if(intent.ack)paragraph(box,'An independent acknowledgement was received. A fresh authorized reread is still required before confirmation.');
-   if(intent.rejected){
+   if(intent.resolved){
+    paragraph(box,intent.resolved==='review_command_absent'?'The original key is permanently retired without a committed command. It cannot finish later. No save occurred.':'The original command is permanently fenced. No acknowledgement or review effect was applied.');
+    button(box,'review-dismiss','Dismiss resolved command and reread',()=>{intent=null;pending=[];recoveryStamp='';hide();recover();lock();void refresh(true);},writing);
+   }else if(intent.rejected){
     paragraph(box,'This command was explicitly rejected. No successful save is claimed.');
     button(box,'review-dismiss','Dismiss rejected command and reread',()=>{intent=null;pending=[];recoveryStamp='';hide();recover();lock();void refresh(true);},writing);
    }else{
@@ -113,7 +116,7 @@ function reviewBrowser(createClient){
    hide(true);pending=next.pending;recover();status.textContent='Confirmation pending. No private question, draft or checklist is shown.';lock();return;
   }
   pending=[];
-  if(intent&&!confirmed){hide(true);recover();status.textContent='Original command outcome is not yet confirmed. Retry or reconcile that original command explicitly.';lock();return;}
+  if(intent&&!confirmed){hide(true);recover();status.textContent=intent.resolved?'Original command resolved without a saved effect. Dismiss it explicitly and reread.':'Original command outcome is not yet confirmed. Retry or reconcile that original command explicitly.';lock();return;}
   const stamp=JSON.stringify(next);
   if(stamp===rendered&&view){recover();if(focus)$('review-source-heading')?.focus();lock();return;}
   const savedFocus=focusState(),openDetails=new Set([...container.querySelectorAll('details[open]')].map(e=>e.id));
@@ -208,7 +211,7 @@ function reviewBrowser(createClient){
   intent={kind:'command',input:hold(envelope),ack:null,rejected:false};void perform('command');
  }
  async function perform(kind){
-  if(!visible()||writing||!intent||!selection||intent.rejected)return;
+  if(!visible()||writing||!intent||!selection||intent.rejected||intent.resolved)return;
   const original=intent;if(key(original.input)!==key(selection))return;
   ++sequence;abortReads();const guard=sequence,c=new AbortController();controllers.add(c);writing=true;pending=[];hide();recoveryStamp='';recover();lock();error.textContent='';status.textContent='TEST command confirmation pending. Nothing is confirmed saved.';
   let reread=false;
@@ -216,12 +219,13 @@ function reviewBrowser(createClient){
    const input=kind==='command'?original.input:{...scope(original.input),command_id:commandId(original)};
    const result=await api[kind](input,{signal:c.signal});if(!visible()||guard!==sequence||intent!==original)return;
    if(result.status==='acknowledged'){original.ack=result;reread=true;status.textContent='Checking an independently authorized reread before confirmation…';}
+   else if(['review_command_absent','review_command_fenced'].includes(result.status)){original.ack=null;original.resolved=result.status;status.textContent='Original command resolved without a saved effect. Dismiss it explicitly and reread.';}
    else{original.ack=null;status.textContent='Primary-only or pending result. Not saved. Explicitly retry or reconcile the original command.';reread=true;}
   }catch(e){
    if(!visible()||guard!==sequence||intent!==original)return;
    if(e.status===401||e.status===403){denied('Current founder or test authority changed. Private details are hidden.');return;}
    original.rejected=[400,413,415].includes(e.status);
-   error.textContent=original.rejected?'Command rejected. Use bounded plain invented notes and the complete seven-boolean checklist. Dismiss this rejection before editing.':e.status===409?'CAS or source-pin conflict. The original key is retained. Check current source; reconciliation may require the local controller.':'Outcome unknown. Retain this page and explicitly retry or reconcile the original command.';
+   error.textContent=original.rejected?'Command rejected. Use bounded plain invented notes and the complete seven-boolean checklist. Dismiss this rejection before editing.':e.status===409?'CAS or source-pin conflict. The original key is retained. Check current source; reconcile the original key, then dismiss only a confirmed absent or fenced command.':'Outcome unknown. Retain this page and explicitly retry or reconcile the original command.';
   }finally{
    controllers.delete(c);
    if(guard===sequence){writing=false;recoveryStamp='';recover();lock();if(reread)void refresh(true);}

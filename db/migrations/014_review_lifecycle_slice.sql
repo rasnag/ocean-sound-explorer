@@ -122,3 +122,16 @@ CREATE TABLE review_slice_withdrawals (
 );
 CREATE TRIGGER review_slice_withdrawal_immutable BEFORE UPDATE ON review_slice_withdrawals
  FOR EACH ROW EXECUTE FUNCTION loop_source_immutable();
+
+-- Internal, bounded key retirement. This is no ACK or review evidence.
+CREATE TABLE review_slice_absences (
+ household_id uuid NOT NULL REFERENCES households ON DELETE CASCADE,
+ command_id uuid NOT NULL,
+ request_id uuid NOT NULL,
+ actor_id uuid NOT NULL REFERENCES founder_identities(identity_id),
+ recorded_at timestamptz NOT NULL,
+ PRIMARY KEY(household_id,command_id),
+ FOREIGN KEY(household_id,request_id) REFERENCES wonder_requests(household_id,request_id) ON DELETE CASCADE
+);
+CREATE TRIGGER review_slice_absence_immutable BEFORE UPDATE ON review_slice_absences
+ FOR EACH ROW EXECUTE FUNCTION loop_source_immutable();
