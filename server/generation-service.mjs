@@ -150,12 +150,12 @@ export async function createSyntheticGenerationService(input){
   });return row?await finish(token,start.s,row):null;}catch{/* No private acknowledgement or late publication. Pending/lease is recovered explicitly. */return null;}
  }
  async function execute(token,start){
-  const controller=new AbortController();active.set(workerKey(start.s,start.job_id),{controller});let timedOut=false;const timer=setTimeout(()=>{timedOut=true;controller.abort();},limits.provider_timeout_ms);let raw=null;
+  const controller=new AbortController();active.set(workerKey(start.s,start.job_id),{controller});let timedOut=false,timer;let raw=null;
   try{
    await authority(token,start.s,async(tx)=>{const j=await job(tx,start.s,start.job_id);if(j.state!=='running'||integer(j.fence)!==start.fence)fail('conflict');const rows=await journalCheck(tx,start.s.household_id);if(rows.some(r=>!r.ack))fail('journal_unavailable');});
    // Only this branded module can run. It owns no HTTP/client/key capability.
-   const selected=provider.forCase(start.mock_case);if(!isSyntheticMockProvider(selected))fail('configuration_missing');raw=await selected.generate(start.input,{signal:controller.signal});validateFixtureDraft(raw);await complete(token,start,'draft_ready',raw);
-  }catch(e){await complete(token,start,timedOut?'uncertain':e.code==='unsupported'?'unsupported':'failed',raw,e.code??'mock_failed');}
+   const selected=provider.forCase(start.mock_case);if(!isSyntheticMockProvider(selected))fail('configuration_missing');timer=setTimeout(()=>{timedOut=true;controller.abort();},limits.provider_timeout_ms);raw=await selected.generate(start.input,{signal:controller.signal});clearTimeout(timer);validateFixtureDraft(raw);await complete(token,start,'draft_ready',raw);
+  }catch(e){clearTimeout(timer);await complete(token,start,timedOut?'uncertain':e.code==='unsupported'?'unsupported':'failed',raw,e.code??'mock_failed');}
   finally{clearTimeout(timer);active.delete(workerKey(start.s,start.job_id));}
  }
  async function list(token,input){

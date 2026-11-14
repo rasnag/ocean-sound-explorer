@@ -83,8 +83,8 @@ function generationBrowser(createClient){
  }
  async function poll(){
   if(!live||document.visibilityState==='hidden'||writing||listFlight)return;listFlight=true;const guard=sequence;
-  try{const r=await api.list({});if(!live||guard!==sequence)return;const old=key(selection);setRows(r.requests);if(old&&!rows.some(row=>key(row)===old)){++sequence;abortReads();selection=null;intent=null;clearPrivate();status.textContent='Request access or scope changed. Private details hidden.';return;}if(selection&&!reading&&!dirty&&!intent)await read(false);else if(!selection)status.textContent=rows.length?'Choose an accepted test request.':'No currently accepted test requests are available.';}
-  catch(e){if(!live||guard!==sequence)return;denied(e.status===401||e.status===403?'Founder access changed. Sign in again.':'Current access could not be confirmed. Private details hidden.');}
+  try{const r=await api.list({});if(!live||guard!==sequence)return;const old=key(selection);setRows(r.requests);if(old&&!rows.some(row=>key(row)===old)){++sequence;abortReads();selection=null;intent=null;clearPrivate();status.textContent='Request access or scope changed. Private details hidden.';return;}if(selection&&!reading&&!dirty&&(!intent||!conflict))await read(false);else if(!selection)status.textContent=rows.length?'Choose an accepted test request.':'No currently accepted test requests are available.';}
+  catch(e){if(!live||guard!==sequence)return;if(e.status===401||e.status===403)denied('Founder access changed. Sign in again.');else{abortReads();clearPrivate();status.textContent='Current access could not be confirmed. Private details hidden.';error.textContent='Service unavailable. Keep the original pending change for recovery.';recover();}}
   finally{listFlight=false;lock();}
  }
  select.addEventListener('change',()=>{if(writing||intent)return;++sequence;abortReads();clearPrivate();error.textContent='';selection=select.value===''?null:rows[Number(select.value)];if(selection)void read(true);else status.textContent='Choose an accepted request.';});
