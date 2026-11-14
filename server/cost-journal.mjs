@@ -160,8 +160,8 @@ export async function createSyntheticCostJournal(input){
   const journal=Object.freeze({
    namespace_verifier:namespace,
    claimFreshNamespace(){return checked(async()=>{
-    if(!fresh||claimed)fail('recovery_quarantined');claimed=true;fresh=false;return namespace;
-   });},
+    if(!fresh||claimed)return null;claimed=true;fresh=false;return namespace;
+   }).then(value=>{if(value===null)fail('recovery_quarantined');return value;});},
    seal(value){return checked(()=>delegate.seal(costFact(value)));},
    fact(value){return checked(()=>{
     const f=delegate.fact(value);try{return costFact(f);}catch{fail('recovery_quarantined');}
