@@ -20,7 +20,7 @@ const error=code=>Object.assign(new Error('Local synthetic cost journal unavaila
 const fail=code=>{throw error(code);};
 const normalize=e=>error(Object.hasOwn(statuses,e?.code)?e.code:'journal_unavailable');
 const hex=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
-const markerName='cost-namespace.json',logName='queue-journal.log',FORMAT='cost-journal-v1';
+const markerName='cost-namespace.json',logName='queue-journal.log',FORMAT='cost-journal-v2';
 const actions=['CaptureAttempt','OpenComparison','RecordAttemptUsage','RecordScenarioCash','RecordStageTime'];
 const identity=s=>String(s.dev)+':'+String(s.ino);
 
@@ -97,11 +97,14 @@ export async function createSyntheticCostJournal(input){
     if(identity(s)!==identity(entry)||s.size!==entry.size)fail('recovery_quarantined');
     bytes=Buffer.alloc(s.size);let offset=0;
     while(offset<bytes.length){const r=await reader.read(bytes,offset,bytes.length-offset,offset);if(!r.bytesRead)fail('recovery_quarantined');offset+=r.bytesRead;}
-    const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
-    const m=ownData(parseStrictJSON(text),['format','namespace_verifier','directory_identity','log_identity','mac']);
-    const body={format:m.format,namespace_verifier:m.namespace_verifier,directory_identity:m.directory_identity,log_identity:m.log_identity};
+    let text,m;
+    try{
+     text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+     m=ownData(parseStrictJSON(text),['format','namespace_verifier','directory_identity','log_identity','marker_identity','mac']);
+    }catch{fail('recovery_quarantined');}
+    const body={format:m.format,namespace_verifier:m.namespace_verifier,directory_identity:m.directory_identity,log_identity:m.log_identity,marker_identity:m.marker_identity};
     if(m.format!==FORMAT||!hex(m.namespace_verifier)||!hex(m.mac)||canonical(m)+'\n'!==text
-     ||m.directory_identity!==identity(initialDirectory)||m.log_identity!==identity(log)
+     ||m.directory_identity!==identity(initialDirectory)||m.log_identity!==identity(log)||m.marker_identity!==identity(s)
      ||!timingSafeEqual(Buffer.from(m.mac,'hex'),Buffer.from(markerMAC(body),'hex'))
      ||namespace!==undefined&&m.namespace_verifier!==namespace||markerText!==undefined&&markerText!==text)fail('recovery_quarantined');
     const after=await lstat(filename);protectedFile(after,2048);
@@ -122,15 +125,16 @@ export async function createSyntheticCostJournal(input){
   if(fresh){
    namespace=delegate.namespace_verifier;
    const log=await lstat(logfile);protectedFile(log,16*1024*1024);logIdentity=identity(log);logSize=log.size;
-   const body={format:FORMAT,namespace_verifier:namespace,directory_identity:identity(initialDirectory),log_identity:logIdentity};
-   const bytes=Buffer.from(canonical({...body,mac:markerMAC(body)})+'\n');
    const writer=await open(filename,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW??0),0o600);
+   let bytes;
    try{
     const initial=await writer.stat();
     if(!initial.isFile()||initial.nlink!==1)fail('recovery_quarantined');
+    const body={format:FORMAT,namespace_verifier:namespace,directory_identity:identity(initialDirectory),log_identity:logIdentity,marker_identity:identity(initial)};
+    bytes=Buffer.from(canonical({...body,mac:markerMAC(body)})+'\n');
     let offset=0;while(offset<bytes.length){const r=await writer.write(bytes,offset,bytes.length-offset,null);if(!r.bytesWritten)fail('journal_unavailable');offset+=r.bytesWritten;}
     await writer.sync();markerStat=await writer.stat();protectedFile(markerStat,2048);
-   }finally{bytes.fill(0);await writer.close();}
+   }finally{bytes?.fill(0);await writer.close();}
    if(process.platform!=='win32'){
     const dir=await open(directory,constants.O_RDONLY);try{await dir.sync();}finally{await dir.close();}
    }
