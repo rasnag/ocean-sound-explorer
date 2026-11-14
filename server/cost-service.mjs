@@ -272,14 +272,14 @@ async function build(input){
    if(!eligible(j,s,a))continue;
    if(!terminals.includes(j.state)){blocked.push(j.job_id);continue;}
    const meta=current.attempts.find(t=>t.job_id===j.job_id);
-   if(!meta){if(j.state!=='cancelled'||j.fence!==0||j.version!==2)fail('source_metadata_unavailable');continue;}
+   if(!meta){if(j.state!=='cancelled'||j.fence!==1||j.version!==2)fail('source_metadata_unavailable');continue;}
    const t=await first(tx,'SELECT job_id,attempt_id,completion_id,fence,started_at,lease_until,state FROM generation_slice_attempts WHERE household_id=$1 AND job_id=$2 FOR UPDATE',[a.h,j.job_id]);
-   if(!t||t.attempt_id!==meta.attempt_id||t.completion_id!==meta.completion_id||t.state!==j.state||t.state!==meta.state||dbint(t.fence,1)!==j.fence)fail('source_metadata_unavailable');
+   if(!t||t.attempt_id!==meta.attempt_id||t.completion_id!==meta.completion_id||t.state!==j.state||t.state!==meta.state||dbint(t.fence,1)!==(j.state==='cancelled'?j.fence-1:j.fence))fail('source_metadata_unavailable');
    const dispatch=current.commands.find(c=>c.command_id===t.attempt_id&&c.job_id===j.job_id),completion=current.commands.find(c=>c.command_id===t.completion_id&&c.job_id===j.job_id);
    if(!dispatch?.ack||dispatch.aggregate_version!==2||j.state!=='cancelled'&&!completion?.ack)fail('source_metadata_unavailable');
    const started_at=instant(t.started_at,'source_metadata_unavailable'),lease_until=instant(t.lease_until,'source_metadata_unavailable');
    if(Date.parse(lease_until)<Date.parse(started_at))fail('source_metadata_unavailable');
-   out.push({job_id:j.job_id,attempt_id:t.attempt_id,completion_id:t.completion_id,state:j.state,fence:j.fence,started_at,lease_until,
+   out.push({job_id:j.job_id,attempt_id:t.attempt_id,completion_id:t.completion_id,state:j.state,fence:dbint(t.fence,1),started_at,lease_until,
     revision_ids:current.revisions.filter(r=>r.job_id===j.job_id).map(r=>r.revision_id).sort(),dispatch_state:'unknown',failure_class:null,latency_ms:null,
     usage_kind:'mock',provider_usage:null,estimated_cash:null,billed_cash:null,cash_state:'unknown',classification});
   }
