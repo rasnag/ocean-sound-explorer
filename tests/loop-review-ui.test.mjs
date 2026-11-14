@@ -233,6 +233,14 @@ test('review UI: actual edits and regeneration clear eligibility; correction and
  assert.equal(v.snapshots.length,3);assert.equal(v.snapshots[2].predecessor_snapshot_id,v.snapshots[1].snapshot_id);assert.deepEqual(v.request.receipt,receipt);assert.deepEqual(v.snapshots[0].adventure,old.adventure);assert.deepEqual(await protectedRows(f),baseline);
 });
 
+test('review UI: generation primary-only edit preserves accepted selection, hides private state, then refreshes the new revision',async t=>{
+ const f=await reviewFixture(t),s=await readyReviewRequest(f),h=await founderHost(f),b=await browser(f,h);await b.choose(s);await b.record('Invented original review before pending source edit.');const old=(await reviewRead(f,s)).revision;
+ const g=await f.generation.read(f.founderToken,{...s,job_id:null}),edit=draftCommand(s,'EditRevision',g.job,{revision_id:g.job.current_revision_id,field:'opening',value:'Invented acknowledged successor after pending source edit.'});f.generationOutage(true);
+ assert.equal((await f.generation.command(f.founderToken,edit)).status,'retryable_unacknowledged');await until(()=>b.sent.some(x=>x.route==='/founder/review/read'&&x.completed&&x.status===503),'actual generation-pending readiness failure');await b.polls(2);
+ assert.equal(JSON.parse(b.$('review-request').value)[1],s.request_id,'Pending generation must not be mistaken for revoked request authority');assert.equal(b.$('review-view').childElementCount,0);assert(!b.text().includes('Invented original review before pending source edit.'));assert(json(await h.post('/founder/review/list',{})).requests.some(x=>x.request_id===s.request_id));assert.equal((await h.post('/founder/review/read',s)).status,503);
+ f.generationOutage(false);assert.equal((await f.generation.reconcile(f.founderToken,{...s,command_id:edit.command.command_id})).status,'acknowledged');const v=await currentUI(b,f,s);assert.notEqual(v.revision.revision_id,old.revision_id);assert.equal(v.review,null);assert.equal(v.readiness.eligible,false);assert.equal(JSON.parse(b.$('review-request').value)[1],s.request_id);assert.equal(b.$('review-notes').value,'');assert(b.$('review-release').disabled);
+});
+
 test('review UI: unsent checklist, notes, correction and withdrawal choices survive multiple actual polls',async t=>{
  const f=await reviewFixture(t),s=await readyReviewRequest(f),h=await founderHost(f),b=await browser(f,h);await b.choose(s);await b.record();await b.click('review-release');await b.confirmed();const old=(await reviewRead(f,s)).snapshots[0];
  const g=await f.generation.read(f.founderToken,{...s,job_id:null});await f.generation.command(f.founderToken,draftCommand(s,'EditRevision',g.job,{revision_id:g.job.current_revision_id,field:'opening',value:'Invented unsent-control successor.'}));await currentUI(b,f,s);

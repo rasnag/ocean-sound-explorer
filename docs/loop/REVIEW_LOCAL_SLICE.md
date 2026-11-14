@@ -59,3 +59,7 @@ Only after actual controller gates and independent feature PASS may the existing
 ### Root execution checkpoint
 
 After this response-only draft was applied, root corrected new test-fixture host/option parsing and existing401/403 expectations without changing runtime auth. All28new actual service/HTTP/DOM checks then passed together in64.752s. Earlier failed runs, including a source-refresh timeout, remain preserved; the timeout also passed in isolation and the corrected combined run. Exact-source whole checks, native CUA and actual feature review are recorded by the controller and final planning slice receipt, not inferred from this drafting text. Full05-A/05-B/05-G stay OPEN.
+
+### Generation readiness versus request authority
+
+An accepted request stays in the authorized list while its generation edit is primary-only/journal-pending. Private read and review mutations still fail closed503 until the original generation command is independently acknowledged. Pending readiness is not consent/scope revocation. Actual revoked/changed request authority still removes the request. This fixes the actual browser-reproduced selection-loss race and is covered by a deterministic generation-journal-outage HTTP/DOM test, not an increased wait or assertion relaxation. After reconciliation the current source rereads with no inherited review. Three focused source/unsent/withdrawal checks passed; full new-source checks and CUA remain controller-owned.

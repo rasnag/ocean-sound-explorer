@@ -347,7 +347,12 @@ async function buildService(input){
   for(const r of q.requests){
    const s=copy(scope({household_id:r.household_id,request_id:r.request_id,scope_version:r.scope_version}));
    try{
-    await authority(token,s,async(tx,a)=>{await currentPin(tx,s,a);});out.push(s);
+    await authority(token,s,async(tx,a)=>{
+     // A valid accepted scope remains selectable while generation awaits its
+     // independent journal. Pending readiness is not an authority revocation;
+     // read/command still fail closed until the original generation key ACKs.
+     try{await currentPin(tx,s,a);}catch(e){if(e?.code!=='journal_unavailable')throw e;}
+    });out.push(s);
    }catch(e){if(!['denied','conflict','journal_unavailable'].includes(e?.code))throw e;}
   }
   // Recheck all listed scopes after the potentially held queue response.
