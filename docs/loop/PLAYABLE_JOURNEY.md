@@ -1,0 +1,33 @@
+# Local synthetic playable journey
+
+Implemented candidate, not verified completion. Authored BUILD2 checks have NOT RUN BY THE AUTHOR. Full cards05-A/B/G,08-A/B,09-A and real-world gates remain OPEN; accepted07-A/B remain DONE. Historical quarantine remains UNKNOWN with its diagnostics.
+
+Use an interactive terminal on the same computer, from the application checkout:
+
+```text
+node server/journey-local.mjs
+```
+
+An optional single argument is an absolute canonical dedicated store directory outside, and not an ancestor of, the application. The default is the sibling `journey-local-store`. The CLI prints the actual parent and founder loopback origins. It requires interactive stdin; a noninteractive invocation does not advertise a running server. It starts no public listener. Only the two loopback HTTP listeners are intended; native verification must confirm no wildcard or WebSocket24678 listener.
+
+Use invented `@example.invalid` identities only. Open the parent origin `/`. Signup and verification use the actual local issuer, with simulated delivery: type `inbox` in the console deliberately to read captured challenges. Review TEST consent, then create the first invented child. That actual setup automatically starts one TEST household period: eight uses/24h. The family control **Test trial: check availability** confirms or repairs that same activation. It cannot reset, extend or create a second trial. Expired remains expired; reconsent does not restore earlier profiles.
+
+Type a new invented question, preserving the exact words. Save it, then explicitly confirm production. A save alone books nothing. Keep its original receipt and +24h deadline. Type `operator` in the console to see the invented username/password and current OTP. The TOTP seed and private keys are not printed by this command or served over HTTP.
+
+On the founder origin, sign in, open the queue and accept the same request. In mock generation explicitly request and start the fixed deterministic mock. In TEST review deliberately inspect the exact revision, record its TEST checklist and release a TEST snapshot. This is invented evidence, not scientific, factual, human or privacy endorsement. Open **TEST private readiness and actual activity** from founder home, select that actual snapshot and explicitly make it privately ready. Uncertain readiness keeps its original command for status/reconcile; it does not silently publish another assignment.
+
+Return to the parent family page, choose the same child, open the introduction and click **Start or resume this TEST investigation**. Only a confirmed real Start mounts the accepted saved player. Predict, choose a position, Test, and wait for confirmation. Observe the actual try. Refresh/reopen and use the saved investigation: it resumes the same persisted play. No raw `/saved` HTTP routes or Replay controls are exposed by this composition. The source question remains visible beside the fixed toy mismatch warning. Arbitrary questions are not scientifically answered by this two-rule toy.
+
+The founder activity control reads actual verified server events and separate action/event watermarks. Times are SERVER-ACCEPTED; client clock claims are not chronology. Pending/unacknowledged history, absent Start time, incomplete plays and unavailable engine1 help are explicit. This view never acknowledges, appends or repairs saves, and never impersonates a parent. It infers no mastery, completion, aha or quotation. Corrupt/gapped history fails closed.
+
+`quit`, Ctrl-C or SIGTERM closes HTTP, Vite and core resources and preserves primary, journal and key identities. Restart with the same directory. If the directory is partial, redirected, unmanaged or incompatible, startup refuses rather than replacing keys or resetting data. An abandoned lock or partial initialization needs deliberate local diagnosis; no automatic reset is implemented. Deleting a store is a separate explicit user action after every resource is closed.
+
+The store is local private synthetic state, including credentials and attributable toy records. No real email, identity verification, AI provider, payment, public offer, real consent, delivery, hosting or admission is implemented. The landing's thirteen stage IDs describe code wiring, with signup/setup/trial/mock-generation/review marked SIMULATED. Other implemented capabilities are capture,submit,readiness,play,save,reload,resume,activity; this is not a tester-completion or acceptance record. Actual combined checks and source-bound browser evidence remain required before tryable handoff.
+
+Developer contracts: `createProtectedJourney({env,directory,serve?})` returns two UNLISTENED protected servers, `close` and async trusted-process-only `getDemoState`. PGlite is exactly `directory/primary`. No second primary connection may be opened while the core lives. Tests/probes close HTTP/core first, inspect independently, close that connection, then reopen. A final owner demo must use a fresh dedicated directory distinct from verification stores; no test families or workflow records are preseeded.
+
+Parent POST bodies are exact: context/trial `{view_context,child_id}`; start adds assignment_id,revision_id,command_id; open adds assignment_id,revision_id,play_id; action adds assignment_id,revision_id,play_id,command. No null play, root household/epoch/identity or extra keys. Start returns journey_started|journey_pending with mode,production_ready,assignment_id,revision_id,play_id,result. Context returns journey_context,mode,production_ready,available,view_context,child_id,profile_version. Trial returns journey_trial,mode,production_ready,test_only,state,activation_id,entitlement_id,period_id,policy_version,allowance,trial_start,trial_end. Open is exactly the accepted five-key saved envelope; action is the accepted raw receipt. New client validation and raw owning guards both apply.
+
+Founder prefix `/founder/journey` has protected page/js/css and POST list,read,ready,status,reconcile,activity. Ready takes household_id,request_id,scope_version,snapshot_id,command_id; status/reconcile omit snapshot_id. Activity takes household_id,request_id,child_id,assignment_id,revision_id and only actual founder credentials. No service means404. All prefix assets/API share strict Host/Origin/header/body guards.
+
+The adopted launcher/saved-binding workers remain attributed to pins a25a663d8abbd1186f8f1710b2699f85af41abf5 and fc955e4caba46954dd85fdd084dec3663069dde5, on original base956dfce. Their preliminary code reviews are not combined acceptance. Their original documentation remains historical; this document describes the actual Root CLI candidate. Shared architecture1.2 digest: 02adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79.

@@ -3,6 +3,8 @@ import {createFamilySpaceClient} from '../lib/loop/family-space-client.mjs';
 import {createContinuationClient} from '../lib/loop/continuation-client.mjs';
 import {createQueueClient} from '../lib/loop/queue-client.mjs';
 import LoopWonderCapture,{type WonderScope} from './LoopWonderCapture';
+import LoopSavedPlayer,{type SavedPlayerIntegration} from './LoopSavedPlayer';
+import {createJourneyClient} from '../lib/loop/journey-client.mjs';
 import './loop-family-home.css';
 type Child={child_id:string;profile_version:number;nickname:string;is_initial:boolean};
 type Source={request_id:string;source_scope_version:number;question:string};
@@ -83,6 +85,40 @@ export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied
   </div>}
  </section>;
 }
+const journey=createJourneyClient(transport);
+function JourneyPlayPanel({scope,home,entry,onDenied}:{scope:WonderScope|null;home:Home|null;entry:Entry|null;onDenied:()=>void}){
+ const [available,setAvailable]=useState(false),[message,setMessage]=useState(''),[working,setWorking]=useState(false);
+ type Active={integration:SavedPlayerIntegration;lease:ReturnType<typeof journey.bind>;assignment:Assignment;scopeKey:string};
+ const [active,setActive]=useState<Active|null>(null),activeRef=useRef<Active|null>(null),intent=useRef<{key:string;command_id:string}|null>(null);
+ const live=useRef(false),version=useRef(0),checkSequence=useRef(0),denied=useRef(onDenied),currentKey=useRef('');denied.current=onDenied;
+ const key=JSON.stringify([scope?.view_context,scope?.child_id,scope?.profile_version]);currentKey.current=key;
+ const close=useCallback(()=>{++version.current;activeRef.current?.lease.close();activeRef.current=null;setActive(null);setWorking(false);},[]);
+ useLayoutEffect(()=>{close();setAvailable(false);setMessage('');intent.current=null;},[key,close]);
+ useEffect(()=>{live.current=true;const hide=()=>{close();setAvailable(false);setMessage('Private play cleared. Recheck access and explicitly reopen it.');};const visibility=()=>{if(document.visibilityState==='hidden')hide();};window.addEventListener('pagehide',hide);document.addEventListener('visibilitychange',visibility);return()=>{live.current=false;close();window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',visibility);};},[close]);
+ useEffect(()=>{
+  const sequence=++checkSequence.current,guard=version.current;
+  if(!scope||!home||document.visibilityState==='hidden'){setAvailable(false);close();return;}
+  if(activeRef.current&&!home.ready.some(a=>a.assignment_id===activeRef.current?.assignment.assignment_id&&a.revision_id===activeRef.current?.assignment.revision_id)){close();}
+  void journey.context({view_context:scope.view_context,child_id:scope.child_id}).then(result=>{if(!live.current||sequence!==checkSequence.current||currentKey.current!==key)return;if(result.profile_version!==scope.profile_version)throw Object.assign(Error('Changed profile'),{status:403});setAvailable(true);}).catch((e:unknown)=>{if(!live.current||sequence!==checkSequence.current||currentKey.current!==key)return;setAvailable(false);close();if((e as {status?:number}).status===403)denied.current();});
+ },[home,key,scope?.view_context,scope?.child_id,scope?.profile_version,close]);
+ async function trial(){if(!scope||working)return;const guard=version.current;setWorking(true);try{const result=await journey.trial({view_context:scope.view_context,child_id:scope.child_id});if(!live.current||guard!==version.current)return;setMessage('TEST trial confirmed: '+result.state+' · '+result.allowance+' uses · '+date(result.trial_start)+' to '+date(result.trial_end)+'. No reset or extension.');}catch(e){if(live.current&&guard===version.current){setMessage('TEST trial could not be confirmed.');if((e as {status?:number}).status===403){close();denied.current();}}}finally{if(live.current&&guard===version.current)setWorking(false);}}
+ async function start(){
+  if(!scope||!entry||working||!available)return;const assignment=entry.assignment,target=JSON.stringify([key,assignment.assignment_id,assignment.revision_id]);
+  if(!intent.current||intent.current.key!==target)intent.current={key:target,command_id:crypto.randomUUID()};
+  const guard=version.current;setWorking(true);setMessage('Checking the original TEST Start…');
+  try{
+   const result=await journey.start({view_context:scope.view_context,child_id:scope.child_id,assignment_id:assignment.assignment_id,revision_id:assignment.revision_id,command_id:intent.current.command_id});
+   if(!live.current||guard!==version.current||currentKey.current!==key||document.visibilityState==='hidden')return;
+   if(result.status!=='journey_started'){setMessage('Start pending. Retry this same Start; no second play is created.');return;}
+   activeRef.current?.lease.close();const bindingVersion=version.current;
+   const lease=journey.bind({view_context:scope.view_context,child_id:scope.child_id,assignment_id:assignment.assignment_id,revision_id:assignment.revision_id,play_id:result.play_id},{profileVersion:scope.profile_version,current:()=>live.current&&version.current===bindingVersion&&currentKey.current===key&&document.visibilityState!=='hidden',onDenied:()=>{close();denied.current();}});
+   const value={lease,assignment,scopeKey:key,integration:{mode:'authenticated-existing-play' as const,playId:result.play_id,bindingKey:crypto.randomUUID(),request:lease.request}};
+   activeRef.current=value;setActive(value);setMessage('Original assigned TEST play confirmed.');
+  }catch(e){if(live.current&&guard===version.current){setMessage('Start not confirmed. Retry the original Start.');if((e as {status?:number}).status===403){close();denied.current();}}}
+  finally{if(live.current&&guard===version.current)setWorking(false);}
+ }
+ return <section aria-label="Protected TEST journey">{available&&<><p>TEST trial already starts after the first successful child setup. Eight uses / 24 hours is an invented test fixture, not an offer.</p><button type="button" disabled={working} onClick={()=>void trial()}>Test trial: check availability</button>{entry&&!active&&<button type="button" disabled={working} onClick={()=>void start()}>Start or resume this TEST investigation</button>}</>}{message&&<p role="status">{message}</p>}{active&&active.scopeKey===key&&<section aria-label="Current protected play"><h2>Original question</h2><p className="family-question">{active.assignment.question}</p><p>Fixed deterministic balance/tips toy. An unrelated question remains a mismatch; this is not real AI or a validated science answer.</p><button type="button" onClick={close}>Close private play</button><LoopSavedPlayer integration={active.integration}/></section>}</section>;
+}
 export default function LoopFamilyHome(){
  const [index,setIndex]=useState<Index|null>(null),[home,setHome]=useState<Home|null>(null),[entry,setEntry]=useState<Entry|null>(null);
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[captureScope,setCaptureScope]=useState<WonderScope|null>(null),[captureFence,setCaptureFence]=useState(0),[continuationState,setContinuationState]=useState<string|null>(null),[queueLocked,setQueueLocked]=useState(false);
@@ -117,7 +153,7 @@ export default function LoopFamilyHome(){
  const captureAcknowledged=useCallback(async()=>{setNotice('');const next=authority.current,child=selected.current;if(next&&child)await read(next,child);},[read]);
  const lockQueue=useCallback((locked:boolean)=>setQueueLocked(locked),[]);
  const queueUncertain=useCallback(()=>{++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setNotice('Request change awaiting confirmation. Check its original command or pending reference below.');},[]);
- useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState!=='hidden')void refresh();};const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);document.removeEventListener('visibilitychange',check);};},[refresh]);
+ useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState==='hidden'){clearSelection();authority.current=null;setIndex(null);}else void refresh();};const hide=()=>{clearSelection();authority.current=null;setIndex(null);};window.addEventListener('pagehide',hide);const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',check);};},[refresh,clearSelection]);
  function choose(position:string){const next=authority.current,child=next?.children?.[Number(position)];clearSelection();setError('');if(position===''||!next?.view_context||!child){setBusy(false);return;}selected.current=child;setCaptureScope({view_context:next.view_context,child_id:child.child_id,profile_version:child.profile_version,nickname:child.nickname});setBusy(true);void read(next,child);}
  async function open(item:Assignment|Play,kind:'assignment'|'play'){
   const selectedHome=chosen.current;if(!selectedHome)return;const guard=generation.current,id=++openSequence.current;setBusy(true);setEntry(null);setError('');setNotice('');
@@ -145,6 +181,7 @@ export default function LoopFamilyHome(){
    <section className="family-continuation" aria-label="Test continuation status"><h3>Continuation status</h3>{continuationState==='confirmation_pending'?<p role="status">Test continuation awaiting confirmation. It adds no usable allowance.</p>:continuationState==='recorded_active'?<p>Test continuation recorded. No payment was collected or verified.</p>:continuationState==='recorded_expired'?<p>Test continuation ended. No renewal occurs.</p>:continuationState==='none'?<p>No test continuation recorded. Contact the founder for help; no purchase or sending is available here.</p>:<p>Continuation status could not be confirmed. No purchase or paid status is claimed.</p>}<button type="button" onClick={()=>void refresh()}>Refresh continuation and family details</button></section>
    <section><h3>Trial and allowance</h3>{home.allowances.length?home.allowances.map(a=><div key={a.period_id} className="family-card"><p>{a.policy_version==='TEST-CONTINUATION-v1'?(a.state==='expired'?'Test continuation ended':'Test continuation recorded'):(a.state==='expired'?'Trial ended':'Trial active')} · {a.allocation_scope==='household'?'Shared family allowance':'This child’s allowance'}</p><p>{date(a.trial_start)} to {date(a.trial_end)}</p>{a.remaining===0&&<p>No allowance remaining in this period. Existing requests and permitted investigations stay listed. New production eligibility needs a separate current check.</p>}<p>{a.remaining} {a.state==='expired'?'remaining in ended period':'available'} · {a.pending} pending · {a.reserved} reserved · {a.consumed} used · {a.released} released</p>{a.pending_readiness>0&&<p>{a.pending_readiness} awaiting readiness confirmation, already counted as used.</p>}{a.state==='expired'&&<><p>{a.policy_version==='TEST-CONTINUATION-v1'?'Test continuation ended — contact the founder.':'Trial ended — contact the founder.'}</p><p>Previously submitted requests keep their submission-time eligibility. Existing permitted investigations and saved progress remain available. New requests need a separate current eligibility check.</p></>}</div>):<p>Trial not activated. Opening this page does not start one.</p>}</section>
   </article>}
+  <JourneyPlayPanel scope={captureScope} home={home} entry={entry} onDenied={captureDenied}/>
   {home&&entry&&<section className="family-entry" aria-label="Opened investigation"><h2>{entry.receipt?'Saved investigation':'Investigation introduction'}</h2><p className="family-question">{entry.assignment.question}</p><p>{entry.adventure.opening}</p><p>{entry.adventure.limits}</p><p>Grown-up: read together and ask what your child thinks will happen.</p>{entry.receipt&&<><h3>Confirmed tries</h3>{entry.receipt.checkpoint.state.trials.length?entry.receipt.checkpoint.state.trials.map((t,i)=><p key={i}>Try {i+1}: predicted {t.prediction}, placed {t.configuration}, result {t.outcome}.</p>):<p>No confirmed tests in this play yet.</p>}</>}<p>This local view opens the exact introduction or confirmed saved record. It does not start a new play.</p><button type="button" onClick={()=>setEntry(null)}>Close investigation view</button></section>}
  </main>;
 }

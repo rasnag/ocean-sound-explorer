@@ -372,11 +372,18 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
       return operation(async()=>{
         if(!privateAuthority)throw playError('denied');
         const before=await transact(async tx=>{const entry=await authorize(tx,s,founderToken,true);return chain(tx,s,entry);});
+        const identity=row=>{
+          const action=Object.hasOwn(row,'action_id');
+          exactObject(row,['household_id','play_id',action?'action_id':'command_id',...(action?['sequence']:[]),'canonical_digest','command',...(action?['server_at']:[]),'result','journal_record','ack_state']);
+          const out={household_id:row.household_id,play_id:row.play_id,id:action?row.action_id:row.command_id,canonical_digest:row.canonical_digest,command:row.command,result:row.result,journal_record:row.journal_record,ack_state:row.ack_state};
+          if(action){const n=Number(row.sequence);if(!Number.isSafeInteger(n)||n<1||typeof row.server_at!=='string')throw playError('recovery_required');Object.assign(out,{sequence:n,server_at:row.server_at});}
+          return out;
+        };
         const all=[before.start,...before.commands],accepted=all.filter(row=>row.ack_state==='acknowledged');
         for(const row of accepted)await verifyJournal(row);
         await transact(async tx=>{
           const entry=await authorize(tx,s,founderToken,true),after=await chain(tx,s,entry);
-          if(!equal([before.start,...before.commands],[after.start,...after.commands]))throw playError('recovery_required');
+          if(!equal([before.start,...before.commands].map(identity),[after.start,...after.commands].map(identity)))throw playError('recovery_required');
         });
         const bound=await transact(async tx=>{
           await authorize(tx,s,founderToken,true);

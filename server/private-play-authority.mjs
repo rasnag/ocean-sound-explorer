@@ -58,7 +58,18 @@ export function createPrivatePlayAuthority({env,db,access,bridge,clock=Date.now}
   if(!c||c.state!=='active'||c.policy_version!=='TEST-v1'||epoch!==undefined&&number(c.consent_epoch)!==epoch)fail('denied');
   return number(c.consent_epoch);
  }
- async function initial(tx,s){return first(tx,'SELECT * FROM journey_play_bindings WHERE household_id=$1 AND assignment_id=$2',[s.household_id,s.assignment_id]);}
+ async function initial(tx,s){
+  const row=await first(tx,'SELECT * FROM journey_play_bindings WHERE household_id=$1 AND assignment_id=$2',[s.household_id,s.assignment_id]);
+  if(!row)return undefined;
+  exactObject(row,['household_id','assignment_id','child_id','revision_id','consent_epoch','profile_version','play_id','start_command_id','started_at']);
+  if(['household_id','assignment_id','child_id','revision_id','play_id','start_command_id'].some(k=>!journeyUUID(row[k])))fail('recovery_required');
+  const ms=row.started_at instanceof Date?row.started_at.getTime():typeof row.started_at==='string'?Date.parse(row.started_at):NaN;
+  if(!Number.isSafeInteger(ms)||ms<0||ms>253402300799999)fail('recovery_required');
+  const started_at=new Date(ms).toISOString();if(typeof row.started_at==='string'&&row.started_at!==started_at)fail('recovery_required');
+  // Normalize ONLY the trusted driver's persisted timestamp/integer columns.
+  // The strict journal canonicalizer and all JSON payload validation stay unchanged.
+  return {...row,consent_epoch:number(row.consent_epoch),profile_version:number(row.profile_version),started_at};
+ }
  async function load(tx,s,adultId,lock){
   const h=s.household_id;
   const hint=await first(tx,'SELECT request_id FROM assignments WHERE household_id=$1 AND assignment_id=$2',[h,s.assignment_id]);
