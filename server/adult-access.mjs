@@ -1,6 +1,8 @@
 import {randomBytes, randomUUID, createHash} from 'node:crypto';
 import {resolveLoopConfig} from '../lib/loop/environment.mjs';
 
+const accessDatabases = new WeakMap();
+export const isSyntheticAdultAccess = (value,db) => accessDatabases.get(value) === db;
 const fields = ['challengeTtlMs','sessionTtlMs','resendCooldownMs','requestWindowMs','maxRequests','maxVerifyAttempts'];
 const hash = value => createHash('sha256').update(value).digest('hex');
 const tokenOK = value => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value)
@@ -47,10 +49,20 @@ export async function createSyntheticAdultAccess(options = {}) {
     await db.query('SELECT singleton FROM adult_access_throttle WHERE singleton=true');
   } catch { throw failure(); }
 
+  // Only actual transactions created by this DB/access instance may invoke the
+  // session guard. Trusted owning services use ownTransaction, never nested withSession.
+  const ownedTransactions=new WeakSet();
+  async function ownTransaction(work) {
+    if(typeof work!=='function')throw failure(400);
+    return db.transaction(async tx=>{
+      ownedTransactions.add(tx);
+      try{return await work(tx);}finally{ownedTransactions.delete(tx);}
+    });
+  }
   async function transaction(work,preserveDomainErrors=false) {
     for (let attempt=0; attempt<3; attempt++) {
       try {
-        return await db.transaction(async tx => {
+        return await ownTransaction(async tx => {
           // Universal issuer lock, then household -> account -> challenge -> session.
           // Also used by session/logout/setup: no inverse service lock acquisition.
           const throttle = (await tx.query('SELECT * FROM adult_access_throttle WHERE singleton=true FOR UPDATE')).rows[0];
@@ -196,15 +208,22 @@ export async function createSyntheticAdultAccess(options = {}) {
     });
     return signedOut();
   }
-  async function withSession(token,callback) {
+  async function requireSessionInTransaction(tx,token) {
     const denied=()=>Object.assign(new Error('Synthetic account unavailable.'),{code:'denied',status:403});
-    if(!tokenOK(token)||typeof callback!=='function')throw denied();
-    return transaction(async(tx,_row,at)=>{
-      const found=await bySession(tx,token);
-      if(!found||!found.identity.enabled||found.session.revoked_at
-        ||at<new Date(found.session.issued_at).getTime()||at>=new Date(found.session.expires_at).getTime())throw denied();
-      return callback(tx,Object.freeze({adultId:found.identity.adult_id,householdId:found.identity.household_id}));
-    },true);
+    if(!ownedTransactions.has(tx)||tx.closed||!tokenOK(token))throw denied();
+    // FIRST lock even for raw owning transactions: issuer -> household -> account -> session.
+    const throttle=(await tx.query('SELECT singleton FROM adult_access_throttle WHERE singleton=true FOR UPDATE')).rows[0];
+    if(!throttle)throw denied();
+    const at=now(),found=await bySession(tx,token);
+    if(!found||!found.identity.enabled||found.session.revoked_at
+      ||at<new Date(found.session.issued_at).getTime()||at>=new Date(found.session.expires_at).getTime())throw denied();
+    return Object.freeze({adultId:found.identity.adult_id,householdId:found.identity.household_id});
   }
-  return Object.freeze({request,verify,session,logout,seedAccount,withSession});
+  async function withSession(token,callback) {
+    if(typeof callback!=='function')throw Object.assign(new Error('Synthetic account unavailable.'),{code:'denied',status:403});
+    return transaction(async tx=>callback(tx,await requireSessionInTransaction(tx,token)),true);
+  }
+  const adapter=Object.freeze({request,verify,session,logout,seedAccount,withSession,ownTransaction,requireSessionInTransaction});
+  accessDatabases.set(adapter,db);
+  return adapter;
 }

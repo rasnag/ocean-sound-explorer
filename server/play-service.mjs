@@ -3,6 +3,7 @@ import {resolveLoopConfig} from '../lib/loop/environment.mjs';
 import {createPlayer,validateAdventure} from '../lib/loop/player-engine.mjs';
 import {createAssistedPlayer,validateAssistedAdventure} from '../lib/loop/assisted-player.mjs';
 import {canonical,digest,exactObject,isSyntheticPlayJournal,playError} from './play-journal.mjs';
+import {isPrivatePlayAuthority} from './private-play-authority.mjs';
 
 const scopeKeys=['household_id','child_id','assignment_id','play_id','revision_id','consent_epoch'];
 const startKeys=['contract_version','command_id','play_id','consent_epoch','revision_id','pattern_version','engine_version'];
@@ -103,12 +104,14 @@ const pending=row=>({status:'retryable_unacknowledged',mode:'local-synthetic',pr
   play_id:row.result.play_id,action_id:row.result.action_id,primary_commit_id:row.result.primary_commit_id});
 
 /** Synchronous construction; all stateful operations below are async. */
-export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.now}) {
+export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.now,privateAuthority}) {
   resolveLoopConfig(env);
   if(!db || typeof db.transaction!=='function' || typeof db.query!=='function'
     || !isSyntheticPlayJournal(journal) || typeof clock!=='function'
     || !Array.isArray(catalog) || !catalog.length) throw playError('validation_failed');
   canonical(catalog);
+  if(privateAuthority!==undefined&&!isPrivatePlayAuthority(privateAuthority,db))throw playError('validation_failed');
+  const transact=privateAuthority?work=>privateAuthority.transaction(work):work=>db.transaction(work);
   const entries=new Map();
   for(const item of catalog) {
     exactObject(item,['household_id','revision_id','spec','starting_path','starting_reason']);
@@ -129,7 +132,25 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
   const key=s=>s.household_id+':'+s.play_id;
   const params=s=>[s.household_id,s.play_id];
   async function rows(tx,sql,args) { return (await tx.query(sql,args)).rows; }
-  async function authorize(tx,scope) {
+  async function privatelyOwned(tx,scope) {
+    // Plain ownership detection BEFORE any locks. Missing adapter/token cannot fall
+    // through to legacy fixtures, even with a damaged/missing bridge binding.
+    if((await rows(tx,'SELECT version FROM schema_migrations WHERE version=16')).length!==1)return false;
+    const found=await rows(tx,`SELECT 1 FROM adventure_revisions WHERE household_id=$1 AND revision_id=$2 AND payload_ref LIKE 'private-bridge:%'
+      UNION ALL SELECT 1 FROM private_bridge_bindings WHERE household_id=$1 AND (revision_id=$2 OR assignment_id=$3)
+      UNION ALL SELECT 1 FROM private_bridge_commands c WHERE c.household_id=$1 AND c.request_id IN (
+       SELECT request_id FROM assignments WHERE household_id=$1 AND assignment_id=$3
+       UNION SELECT request_id FROM adventure_revisions WHERE household_id=$1 AND revision_id=$2) LIMIT 1`,[scope.household_id,scope.revision_id,scope.assignment_id]);
+    return found.length!==0;
+  }
+  async function authorize(tx,scope,credential,founderRead=false) {
+    const owned=await privatelyOwned(tx,scope);
+    if(founderRead&&!owned)throw playError('denied');
+    let actor;
+    if(owned){
+      if(!privateAuthority)throw playError('denied');
+      actor=founderRead?await privateAuthority.founder(tx,credential):await privateAuthority.parent(tx,credential,scope);
+    }
     const household=await rows(tx,'SELECT household_id FROM households WHERE household_id=$1 FOR UPDATE',[scope.household_id]);
     if(household.length!==1) throw playError('denied');
     const consent=await rows(tx,'SELECT consent_epoch,state,policy_version FROM service_consents WHERE household_id=$1 ORDER BY consent_epoch DESC LIMIT 1 FOR UPDATE',[scope.household_id]);
@@ -148,6 +169,10 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
     const child=await rows(tx,'SELECT child_id FROM children WHERE household_id=$1 AND child_id=$2',[scope.household_id,scope.child_id]);
     if(publication.length!==1||child.length!==1||assignment.length!==1
       || assignment[0].request_id!==requestId || assignment[0].child_id!==scope.child_id || assignment[0].revision_id!==scope.revision_id) throw playError('denied');
+    if(owned){
+      await privateAuthority.assert(tx,scope,entry,actor);
+      if(founderRead&&(await privateAuthority.founder(tx,credential)).identityId!==actor.identityId)throw playError('denied');
+    }
     return entry;
   }
   async function chain(tx,scope,entry) {
@@ -212,7 +237,7 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
       health.state='journal_unavailable';throw playError('recovery_required');
     }
   }
-  async function confirm(scope,row) {
+  async function confirm(scope,row,credential) {
     try {
       const reference=await journal.append(clone(row.journal_record));
       if(reference!==row.result.durability_ref) throw playError('recovery_required');
@@ -222,8 +247,8 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
       return pending(row);
     }
     try {
-      await db.transaction(async tx=>{
-        const entry=await authorize(tx,scope),history=await chain(tx,scope,entry);
+      await transact(async tx=>{
+        const entry=await authorize(tx,scope,credential),history=await chain(tx,scope,entry);
         const target=row.result.action_id===null?history.start:history.commands.find(c=>c.action_id===row.result.action_id);
         if(!target||!equal(target.journal_record,row.journal_record)) throw playError('recovery_required');
         if(target.ack_state==='pending') {
@@ -242,11 +267,12 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
     health.state='healthy';
     return clone(row.result);
   }
-  async function receipt(scope,row) {
-    if(row.ack_state==='pending') return confirm(scope,row);
+  async function receipt(scope,row,credential) {
+    if(row.ack_state==='pending') return confirm(scope,row,credential);
     await verifyJournal(row);
-    // Journal IO is outside the transaction. Recheck current authorization afterwards.
-    await db.transaction(async tx=>{const entry=await authorize(tx,scope);await chain(tx,scope,entry);});
+    // Journal IO is outside the transaction. Current credential and frozen source
+    // are checked again inside the raw owning transaction before disclosure.
+    await transact(async tx=>{const entry=await authorize(tx,scope,credential);await chain(tx,scope,entry);});
     return clone(row.result);
   }
   function prepare(scope,input,kind) {
@@ -264,11 +290,13 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
   }
   return Object.freeze({
     health:()=>({state:health.state}),
-    async start(scope,input) {
+    async start(scope,input,credential) {
       const [s,c]=prepare(scope,input,'start');
       return operation(async()=>{
-        const row=await db.transaction(async tx=>{
-          const entry=await authorize(tx,s);
+        const row=await transact(async tx=>{
+          const entry=await authorize(tx,s,credential);
+          const owned=await privatelyOwned(tx,s),initial=owned?await privateAuthority.initial(tx,s):null;
+          if(initial&&(initial.play_id!==s.play_id||initial.start_command_id!==c.command_id))throw playError('conflict');
           if(c.engine_version!==entry.spec.engine_version) throw playError('validation_failed');
           const sameId=await rows(tx,'SELECT * FROM play_start_commands WHERE household_id=$1 AND command_id=$2',[s.household_id,c.command_id]);
           if(sameId.length) {
@@ -284,16 +312,17 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
           await tx.query('INSERT INTO play_service_metadata(household_id,play_id,binding) VALUES($1,$2,$3::jsonb)',[...params(s),canonical(binding(entry,s))]);
           await tx.query('INSERT INTO play_start_commands(household_id,play_id,command_id,canonical_digest,command,result,journal_record) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb)',[...params(s),c.command_id,record.command_digest,canonical(c),canonical(result),canonical(record)]);
           await tx.query('INSERT INTO play_checkpoints(household_id,play_id,checkpoint) VALUES($1,$2,$3::jsonb)',[...params(s),canonical(result.checkpoint)]);
+          if(owned)await privateAuthority.bindInitial(tx,s,c);
           return {command_id:c.command_id,command:c,canonical_digest:record.command_digest,result,journal_record:record,ack_state:'pending'};
         });
-        return receipt(s,row);
+        return receipt(s,row,credential);
       });
     },
-    async commit(scope,input) {
+    async commit(scope,input,credential) {
       const [s,c]=prepare(scope,input,'action');
       return operation(async()=>{
-        const row=await db.transaction(async tx=>{
-          const entry=await authorize(tx,s),history=await chain(tx,s,entry);
+        const row=await transact(async tx=>{
+          const entry=await authorize(tx,s,credential),history=await chain(tx,s,entry);
           const duplicate=history.commands.find(row=>row.action_id===c.action_id);
           if(duplicate) {
             if(duplicate.canonical_digest!==digest({scope:s,command:c})) throw playError('conflict');
@@ -318,22 +347,53 @@ export function createSyntheticPlayService({db,env,catalog,journal,clock=Date.no
           if(changed.length!==1) throw playError('conflict');
           return {action_id:c.action_id,command:c,canonical_digest:record.command_digest,result,journal_record:record,ack_state:'pending'};
         });
-        return receipt(s,row);
+        return receipt(s,row,credential);
       });
     },
-    async resume(scope,input) {
+    async resume(scope,input,credential) {
       const [s]=prepare(scope,input,'resume');
       return operation(async()=>{
-        const latest=await db.transaction(async tx=>{const entry=await authorize(tx,s);return (await chain(tx,s,entry)).latest;});
+        const latest=await transact(async tx=>{const entry=await authorize(tx,s,credential);return (await chain(tx,s,entry)).latest;});
         if(latest.ack_state!=='acknowledged') return pending(latest);
-        return receipt(s,latest);
+        return receipt(s,latest,credential);
       });
     },
-    async reconcile(scope) {
+    async reconcile(scope,credential) {
       const s=validateSyntheticPlayScope(scope);
       return operation(async()=>{
-        const latest=await db.transaction(async tx=>{const entry=await authorize(tx,s);return (await chain(tx,s,entry)).latest;});
-        return receipt(s,latest);
+        const latest=await transact(async tx=>{const entry=await authorize(tx,s,credential);return (await chain(tx,s,entry)).latest;});
+        return receipt(s,latest,credential);
+      });
+    },
+    // Founder-only verified read. No append/confirm/receipt/reconcile invocation;
+    // a pending save stays pending. No parent token or adult issuer rows are used.
+    async verifiedFounderHistory(scope,founderToken) {
+      const s=validateSyntheticPlayScope(scope);
+      return operation(async()=>{
+        if(!privateAuthority)throw playError('denied');
+        const before=await transact(async tx=>{const entry=await authorize(tx,s,founderToken,true);return chain(tx,s,entry);});
+        const all=[before.start,...before.commands],accepted=all.filter(row=>row.ack_state==='acknowledged');
+        for(const row of accepted)await verifyJournal(row);
+        await transact(async tx=>{
+          const entry=await authorize(tx,s,founderToken,true),after=await chain(tx,s,entry);
+          if(!equal([before.start,...before.commands],[after.start,...after.commands]))throw playError('recovery_required');
+        });
+        const bound=await transact(async tx=>{
+          await authorize(tx,s,founderToken,true);
+          return privateAuthority.initial(tx,s);
+        });
+        if(!bound||bound.play_id!==s.play_id)throw playError('recovery_required');
+        const latest=accepted.at(-1),events=accepted.filter(row=>row.action_id).flatMap(row=>clone(row.result.events));
+        const waiting=all.filter(row=>row.ack_state==='pending');
+        return {status:'journey_activity',mode:'local-synthetic',production_ready:false,
+          household_id:s.household_id,child_id:s.child_id,assignment_id:s.assignment_id,revision_id:s.revision_id,play_id:s.play_id,
+          state:waiting.length?'pending_confirmation':events.length?'confirmed_activity':'no_confirmed_actions',
+          start_at:before.start.ack_state==='acknowledged'?new Date(bound.started_at).toISOString():null,
+          start_time_source:before.start.ack_state==='acknowledged'?'owning-Start-transaction':'unavailable',
+          timestamp_provenance:'SERVER-ACCEPTED',events,
+          pending:waiting.map(row=>({action_id:row.result.action_id,action_sequence:row.result.checkpoint.last_action_sequence,status:'unacknowledged'})),
+          watermark:{action_sequence:latest?.result.checkpoint.last_action_sequence??0,event_sequence:latest?.result.checkpoint.last_event_sequence??0},
+          incomplete:true,help:entries.get(s.household_id+':'+s.revision_id).spec.engine_version==='fixture-engine-1'?'unavailable_for_this_toy_pattern':events.some(e=>e.event_type==='help_used')?'recorded':'none_recorded'};
       });
     },
   });
