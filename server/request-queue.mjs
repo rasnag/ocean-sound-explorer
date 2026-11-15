@@ -114,12 +114,30 @@ export async function createSyntheticRequestQueue(input){
   if(!r||!source||new Date(w.original_received_at).getTime()!==new Date(r.original_received_at).getTime()||new Date(r.original_due_at)-new Date(r.original_received_at)!==86400000)fail('recovery_quarantined');
   const words=await question(tx,{household_id:h,request_id:id,source_scope_version:integer(p.wonder_version,1),payload_ref:source.payload_ref}),receipt={receipt_id:r.receipt_id,request_id:id,booking_id:r.booking_id,claim_id:r.claim_id,period_id:r.period_id,original_received_at:iso(r.original_received_at).replace('.000Z','Z'),original_due_at:iso(r.original_due_at).replace('.000Z','Z'),deadline_interval_seconds:86400};return {w,p,source,receipt,question:words.question};
  }
+ // Immutable primary metadata is accounting only: no content, ACK or Start authority.
+ // Do not call public producer methods or reenter serializeQueueWork here.
+ async function readinessTime(tx,h,id){
+  const core=await first(tx,"SELECT revision_id FROM adventure_revisions WHERE household_id=$1 AND request_id=$2 AND payload_ref LIKE 'private-bridge:%' LIMIT 1",[h,id]);
+  const schema=await first(tx,"SELECT to_regclass('public.private_bridge_commands') AS commands,to_regclass('public.private_bridge_bindings') AS bindings,to_regclass('public.private_bridge_ready_events') AS events,to_regclass('public.private_bridge_namespace') AS namespace");
+  if(!schema.commands&&!schema.bindings&&!schema.events&&!schema.namespace){if(core)fail('recovery_quarantined');return null;}
+  if(!schema.commands||!schema.bindings||!schema.events||!schema.namespace)fail('recovery_quarantined');
+  const commands=(await tx.query('SELECT c.recorded_at,c.namespace_verifier,e.ready_at,n.namespace_verifier AS adopted,private_bridge_complete(c.household_id,c.command_id) AS complete FROM private_bridge_commands c LEFT JOIN private_bridge_ready_events e USING(household_id,command_id,request_id) LEFT JOIN private_bridge_namespace n ON n.singleton WHERE c.household_id=$1 AND c.request_id=$2',[h,id])).rows;
+  const binding=await first(tx,'SELECT command_id FROM private_bridge_bindings WHERE household_id=$1 AND request_id=$2',[h,id]);
+  if(!commands.length){if(core||binding)fail('recovery_quarantined');return null;}
+  if(commands.length!==1||!core||!binding)fail('recovery_quarantined');
+  const c=commands[0],ready=new Date(c.ready_at).getTime(),recorded=new Date(c.recorded_at).getTime();
+  if(c.complete!==true||!c.ready_at||!c.recorded_at||!Number.isFinite(ready)||ready!==recorded||!c.adopted||c.namespace_verifier!==c.adopted)fail('recovery_quarantined');
+  return ready;
+ }
  async function state(tx,h,id,child){
   const base=await original(tx,h,id,child),rows=bounded((await tx.query('SELECT * FROM queue_commands WHERE household_id=$1 AND request_id=$2 ORDER BY aggregate_version LIMIT 1001',[h,id])).rows),history=[];
   let current={request_id:id,question:base.question,current_question:base.question,parent_context:null,parent_context_ref:base.source.payload_ref,interpretation:null,scope_version:1,aggregate_version:0,storage_state:'submitted',scope_kind:'original',agreement_version:0,agreement:null,clarification:null,alternative:null,revised_estimate:null,late_update:null,fit:null,breach_observed:false,source_scope_version:integer(base.p.wonder_version,1)};
   for(const row of rows){const c=await checked(tx,row);if(!c.ack)fail('journal_unavailable');current=copy(c.f.effect.snapshot);history.push(copy(c.f.effect.history));}
-  if(current.question!==base.question||!same(current.receipt??base.receipt,base.receipt))fail('recovery_quarantined');const late=current.breach_observed||!terminal(current.storage_state)&&now()>Date.parse(base.receipt.original_due_at);
-  return {base,rows,current,detail:{...copy(current),receipt:base.receipt,state:publicState[current.storage_state],history,late,can_cancel:!terminal(current.storage_state),delivered:false}};
+  if(current.question!==base.question||!same(current.receipt??base.receipt,base.receipt))fail('recovery_quarantined');
+  const readyAt=await readinessTime(tx,h,id),due=Date.parse(base.receipt.original_due_at);
+  const late=readyAt===null?current.breach_observed||!terminal(current.storage_state)&&now()>due:readyAt>due;
+  const postready=await first(tx,"SELECT request_id FROM entitlement_claims WHERE household_id=$1 AND request_id=$2 AND state='consumed' UNION ALL SELECT request_id FROM assignments WHERE household_id=$1 AND request_id=$2 LIMIT 1",[h,id]);
+  return {base,rows,current,detail:{...copy(current),receipt:base.receipt,state:publicState[current.storage_state],history,late,can_cancel:!terminal(current.storage_state)&&!postready,delivered:false}};
  }
  async function project(tx,input){const v=ownData(input,['household_id','request_id','child_id','consent_epoch']);if(!uuid(v.household_id)||!uuid(v.request_id)||!uuid(v.child_id)||!positive(v.consent_epoch))fail('validation_failed');if(await consent(tx,v.household_id)!==v.consent_epoch)fail('denied');const st=await state(tx,v.household_id,v.request_id,v.child_id);if(integer(st.base.p.consent_epoch,1)!==v.consent_epoch)fail('denied');return st.detail;}
  async function currentScope(tx,input){const v=ownData(input,['household_id','request_id','child_id','consent_epoch','scope_version']);if(!positive(v.scope_version))fail('validation_failed');const d=await project(tx,{household_id:v.household_id,request_id:v.request_id,child_id:v.child_id,consent_epoch:v.consent_epoch});if(d.scope_version!==v.scope_version||terminal(d.storage_state)||d.clarification&&!d.clarification.answer||d.scope_kind==='alternative'&&d.agreement_version!==d.scope_version)fail('conflict');return {request_id:d.request_id,original_question:d.question,question:d.current_question,parent_context:d.parent_context,parent_context_ref:d.parent_context_ref,interpretation:d.interpretation,scope_version:d.scope_version,source_scope_version:d.source_scope_version,agreement_version:d.agreement_version,fit:copy(d.fit),generation_implemented:false};}
@@ -139,6 +157,7 @@ export async function createSyntheticRequestQueue(input){
   const row=await authorized(token,kind,h,s,async(tx,a)=>{
    if(c.consent_epoch!==a.epoch)fail('denied');const all=await commandRows(tx,a.h),prior=all.find(r=>r.command_id===c.command_id),d=digest(a.h,a.id,a.epoch,c);
    if(prior){await bind(tx,prior,a,c.request_id);if(prior.canonical_digest!==d)fail('conflict');return prior;}
+   if(c.action!=='PrepareLateUpdate'&&await first(tx,"SELECT request_id FROM entitlement_claims WHERE household_id=$1 AND request_id=$2 AND state='consumed' UNION ALL SELECT request_id FROM assignments WHERE household_id=$1 AND request_id=$2 LIMIT 1",[a.h,c.request_id]))fail('conflict');
    if(all.length>=1000)fail('configuration_missing');for(const r of all)if(!(await checked(tx,r)).ack)fail('journal_unavailable');
    const st=await state(tx,a.h,c.request_id,a.child);if(integer(st.base.p.consent_epoch,1)!==a.epoch)fail('denied');if(st.current.aggregate_version!==c.expected_version||terminal(st.current.storage_state))fail('conflict');
    const n=copy(st.current),scopes={},at=iso(now()),recordId=randomUUID(),commitId=randomUUID();if(!st.rows.length)scopes['1']={kind:'original',previous_scope_version:null,question:st.base.question,parent_context_ref:st.base.source.payload_ref};const from=n.storage_state,unresolved=n.clarification&&!n.clarification.answer;
