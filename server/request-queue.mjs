@@ -114,11 +114,28 @@ export async function createSyntheticRequestQueue(input){
   if(!r||!source||new Date(w.original_received_at).getTime()!==new Date(r.original_received_at).getTime()||new Date(r.original_due_at)-new Date(r.original_received_at)!==86400000)fail('recovery_quarantined');
   const words=await question(tx,{household_id:h,request_id:id,source_scope_version:integer(p.wonder_version,1),payload_ref:source.payload_ref}),receipt={receipt_id:r.receipt_id,request_id:id,booking_id:r.booking_id,claim_id:r.claim_id,period_id:r.period_id,original_received_at:iso(r.original_received_at).replace('.000Z','Z'),original_due_at:iso(r.original_due_at).replace('.000Z','Z'),deadline_interval_seconds:86400};return {w,p,source,receipt,question:words.question};
  }
+ // Immutable primary metadata is accounting only: no content, ACK or Start authority.
+ // Do not call public producer methods or reenter serializeQueueWork here.
+ async function readinessTime(tx,h,id){
+  const core=await first(tx,"SELECT revision_id FROM adventure_revisions WHERE household_id=$1 AND request_id=$2 AND payload_ref LIKE 'private-bridge:%' LIMIT 1",[h,id]);
+  const schema=await first(tx,"SELECT to_regclass('public.private_bridge_commands') AS commands,to_regclass('public.private_bridge_bindings') AS bindings,to_regclass('public.private_bridge_ready_events') AS events,to_regclass('public.private_bridge_namespace') AS namespace");
+  if(!schema.commands&&!schema.bindings&&!schema.events&&!schema.namespace){if(core)fail('recovery_quarantined');return null;}
+  if(!schema.commands||!schema.bindings||!schema.events||!schema.namespace)fail('recovery_quarantined');
+  const commands=(await tx.query('SELECT c.recorded_at,c.namespace_verifier,e.ready_at,n.namespace_verifier AS adopted,private_bridge_complete(c.household_id,c.command_id) AS complete FROM private_bridge_commands c LEFT JOIN private_bridge_ready_events e USING(household_id,command_id,request_id) LEFT JOIN private_bridge_namespace n ON n.singleton WHERE c.household_id=$1 AND c.request_id=$2',[h,id])).rows;
+  const binding=await first(tx,'SELECT command_id FROM private_bridge_bindings WHERE household_id=$1 AND request_id=$2',[h,id]);
+  if(!commands.length){if(core||binding)fail('recovery_quarantined');return null;}
+  if(commands.length!==1||!core||!binding)fail('recovery_quarantined');
+  const c=commands[0],ready=new Date(c.ready_at).getTime(),recorded=new Date(c.recorded_at).getTime();
+  if(c.complete!==true||!c.ready_at||!c.recorded_at||!Number.isFinite(ready)||ready!==recorded||!c.adopted||c.namespace_verifier!==c.adopted)fail('recovery_quarantined');
+  return ready;
+ }
  async function state(tx,h,id,child){
   const base=await original(tx,h,id,child),rows=bounded((await tx.query('SELECT * FROM queue_commands WHERE household_id=$1 AND request_id=$2 ORDER BY aggregate_version LIMIT 1001',[h,id])).rows),history=[];
   let current={request_id:id,question:base.question,current_question:base.question,parent_context:null,parent_context_ref:base.source.payload_ref,interpretation:null,scope_version:1,aggregate_version:0,storage_state:'submitted',scope_kind:'original',agreement_version:0,agreement:null,clarification:null,alternative:null,revised_estimate:null,late_update:null,fit:null,breach_observed:false,source_scope_version:integer(base.p.wonder_version,1)};
   for(const row of rows){const c=await checked(tx,row);if(!c.ack)fail('journal_unavailable');current=copy(c.f.effect.snapshot);history.push(copy(c.f.effect.history));}
-  if(current.question!==base.question||!same(current.receipt??base.receipt,base.receipt))fail('recovery_quarantined');const late=current.breach_observed||!terminal(current.storage_state)&&now()>Date.parse(base.receipt.original_due_at);
+  if(current.question!==base.question||!same(current.receipt??base.receipt,base.receipt))fail('recovery_quarantined');
+  const readyAt=await readinessTime(tx,h,id),due=Date.parse(base.receipt.original_due_at);
+  const late=readyAt===null?current.breach_observed||!terminal(current.storage_state)&&now()>due:readyAt>due;
   const postready=await first(tx,"SELECT request_id FROM entitlement_claims WHERE household_id=$1 AND request_id=$2 AND state='consumed' UNION ALL SELECT request_id FROM assignments WHERE household_id=$1 AND request_id=$2 LIMIT 1",[h,id]);
   return {base,rows,current,detail:{...copy(current),receipt:base.receipt,state:publicState[current.storage_state],history,late,can_cancel:!terminal(current.storage_state)&&!postready,delivered:false}};
  }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {mkdtemp,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join,resolve,dirname,basename} from 'node:path';
 import {reviewFixture,readyReviewRequest,recordAll,reviewRead,reviewCommand} from './loop-review-service.test.mjs';
+import {observeSyntheticReviewIntegrity} from '../server/review-journal.mjs';
 import {bookAccepted} from './loop-generation-service.test.mjs';
 import {createSyntheticPrivateBridgeJournal} from '../server/private-bridge-journal.mjs';
 import {createSyntheticPrivateBridge} from '../server/private-bridge.mjs';
@@ -12,6 +13,9 @@ import {createSyntheticPlayJournal} from '../server/play-journal.mjs';import {cr
 import {createSyntheticAdultAccessServer} from '../server/adult-http.mjs';
 import {fixtureAdventure} from '../lib/loop/fixture-adventure.mjs';
 export async function privateBridgeFixture(t){
+ const diagnostics=[];
+ const stopObserving=observeSyntheticReviewIntegrity(event=>{if(diagnostics.length<128){diagnostics.push(event);t.diagnostic?.('PRIVATE-READINESS integrity '+JSON.stringify(event));}});
+ t.after(stopObserving);
  const f=await reviewFixture(t),g=f.generationOptions(),keys=f.journalOptions().keys;
  const directory=await mkdtemp(join(tmpdir(),'loop-private-bridge-')),playDirectory=await mkdtemp(join(tmpdir(),'loop-private-bridge-'));
  let journal,bridge,family,playJournal,play,selected=null,outage=false,hook=null,sealHook=null,legacyCount=0;const servers=[],legacy=new Map();
@@ -35,7 +39,7 @@ export async function privateBridgeFixture(t){
  }
  f.cleanup(async()=>{for(const server of servers)if(server.listening)await new Promise(done=>{server.close(done);server.closeAllConnections?.();});bridge?.close();await journal?.close();await playJournal?.close();for(const dir of [directory,playDirectory]){assert.equal(dirname(resolve(dir)),resolve(tmpdir()));assert(basename(dir).startsWith('loop-private-bridge-'));await rm(dir,{recursive:true,force:true});}});
  await reopenBridge();
- return {...f,get generation(){return f.generation;},get review(){return f.review;},get founderToken(){return f.founderToken;},get family(){return family;},get bridge(){return bridge;},bridgeDirectory:directory,bridgeOptions,bridgeJournalOptions:journalOptions,bridgeOutage:v=>{outage=v;},beforeBridgeAppend:fn=>{hook=fn;},afterBridgeSeal:fn=>{sealHook=fn;},reopenBridge,prepareBridgePlay,playCalls:()=>({...calls}),legacyCalls:()=>legacyCount,seedLegacyControl,familyWith,async openFamilyServer(overrides={}){const forwarding={index:(...a)=>family.index(...a),read:(...a)=>family.read(...a),open:(...a)=>family.open(...a)};const server=createSyntheticAdultAccessServer({env:g.env,access:f.access,consent:f.consent,setup:f.setup,capture:f.capture,production:f.production,queue:f.queueAdapter,family:forwarding,...overrides});servers.push(server);await new Promise(done=>server.listen(0,'127.0.0.1',done));return {server,origin:'http://127.0.0.1:'+server.address().port};}};
+ return {...f,get generation(){return f.generation;},get review(){return f.review;},get founderToken(){return f.founderToken;},get family(){return family;},get bridge(){return bridge;},reviewDiagnostics:()=>diagnostics.slice(),bridgeDirectory:directory,bridgeOptions,bridgeJournalOptions:journalOptions,bridgeOutage:v=>{outage=v;},beforeBridgeAppend:fn=>{hook=fn;},afterBridgeSeal:fn=>{sealHook=fn;},reopenBridge,prepareBridgePlay,playCalls:()=>({...calls}),legacyCalls:()=>legacyCount,seedLegacyControl,familyWith,async openFamilyServer(overrides={}){const forwarding={index:(...a)=>family.index(...a),read:(...a)=>family.read(...a),open:(...a)=>family.open(...a)};const server=createSyntheticAdultAccessServer({env:g.env,access:f.access,consent:f.consent,setup:f.setup,capture:f.capture,production:f.production,queue:f.queueAdapter,family:forwarding,...overrides});servers.push(server);await new Promise(done=>server.listen(0,'127.0.0.1',done));return {server,origin:'http://127.0.0.1:'+server.address().port};}};
 }
 export async function readyBridgeSource(f,words='Invented private readiness question.'){
  const scope=await readyReviewRequest(f,words);await recordAll(f,scope);let view=await reviewRead(f,scope);

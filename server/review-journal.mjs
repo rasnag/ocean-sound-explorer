@@ -4,19 +4,39 @@
 // Queue encryption, committed-fact grammar, hash chain and fsync stay unchanged.
 // V1 stores remain historical evidence: this runtime never adopts or migrates them.
 // Existing exclusive private directory / Windows ACL ownership remain prerequisites.
-import {createHmac,timingSafeEqual} from 'node:crypto';
+import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {open,lstat,realpath,readdir} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {ownData,ownMethod,privateKey,environmentSnapshot,canonical,parseStrictJSON} from './continuation-journal.mjs';
 import {createSyntheticQueueJournal} from './queue-journal.mjs';
 
+// Trusted passive diagnostics. No private values, raw stacks or public fields.
+// Sink exceptions (including rejected promises) cannot affect the operation.
+const integrityObservers=new Set();
+export function observeSyntheticReviewIntegrity(sink){
+ if(typeof sink!=='function')throw new TypeError('Expected an integrity observer.');
+ integrityObservers.add(sink);return ()=>{integrityObservers.delete(sink);};
+}
+export function reviewIntegrityDiagnostic(component,boundary,expected_hash=null,observed_hash=null){
+ if(!['review-journal','review-service'].includes(component)||typeof boundary!=='string'||!/^[a-z0-9_:-]{1,100}$/.test(boundary))return;
+ if([expected_hash,observed_hash].some(v=>v!==null&&(typeof v!=='string'||!/^[0-9a-f]{64}$/.test(v))))return;
+ const event=Object.freeze({component,boundary,expected_hash,observed_hash});
+ for(const sink of [...integrityObservers])try{Promise.resolve(sink(event)).catch(()=>{});}catch{}
+}
+const opaqueHash=value=>createHash('sha256').update(canonical(value)).digest('hex');
 const brands=new WeakSet();
 export const isSyntheticReviewJournal=value=>brands.has(value);
 const statuses={validation_failed:400,denied:403,conflict:409,configuration_missing:503,journal_unavailable:503,recovery_quarantined:503};
 const error=code=>Object.assign(new Error('Local TEST review journal unavailable.'),{code,status:statuses[code]});
-const fail=code=>{throw error(code);};
-const normalize=e=>error(Object.hasOwn(statuses,e?.code)?e.code:'journal_unavailable');
+const fail=(code,boundary,expected=null,actual=null)=>{
+ if(code==='recovery_quarantined'){
+  const frames=[...new Error().stack.matchAll(/review-journal\.mjs:(\d+):(\d+)/g)],frame=frames[1];
+  reviewIntegrityDiagnostic('review-journal',boundary??(frame?'line:'+frame[1]+':'+frame[2]:'unspecified'),expected,actual);
+ }
+ throw error(code);
+};
+const normalize=e=>{if(e?.code==='recovery_quarantined')reviewIntegrityDiagnostic('review-journal','propagated-storage');return error(Object.hasOwn(statuses,e?.code)?e.code:'journal_unavailable');};
 const hex=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 const markerName='review-namespace.json',logName='queue-journal.log',FORMAT='review-journal-v2';
 const MAX_MARKER=2048,MAX_LOG=16*1024*1024;
@@ -87,7 +107,7 @@ export async function createSyntheticReviewJournal(input){
   async function inspectLog(){
    await checkDirectory();
    const entry=await observed(()=>stat(logfile));protectedFile(entry,MAX_LOG);
-   if(logIdentity!==undefined&&identity(entry)!==logIdentity||entry.size<logSize)fail('recovery_quarantined');
+   if(logIdentity!==undefined&&identity(entry)!==logIdentity||entry.size<logSize)fail('recovery_quarantined','log-identity-or-shrink',opaqueHash([logIdentity??identity(entry),logSize.toString()]),opaqueHash([identity(entry),entry.size.toString()]));
    const reader=await observed(()=>open(logfile,constants.O_RDONLY|(constants.O_NOFOLLOW??0)));
    try{
     const s=await reader.stat({bigint:true});protectedFile(s,MAX_LOG);
@@ -124,7 +144,7 @@ export async function createSyntheticReviewJournal(input){
      ||m.directory_path!==directory||m.directory_identity!==identity(initialDirectory)
      ||m.log_identity!==identity(log)||m.marker_identity!==identity(s)
      ||canonical(m)+'\n'!==text||!authentic(body,m.mac)
-     ||namespace!==undefined&&m.namespace_verifier!==namespace||markerText!==undefined&&text!==markerText)fail('recovery_quarantined');
+     ||namespace!==undefined&&m.namespace_verifier!==namespace||markerText!==undefined&&text!==markerText)fail('recovery_quarantined','marker-validation',opaqueHash([FORMAT,identity(initialDirectory),identity(log),identity(s),namespace??m.namespace_verifier]),opaqueHash([m.format,m.directory_identity,m.log_identity,m.marker_identity,m.namespace_verifier]));
     const held=await reader.stat({bigint:true}),after=await observed(()=>stat(filename));
     protectedFile(held,MAX_MARKER);protectedFile(after,MAX_MARKER);
     if(!sameFile(held,s)||!sameFile(after,s))fail('recovery_quarantined');

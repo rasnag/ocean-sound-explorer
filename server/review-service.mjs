@@ -8,13 +8,19 @@ import {PGlite} from '@electric-sql/pglite';
 import {ownData,ownMethod,canonical,privateKey,uuid,environmentSnapshot} from './continuation-journal.mjs';
 import {serializeQueueWork} from './request-queue.mjs';
 import {validateFixtureDraft} from '../lib/loop/draft-fixture.mjs';
-import {isSyntheticReviewJournal} from './review-journal.mjs';
+import {isSyntheticReviewJournal,reviewIntegrityDiagnostic} from './review-journal.mjs';
 
 const statuses={validation_failed:400,denied:403,conflict:409,configuration_missing:503,journal_unavailable:503,recovery_quarantined:503};
 const error=code=>Object.assign(new Error('Local TEST review unavailable.'),{code,status:statuses[code]});
-const fail=code=>{throw error(code);};
+const fail=(code,boundary,expected=null,actual=null)=>{
+ if(code==='recovery_quarantined'){
+  const frames=[...new Error().stack.matchAll(/review-service\.mjs:(\d+):(\d+)/g)],frame=frames[1];
+  reviewIntegrityDiagnostic('review-service',boundary??(frame?'line:'+frame[1]+':'+frame[2]:'unspecified'),expected,actual);
+ }
+ throw error(code);
+};
 function normalized(e){
- if(Object.hasOwn(statuses,e?.code))return error(e.code);
+ if(Object.hasOwn(statuses,e?.code)){if(e.code==='recovery_quarantined')reviewIntegrityDiagnostic('review-service','propagated-integrity');return error(e.code);}
  if([401,403].includes(e?.status))return error('denied');
  return error('configuration_missing');
 }
@@ -252,7 +258,7 @@ async function buildService(input){
   const independent=await records(h),seen=new Set(),versions=new Map(),out=[];
   for(const r of independent){
    const row=rows.find(x=>x.command_id===r.command_id);
-   if(!row||!same(row.sealed_fact,r))fail('recovery_quarantined');seen.add(r.command_id);
+   if(!row||!same(row.sealed_fact,r))fail('recovery_quarantined','independent-record',hash(canonical(row?.sealed_fact??null)),hash(canonical(r)));seen.add(r.command_id);
   }
   const reviews=(await tx.query('SELECT * FROM review_slice_reviews WHERE household_id=$1',[h])).rows;
   const snapshots=(await tx.query('SELECT * FROM review_slice_snapshots WHERE household_id=$1',[h])).rows;
@@ -267,7 +273,7 @@ async function buildService(input){
    }else if(r)fail('recovery_quarantined');
    if(row.ack&&f.effect.snapshot){
     ns++;const x=f.effect.snapshot;
-    if(!s||s.request_id!==row.request_id||s.snapshot_id!==x.snapshot_id||s.revision_id!==x.revision_id||s.output_digest!==x.output_digest||s.predecessor_snapshot_id!==x.predecessor_snapshot_id)fail('recovery_quarantined');
+    if(!s||s.request_id!==row.request_id||s.snapshot_id!==x.snapshot_id||s.revision_id!==x.revision_id||s.output_digest!==x.output_digest||s.predecessor_snapshot_id!==x.predecessor_snapshot_id)fail('recovery_quarantined','materialized-snapshot',hash(canonical([row.request_id,x.snapshot_id,x.revision_id,x.output_digest,x.predecessor_snapshot_id])),hash(canonical(s?[s.request_id,s.snapshot_id,s.revision_id,s.output_digest,s.predecessor_snapshot_id]:null)));
    }else if(s)fail('recovery_quarantined');
    if(row.ack&&f.effect.withdrawal){
     nw++;if(!w||w.request_id!==row.request_id||w.snapshot_id!==f.effect.withdrawal.snapshot_id)fail('recovery_quarantined');
