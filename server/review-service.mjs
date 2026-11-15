@@ -471,6 +471,64 @@ async function buildService(input){
   });
   return outcome.result??finish(token,s,outcome.row,true);
  }
+ // Review-owned bridge adapters: full owning history, never a public DTO as authority.
+ const bridgePinFields=['producer_version','household_id','request_id','child_id','consent_epoch','profile_version','source_scope_version','queue_scope_version','agreement_version','generation_job_id','generation_version','generation_fence','revision_id','output_digest','review_version','review_command_id','review_record_id','review_primary_commit_id','snapshot_id','snapshot_command_id','snapshot_record_id','snapshot_primary_commit_id'];
+ function bridgePin(value){const p=ownData(value,bridgePinFields);if(p.producer_version!=='review-bridge-source-v1'||!hex(p.output_digest)||bridgePinFields.filter(k=>k.endsWith('_id')).some(k=>!uuid(p[k]))||['consent_epoch','profile_version','source_scope_version','queue_scope_version','generation_version','review_version'].some(k=>!positive(p[k]))||['agreement_version','generation_fence'].some(k=>!Number.isSafeInteger(p[k])||p[k]<0||p[k]>=Number.MAX_SAFE_INTEGER))fail('validation_failed');return copy(p);}
+ function bridgeScope(value){const t=ownData(value,['household_id','request_id','child_id','consent_epoch','profile_version','queue_scope_version']);if(['household_id','request_id','child_id'].some(k=>!uuid(t[k]))||['consent_epoch','profile_version','queue_scope_version'].some(k=>!positive(t[k])))fail('validation_failed');return copy(t);}
+ async function bridgeRelease(tx,t,snapshotId,pinnedVersion=null){
+  if(closed)fail('configuration_missing');
+  const rows=(await history(tx,t.household_id)).filter(x=>x.row.request_id===t.request_id),release=rows.find(x=>x.row.ack&&x.f.effect.snapshot?.snapshot_id===snapshotId);
+  if(!release)fail(pinnedVersion===null?'conflict':'recovery_quarantined');
+  const original=release.f.effect.pin,snap=release.f.effect.snapshot;
+  const checks=rows.filter(x=>x.row.ack&&integer(x.row.aggregate_version,1)<integer(release.row.aggregate_version,1)&&x.f.effect.review&&same(x.f.effect.pin,original)).at(-1);
+  if(!checks||checks.f.effect.review.synthetic!==true||checkNames.some(k=>checks.f.effect.review.checks[k]!==true)||!same(checks.f.effect.request,release.f.effect.request))fail('recovery_quarantined');
+  const q=await first(tx,'SELECT original_source_scope_version FROM queue_requests WHERE household_id=$1 AND request_id=$2',[t.household_id,t.request_id]);
+  if(!q)fail('recovery_quarantined');
+  const version=pinnedVersion??integer(rows.at(-1).row.aggregate_version,1);
+  if(!rows.some(x=>integer(x.row.aggregate_version,1)===version)||version<integer(release.row.aggregate_version,1))fail('recovery_quarantined');
+  const pin={producer_version:'review-bridge-source-v1',household_id:t.household_id,request_id:t.request_id,child_id:original.child_id,consent_epoch:original.consent_epoch,profile_version:original.profile_version,source_scope_version:integer(q.original_source_scope_version,1),queue_scope_version:original.scope_version,agreement_version:0,generation_job_id:original.job_id,generation_version:original.job_version,generation_fence:original.fence,revision_id:original.revision_id,output_digest:original.output_digest,review_version:version,review_command_id:checks.row.command_id,review_record_id:checks.row.record_id,review_primary_commit_id:checks.row.primary_commit_id,snapshot_id:snap.snapshot_id,snapshot_command_id:release.row.command_id,snapshot_record_id:release.row.record_id,snapshot_primary_commit_id:release.row.primary_commit_id};
+  // Agreement belongs to the acknowledged queue source, not generation DTOs.
+  const d=await project(tx,{household_id:t.household_id,request_id:t.request_id,child_id:t.child_id,consent_epoch:t.consent_epoch});
+  pin.agreement_version=d.agreement_version;
+  const withdrawn=rows.some(x=>x.f.effect.withdrawal?.snapshot_id===snapshotId);
+  return {rows,release,original,pin,request:copy(release.f.effect.request),adventure:copy(validateFixtureDraft(snap.adventure)),withdrawn,queue:d};
+ }
+ async function assertBridgeActivation(tx,input,value){
+  const t=bridgeScope(input),p=bridgePin(value),s={household_id:t.household_id,request_id:t.request_id,scope_version:t.queue_scope_version};
+  const d=await project(tx,{household_id:t.household_id,request_id:t.request_id,child_id:t.child_id,consent_epoch:t.consent_epoch});
+  if(d.state!=='accepted'||d.scope_version!==t.queue_scope_version||d.scope_kind==='alternative'&&d.agreement_version!==d.scope_version)fail('conflict');
+  const profile=await first(tx,'SELECT current_version,consent_epoch FROM child_setup_profiles WHERE household_id=$1 AND child_id=$2',[t.household_id,t.child_id]);
+  if(!profile||integer(profile.current_version,1)!==t.profile_version||integer(profile.consent_epoch,1)!==t.consent_epoch)fail('conflict');
+  const a={h:t.household_id,child:t.child_id,epoch:t.consent_epoch,profile_version:t.profile_version},current=await currentPin(tx,s,a);
+  if(!current.valid)fail('conflict');
+  const selected=await bridgeRelease(tx,t,p.snapshot_id);
+  if(selected.withdrawn||selected.rows.some(x=>!x.row.ack)||!same(selected.original,current)||!same(selected.request,requestView(d,s))||!same(selected.pin,p))fail('conflict');
+  const latest=selected.rows.filter(x=>x.row.ack&&x.f.effect.review&&same(x.f.effect.pin,current)).at(-1);
+  if(!latest||checkNames.some(k=>latest.f.effect.review.checks[k]!==true))fail('conflict');
+  return {pin:copy(selected.pin),request:copy(selected.request),adventure:copy(selected.adventure)};
+ }
+ async function acquireBridgeSource(token,input){
+  const v=scope(input,['snapshot_id']);if(!uuid(v.snapshot_id))fail('validation_failed');
+  const s=copy({household_id:v.household_id,request_id:v.request_id,scope_version:v.scope_version}),snapshotId=v.snapshot_id;
+  const before=await authority(token,s,async(tx,a)=>{
+   const current=await currentPin(tx,s,a);if(!current.valid)fail('conflict');
+   const t={household_id:a.h,request_id:s.request_id,child_id:a.child,consent_epoch:a.epoch,profile_version:a.profile_version,queue_scope_version:s.scope_version},selected=await bridgeRelease(tx,t,snapshotId);
+   const acquired=await assertBridgeActivation(tx,t,selected.pin);return {current,acquired};
+  });
+  // Exact terminal job ID: never recover a newly running current head.
+  const generation=await generationRead(token,{...s,job_id:before.current.job_id});
+  const revision=validatedGeneration(generation,s,before.current,before.acquired.request);
+  if(!same(revision.adventure,before.acquired.adventure))fail('conflict');
+  return authority(token,s,async(tx,a)=>{const t={household_id:a.h,request_id:s.request_id,child_id:a.child,consent_epoch:a.epoch,profile_version:a.profile_version,queue_scope_version:s.scope_version};const after=await assertBridgeActivation(tx,t,before.acquired.pin);if(!same(after,before.acquired))fail('conflict');return after;});
+ }
+ async function readPublishedBridgeSnapshot(tx,input,value){
+  const t=bridgeScope(input),p=bridgePin(value);
+  if(p.household_id!==t.household_id||p.request_id!==t.request_id||p.child_id!==t.child_id||p.consent_epoch!==t.consent_epoch||p.profile_version!==t.profile_version||p.queue_scope_version!==t.queue_scope_version)fail('denied');
+  const selected=await bridgeRelease(tx,t,p.snapshot_id,p.review_version);
+  // Postready queue late-update metadata may advance without changing agreement.
+  if(!same(selected.pin,p)||!same(selected.request.receipt,selected.release.f.effect.request.receipt))fail('recovery_quarantined');
+  if(selected.withdrawn)fail('denied');return copy(selected.adventure);
+ }
  const guarded=fn=>async(...args)=>{try{return await fn(...args);}catch(e){throw normalized(e);}};
- return Object.freeze({list:guarded(list),read:guarded(read),command:guarded(command),reconcile:guarded(reconcile),close(){closed=true;}});
+ return Object.freeze({list:guarded(list),read:guarded(read),command:guarded(command),reconcile:guarded(reconcile),acquireBridgeSource:guarded(acquireBridgeSource),assertBridgeActivation:guarded(assertBridgeActivation),readPublishedBridgeSnapshot:guarded(readPublishedBridgeSnapshot),close(){closed=true;}});
 }
