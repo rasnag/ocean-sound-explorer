@@ -1,3 +1,15 @@
+# PRIVATE-READINESS-LOCAL-01 — test-only attempt5 source authoring
+
+DECISION-048 / APPROVAL-015 authorizes only the two new regression-fixture corrections below. Actual current setup-r7 Claude PASS reviewed controls `1b7a2ac512a244c744509023ee1331b0a3129275`, merged into planning `6c183c32279c8ad97361f75ddc29479c94839a23`. This supersedes the failed setup-r6 disposition, not application acceptance. Four previous coding attempts remain spent; no sixth invocation is authorized. Historical sections below retain their original labels and evidence.
+
+The exactly-due fixture preserves its readiness instant and first real login after24h, then retains that valid session after the subsequent1000ms advance. The on-time fixture still performs its required real login after24h. The damaged-marker fixture changes only log_identity digits, preserves canonical field order and other fields, and asserts equal original/damaged byte lengths before writing. Existing positive/negative, differing-fingerprint, generic-denial, private-byte, sticky-quarantine and healthy-reopen assertions remain intact. No services, producers, auth or helpers change.
+
+Read-only local source/evidence inspection only: no writes, tests, installs, agents, network, commits or permission changes. ALL AUTHORED TESTS ARE NOT RUN BY ME. Local architecture v1.2 SHA-256 `02adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79` and fourth-failure log SHA-256 `7132de0c596b567a93c58da05fda346f8b7c6e8c9ec96a70cde2cd7598dac5c9` were verified. These are local snapshots; no remote freshness claim. Git HEAD queries were refused by the existing ownership guard; no configuration was changed, and source pins remain supplied by Root.
+
+ADR-E03/E04/E05, immutable original deadline/readiness accounting, atomic primary publication/assignment/consumption, independent append outside the transaction and serializer, and fresh-authority ACK verification remain unchanged. Marker identity/MAC validation and sticky failure invariants remain strict. Historical quarantine cause remains UNKNOWN.
+
+Root still requires three consecutive complete final-source test passes plus all other checks, all five probes, fresh seven-case native evidence and actual independent Claude feature PASS. Every failed log must be archived before rerunning. Full05-A/05-B/05-G/08-A/08-B remain OPEN;07-A/07-B remain DONE. Synthetic only; no acceptance or merge is claimed.
+
 # PRIVATE-READINESS-LOCAL-01 — correction attempt 3/3
 
 Candidate source authoring only. ALL AUTHORED CHECKS REMAIN NOT RUN BY ME. No application write, test/build, installation, network, contact, browser/CUA, secondary agent, commit or permission change was performed. This response is source transport for Root's precondition validation, application checks and review.
