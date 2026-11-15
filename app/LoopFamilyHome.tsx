@@ -86,7 +86,7 @@ export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied
  </section>;
 }
 const journey=createJourneyClient(transport);
-function JourneyPlayPanel({scope,home,entry,onDenied}:{scope:WonderScope|null;home:Home|null;entry:Entry|null;onDenied:()=>void}){
+export function JourneyPlayPanel({scope,home,entry,onDenied}:{scope:WonderScope|null;home:Home|null;entry:Entry|null;onDenied:()=>void}){
  const [available,setAvailable]=useState(false),[message,setMessage]=useState(''),[working,setWorking]=useState(false);
  type Active={integration:SavedPlayerIntegration;lease:ReturnType<typeof journey.bind>;assignment:Assignment;scopeKey:string};
  const [active,setActive]=useState<Active|null>(null),activeRef=useRef<Active|null>(null),intent=useRef<{key:string;command_id:string}|null>(null);
@@ -168,7 +168,7 @@ export default function LoopFamilyHome(){
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!index&&!error&&<p role="status">Checking family access…</p>}{error&&<button type="button" onClick={()=>{setError('');void refresh();}}>Retry access</button>}
   {index?.state==='permission_required'&&<section><h2>Test permission needed</h2><p>Review test permissions before opening invented child information.</p><a href="/loop-preview/setup">Review test permissions</a></section>}
   {index?.state==='setup_required'&&<section><h2>Set up an invented child</h2><a href="/loop-preview/setup">Open child setup</a></section>}
-  {index?.state==='setup_unavailable'&&<section><h2>Setup needs attention</h2><p>Earlier child details cannot be reattached automatically. Get help through test settings.</p><a href="/loop-preview/setup">Open test settings</a></section>}
+  {index?.state==='setup_unavailable'&&<section><h2>Setup needs attention</h2><p>Earlier child details cannot be reattached or corrected automatically after reconsent in this TEST journey. Setup remains unavailable; no new trial or successful child-save acknowledgement is implied. Get help through test settings.</p><a href="/loop-preview/setup">Open test settings</a></section>}
   {index?.state==='select_child'&&<section aria-label="Choose a child"><label htmlFor="family-child">Whose curiosity?</label><select id="family-child" value={childPosition<0?'':String(childPosition)} onChange={e=>choose(e.target.value)}><option value="">Choose a child</option>{index.children?.map((c,i)=><option key={c.child_id} value={i}>{c.nickname}</option>)}</select></section>}{busy&&<p role="status">Checking the selected investigation…</p>}
   <LoopWonderCapture scope={captureScope} fence={captureFence} visible={scopeVisible&&!queueLocked} onDenied={captureDenied} onAcknowledged={captureAcknowledged} onUncertain={captureUncertain}/>
   <LoopRequestStatus scope={captureScope} fence={captureFence} visible={scopeVisible} enabled={Boolean(home)} requests={home?.requests??[]} onDenied={captureDenied} onAcknowledged={captureAcknowledged} onUncertain={queueUncertain} onLock={lockQueue} onObserved={captureAcknowledged}/>

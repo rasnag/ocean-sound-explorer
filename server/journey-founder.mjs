@@ -25,21 +25,19 @@ export async function createJourneyFounder({env,db,auth,review,bridge,play,clock
  async function guarded(token,s,work){const before=await fence(token,s),result=await work(before),after=await fence(token,s);if(JSON.stringify(before)!==JSON.stringify(after))fail('denied');return result;}
  async function binding(s){return first(db,'SELECT b.*,c.scope_version FROM private_bridge_bindings b JOIN private_bridge_commands c USING(household_id,command_id,request_id) WHERE b.household_id=$1 AND b.request_id=$2',[s.household_id,s.request_id]);}
  async function list(token,input){ownData(input,[]);await auth.requireFounder(token);const result=await review.list(token,{});await auth.requireFounder(token);return {...base,status:'journey_list',requests:result.requests};}
- async function read(token,input){const s=scope(input);return guarded(token,s,async a=>{
-  const view=await review.read(token,s),b=await binding(s);
-  const ready=b?await bridge.status(token,{...s,command_id:b.command_id}):null;
-  return {...base,status:'journey_founder',scope:s,review:view,ready,activity_input:b?{household_id:s.household_id,request_id:s.request_id,child_id:a.child,assignment_id:b.assignment_id,revision_id:b.revision_id}:null};
- });}
+ async function read(token,input){const s=scope(input);return guarded(token,s,async a=>{const view=await review.read(token,s),b=await binding(s);const ready=b?await bridge.status(token,{...s,command_id:b.command_id}):null;return {...base,status:'journey_founder',scope:s,review:view,ready,activity_input:b?{household_id:s.household_id,request_id:s.request_id,child_id:a.child,assignment_id:b.assignment_id,revision_id:b.revision_id}:null};});}
  async function ready(token,input){
   const v=scope(input,['snapshot_id','command_id']),s={household_id:v.household_id,request_id:v.request_id,scope_version:v.scope_version};
   return guarded(token,s,async()=>{
    const prior=await bridge.status(token,{...s,command_id:v.command_id});
    if(prior.status!=='bridge_command_absent'){
-    const b=await binding(s);if(!b||b.command_id!==v.command_id||b.snapshot_id!==v.snapshot_id||Number(b.scope_version)!==s.scope_version)fail('conflict');
+    const b=await binding(s);
+    // An absent/not-yet-visible projection is uncertainty, not a changed command.
+    // The bridge still authenticates the original command/history on reconcile.
+    if(b&&(b.command_id!==v.command_id||b.snapshot_id!==v.snapshot_id||Number(b.scope_version)!==s.scope_version))fail('conflict');
     return bridge.reconcile(token,{...s,command_id:v.command_id});
    }
-   const acquired=await review.acquireBridgeSource(token,{...s,snapshot_id:v.snapshot_id});
-   return bridge.makeReady(token,{...s,command:{command_id:v.command_id,expected_version:0,action:'MakeAssignmentReady',source:acquired.pin}});
+   const acquired=await review.acquireBridgeSource(token,{...s,snapshot_id:v.snapshot_id});return bridge.makeReady(token,{...s,command:{command_id:v.command_id,expected_version:0,action:'MakeAssignmentReady',source:acquired.pin}});
   });
  }
  async function recover(token,input,write){const v=scope(input,['command_id']),s={household_id:v.household_id,request_id:v.request_id,scope_version:v.scope_version};return guarded(token,s,()=>bridge[write?'reconcile':'status'](token,v));}
