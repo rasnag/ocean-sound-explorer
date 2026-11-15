@@ -502,7 +502,9 @@ async function buildService(input){
   const a={h:t.household_id,child:t.child_id,epoch:t.consent_epoch,profile_version:t.profile_version},current=await currentPin(tx,s,a);
   if(!current.valid)fail('conflict');
   const selected=await bridgeRelease(tx,t,p.snapshot_id);
-  if(selected.withdrawn||selected.rows.some(x=>!x.row.ack)||!same(selected.original,current)||!same(selected.request,requestView(d,s))||!same(selected.pin,p))fail('conflict');
+  const currentAuthority={...a,request:requestView(d,s)};
+  const live=await livePending(tx,selected.rows,currentAuthority,s,current);
+  if(selected.withdrawn||live.length||!same(selected.original,current)||!same(selected.request,currentAuthority.request)||!same(selected.pin,p))fail('conflict');
   const latest=selected.rows.filter(x=>x.row.ack&&x.f.effect.review&&same(x.f.effect.pin,current)).at(-1);
   if(!latest||checkNames.some(k=>latest.f.effect.review.checks[k]!==true))fail('conflict');
   return {pin:copy(selected.pin),request:copy(selected.request),adventure:copy(selected.adventure)};

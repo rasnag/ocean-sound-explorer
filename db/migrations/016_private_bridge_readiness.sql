@@ -114,9 +114,22 @@ BEGIN
  THEN RAISE EXCEPTION 'Incomplete private TEST readiness' USING ERRCODE='23514'; END IF;
  RETURN NULL;
 END $$;
+-- An appended-but-not-yet-ACKed fact is a legitimate recovery gap. Preserve
+-- ACK/retirement evidence by preventing deletion, rather than guessing from a log.
+CREATE FUNCTION private_bridge_delete_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF EXISTS(SELECT 1 FROM households WHERE household_id=OLD.household_id) THEN
+  RAISE EXCEPTION 'Private TEST history cannot be deleted directly' USING ERRCODE='55000';
+ END IF;
+ RETURN OLD;
+END $$;
+CREATE FUNCTION private_bridge_namespace_delete_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'Private TEST namespace cannot be deleted' USING ERRCODE='55000'; END $$;
+CREATE TRIGGER private_bridge_namespace_no_delete BEFORE DELETE ON private_bridge_namespace FOR EACH ROW EXECUTE FUNCTION private_bridge_namespace_delete_guard();
 DO $$ DECLARE tab text; BEGIN
  FOREACH tab IN ARRAY ARRAY['private_bridge_commands','private_bridge_bindings','private_bridge_ready_events','private_bridge_delivery_work','private_bridge_acks','private_bridge_absences'] LOOP
  EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION loop_source_immutable()',tab||'_immutable',tab);
+ EXECUTE format('CREATE TRIGGER %I BEFORE DELETE ON %I FOR EACH ROW EXECUTE FUNCTION private_bridge_delete_guard()',tab||'_no_delete',tab);
  EXECUTE format('CREATE CONSTRAINT TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON %I DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION private_bridge_guard()',tab||'_complete',tab);
  END LOOP;
  FOREACH tab IN ARRAY ARRAY['adventure_revisions','published_revisions','assignments','entitlement_claims','entitlement_transitions','capacity_reservations','production_receipts','production_capacity_bookings'] LOOP
