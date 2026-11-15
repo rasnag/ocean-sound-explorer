@@ -1,4 +1,4 @@
-// PLAYABLE-JOURNEY-LOCAL-01 correction3. Invented local data only; no workflow seeds.
+// PLAYABLE-JOURNEY-LOCAL-01 correction4. Invented local data only; no workflow seeds.
 // Engineering 1.2 SHA256 02adc2e0bf0910092f0888a126cdebe98adc35a177679bf124e0e79393532b79.
 import {lstat,realpath,readdir,mkdir,open,readFile,rename,unlink} from 'node:fs/promises';
 import {resolve,relative,isAbsolute,dirname,join} from 'node:path';
@@ -10,7 +10,7 @@ import {resolveLoopConfig} from '../lib/loop/environment.mjs';
 import {migrate} from '../db/migrate.mjs';
 import {createFounderAuth} from '../lib/loop/founder-auth.mjs';
 import {createEntitlementKernel} from '../lib/loop/entitlements.mjs';
-import {MOCK_LIMITS,createSyntheticMockProvider} from '../lib/loop/draft-fixture.mjs';
+import {MOCK_LIMITS,createSyntheticMockProvider,isSyntheticMockProvider} from '../lib/loop/draft-fixture.mjs';
 import {createSyntheticAdultAccess} from './adult-access.mjs';
 import {createSyntheticConsentService} from './consent-service.mjs';
 import {createSyntheticChildSetup} from './child-setup.mjs';
@@ -115,7 +115,8 @@ export async function createProtectedJourney(input){
   const capture=await createSyntheticWonderCapture({env,db,access,clock,policyVersion:'TEST-v1',keys:household,journal:await journal(createSyntheticWonderJournal,'wonder')});
   const production=await createSyntheticProductionSubmission({env,db,access,capture,kernel,clock,policyVersion:'TEST-v1',capacity:owner.capacity,keys:household,journal:await journal(createSyntheticProductionJournal,'production',{keys:household})});
   const queue=await createSyntheticRequestQueue({env,db,auth,access,capture,kernel,clock,policyVersion:'TEST-v1',keys,journal:await journal(createSyntheticQueueJournal,'queue',{keys})});
-  generation=await createSyntheticGenerationService({env,db,auth,queue,clock,keys:household,limits:MOCK_LIMITS,provider:createSyntheticMockProvider({mode:'valid'}),journal:await journal(createSyntheticGenerationJournal,'generation',{keys})});
+  const mockProvider=createSyntheticMockProvider({mode:'valid'});
+  generation=await createSyntheticGenerationService({env,db,auth,queue,clock,keys:household,limits:MOCK_LIMITS,provider:mockProvider,journal:await journal(createSyntheticGenerationJournal,'generation',{keys})});
   review=await createSyntheticReviewService({env,db,auth,queue,generation,clock,keys:household,journal:await journal(createSyntheticReviewJournal,'review',{keys})});
   bridge=await createSyntheticPrivateBridge({env,db,auth,review,queue,kernel,clock,policyVersion:'TEST-v1',keys:household,journal:await journal(createSyntheticPrivateBridgeJournal,'bridge',{keys})});
   const play=await createSyntheticJourneyPlay({env,db,access,bridge:bridge.familyAdapter,clock,journal:await journal(createSyntheticPlayJournal,'play')});
@@ -142,9 +143,9 @@ export async function createProtectedJourney(input){
    if(closing)fail();const coreReady=await readCoreReadiness();let assetsReady=false;
    if(coreReady&&assetHealth)try{const a=await bounded(()=>assetHealth(),6000);assetsReady=a?.kind==='vite-transform-preflight'&&a.ready===true&&Array.isArray(a.checked)&&['/app/main.tsx','/app/LoopAdultAccess.tsx','/app/LoopChildSetup.tsx','/app/LoopFamilyHome.tsx','/app/LoopSavedPlayer.tsx','/@vite/client','/@vite/env'].every(p=>a.checked.includes(p));}catch{}
    if(closing)fail();
-   // A transform/namespace check cannot prove Start/save/restart/browser behavior.
-   // No WORKING claims are minted from wiring or a caller's bare boolean.
-   const simulated=coreReady&&assetsReady?[...simulationStages]:[];
+   // The actual branded backend mock is a known substitution even without UI assets.
+   // Other simulation labels require asset preflight; neither check proves user completion.
+   const simulated=coreReady?simulationStages.filter(s=>s==='mock-generation'?isSyntheticMockProvider(mockProvider):assetsReady):[];
    return {mode:'local-synthetic',production_ready:false,operator:{...operator},mockInbox:inbox.map(x=>({...x})),working:[],simulated,missing:stages.filter(s=>!simulated.includes(s))};
   }});
  }catch(error){try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'Owned local synthetic startup and cleanup failed.');}throw Object.assign(new Error('Owned local synthetic store unavailable.'),{code:'configuration_missing',status:503,cause:error});}

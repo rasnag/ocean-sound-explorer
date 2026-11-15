@@ -29,7 +29,9 @@ export async function createJourneyAssets(){
    const preview=/^\/loop-preview(?:\/(?:join|setup|family))?\/?$/.test(path);
    const virtual=['/@vite/client','/@vite/env','/@react-refresh','/@id/__x00__react-refresh'].includes(path);
    const source=/^\/(?:app|lib|components)\/[A-Za-z0-9_./-]+\.(?:tsx?|m?js|css)$/.test(path);
-   const dependency=/^\/node_modules\/\.vite\/deps\/[A-Za-z0-9_.-]+\.(?:js|map)$/.test(path);
+   // Vite8's served client imports this physical module, independently of /@vite/env.
+   // It receives the same component-by-component confinement as optimized dependencies.
+   const dependency=path==='/node_modules/vite/dist/client/env.mjs'||/^\/node_modules\/\.vite\/deps\/[A-Za-z0-9_.-]+\.(?:js|map)$/.test(path);
    if(req.method!=='GET'||path.includes('%')||path.split('/').some(s=>s==='.'||s==='..')||[...url.searchParams.keys()].some(k=>!['v','t','import'].includes(k))||!(preview||virtual||source||dependency))return next();
    if(source||dependency){let p=join(root,path.slice(1));while(p!==root){const stat=await lstat(p);if(stat.isSymbolicLink())throw Error();p=dirname(p);}}
    if(preview){const html=await vite.transformIndexHtml(path,await readFile(join(root,'index.html'),'utf8'));res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);return;}

@@ -3,7 +3,7 @@ import {createFamilySpaceClient} from '../lib/loop/family-space-client.mjs';
 import {createContinuationClient} from '../lib/loop/continuation-client.mjs';
 import {createQueueClient} from '../lib/loop/queue-client.mjs';
 import LoopWonderCapture,{type WonderScope} from './LoopWonderCapture';
-import LoopSavedPlayer,{type SavedPlayerIntegration} from './LoopSavedPlayer';
+import type {SavedPlayerIntegration} from './LoopSavedPlayer';
 import {createJourneyClient} from '../lib/loop/journey-client.mjs';
 import './loop-family-home.css';
 type Child={child_id:string;profile_version:number;nickname:string;is_initial:boolean};
@@ -86,20 +86,22 @@ export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied
  </section>;
 }
 const journey=createJourneyClient(transport);
+// Optional real journey leaf: older nonjourney family screens never import it.
+const LoopSavedPlayer=React.lazy(()=>import('./LoopSavedPlayer'));
 export function JourneyPlayPanel({scope,home,entry,onDenied}:{scope:WonderScope|null;home:Home|null;entry:Entry|null;onDenied:()=>void}){
  const [available,setAvailable]=useState(false),[message,setMessage]=useState(''),[working,setWorking]=useState(false);
  type Active={integration:SavedPlayerIntegration;lease:ReturnType<typeof journey.bind>;assignment:Assignment;scopeKey:string};
  const [active,setActive]=useState<Active|null>(null),activeRef=useRef<Active|null>(null),intent=useRef<{key:string;command_id:string}|null>(null);
  const live=useRef(false),version=useRef(0),checkSequence=useRef(0),denied=useRef(onDenied),currentKey=useRef('');denied.current=onDenied;
  const key=JSON.stringify([scope?.view_context,scope?.child_id,scope?.profile_version]);currentKey.current=key;
- const close=useCallback(()=>{++version.current;activeRef.current?.lease.close();activeRef.current=null;setActive(null);setWorking(false);},[]);
+ const close=useCallback(()=>{++version.current;activeRef.current?.lease.close();activeRef.current=null;setActive(null);setWorking(false);setMessage('');},[]);
  useLayoutEffect(()=>{close();setAvailable(false);setMessage('');intent.current=null;},[key,close]);
  useEffect(()=>{live.current=true;const hide=()=>{close();setAvailable(false);setMessage('Private play cleared. Recheck access and explicitly reopen it.');};const visibility=()=>{if(document.visibilityState==='hidden')hide();};window.addEventListener('pagehide',hide);document.addEventListener('visibilitychange',visibility);return()=>{live.current=false;close();window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',visibility);};},[close]);
  useEffect(()=>{
   const sequence=++checkSequence.current,guard=version.current;
   if(!scope||!home||document.visibilityState==='hidden'){setAvailable(false);close();return;}
   if(activeRef.current&&!home.ready.some(a=>a.assignment_id===activeRef.current?.assignment.assignment_id&&a.revision_id===activeRef.current?.assignment.revision_id)){close();}
-  void journey.context({view_context:scope.view_context,child_id:scope.child_id}).then(result=>{if(!live.current||sequence!==checkSequence.current||currentKey.current!==key)return;if(result.profile_version!==scope.profile_version)throw Object.assign(Error('Changed profile'),{status:403});setAvailable(true);}).catch((e:unknown)=>{if(!live.current||sequence!==checkSequence.current||currentKey.current!==key)return;setAvailable(false);close();if((e as {status?:number}).status===403)denied.current();});
+  void journey.context({view_context:scope.view_context,child_id:scope.child_id}).then(result=>{if(!live.current||sequence!==checkSequence.current||currentKey.current!==key||guard!==version.current||document.visibilityState==='hidden')return;if(result.profile_version!==scope.profile_version)throw Object.assign(Error('Changed profile'),{status:403});setAvailable(true);}).catch((e:unknown)=>{if(!live.current||sequence!==checkSequence.current||currentKey.current!==key||guard!==version.current)return;setAvailable(false);close();if((e as {status?:number}).status===403)denied.current();});
  },[home,key,scope?.view_context,scope?.child_id,scope?.profile_version,close]);
  async function trial(){if(!scope||working)return;const guard=version.current;setWorking(true);try{const result=await journey.trial({view_context:scope.view_context,child_id:scope.child_id});if(!live.current||guard!==version.current)return;setMessage('TEST trial confirmed: '+result.state+' · '+result.allowance+' uses · '+date(result.trial_start)+' to '+date(result.trial_end)+'. No reset or extension.');}catch(e){if(live.current&&guard===version.current){setMessage('TEST trial could not be confirmed.');if((e as {status?:number}).status===403){close();denied.current();}}}finally{if(live.current&&guard===version.current)setWorking(false);}}
  async function start(){
@@ -117,7 +119,7 @@ export function JourneyPlayPanel({scope,home,entry,onDenied}:{scope:WonderScope|
   }catch(e){if(live.current&&guard===version.current){setMessage('Start not confirmed. Retry the original Start.');if((e as {status?:number}).status===403){close();denied.current();}}}
   finally{if(live.current&&guard===version.current)setWorking(false);}
  }
- return <section aria-label="Protected TEST journey">{available&&<><p>TEST trial already starts after the first successful child setup. Eight uses / 24 hours is an invented test fixture, not an offer.</p><button type="button" disabled={working} onClick={()=>void trial()}>Test trial: check availability</button>{entry&&!active&&<button type="button" disabled={working} onClick={()=>void start()}>Start or resume this TEST investigation</button>}</>}{message&&<p role="status">{message}</p>}{active&&active.scopeKey===key&&<section aria-label="Current protected play"><h2>Original question</h2><p className="family-question">{active.assignment.question}</p><p>Fixed deterministic balance/tips toy. An unrelated question remains a mismatch; this is not real AI or a validated science answer.</p><button type="button" onClick={close}>Close private play</button><LoopSavedPlayer integration={active.integration}/></section>}</section>;
+ return <section aria-label="Protected TEST journey">{available&&<><p>TEST trial already starts after the first successful child setup. Eight uses / 24 hours is an invented test fixture, not an offer.</p><button type="button" disabled={working} onClick={()=>void trial()}>Test trial: check availability</button>{entry&&!active&&<button type="button" disabled={working} onClick={()=>void start()}>Start or resume this TEST investigation</button>}</>}{message&&<p role="status">{message}</p>}{active&&active.scopeKey===key&&<section aria-label="Current protected play"><h2>Original question</h2><p className="family-question">{active.assignment.question}</p><p>Fixed deterministic balance/tips toy. An unrelated question remains a mismatch; this is not real AI or a validated science answer.</p><button type="button" onClick={close}>Close private play</button><React.Suspense fallback={<p role="status">Loading the confirmed private player…</p>}><LoopSavedPlayer integration={active.integration}/></React.Suspense></section>}</section>;
 }
 export default function LoopFamilyHome(){
  const [index,setIndex]=useState<Index|null>(null),[home,setHome]=useState<Home|null>(null),[entry,setEntry]=useState<Entry|null>(null);
