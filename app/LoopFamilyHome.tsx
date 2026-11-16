@@ -139,37 +139,66 @@ export default function LoopFamilyHome(){
  const live=useRef(false),generation=useRef(0),authSequence=useRef(0),readSequence=useRef(0),openSequence=useRef(0);
  const authority=useRef<Index|null>(null),selected=useRef<Child|null>(null),chosen=useRef<Home|null>(null);
  const projection=useRef<{generation:number;again:boolean;promise:Promise<void>}|null>(null),playing=useRef(false);
+ const accessFlight=useRef<{generation:number;promise:Promise<Index|null>}|null>(null),opening=useRef<{generation:number;id:number}|null>(null);
  const [playBusy,setPlayBusy]=useState(false);playing.current=playBusy;
- const clearSelection=useCallback(()=>{++generation.current;++readSequence.current;++openSequence.current;projection.current=null;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);setContinuationState(null);setQueueLocked(false);setPlayBusy(false);},[]);
- // One lane per selected authority generation; background triggers only join it.
- // Producer/explicit requests merge one follow-up bit without superseding a valid reply.
- const refresh=useCallback((again=false):Promise<void>=>{
+ const clearSelection=useCallback(()=>{++generation.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);setContinuationState(null);setQueueLocked(false);setPlayBusy(false);},[]);
+ // Access checks can finish while an older projection response is held.
+ // Only outstanding work is shared: no completed authorization is cached.
+ const checkAccess=useCallback(():Promise<Index|null>=>{
+  if(!live.current||document.visibilityState==='hidden')return Promise.resolve(null);
+  const guard=generation.current,priorFlight=accessFlight.current;
+  if(priorFlight?.generation===guard)return priorFlight.promise;
+  const job={generation:guard,promise:Promise.resolve<Index|null>(null)},id=++authSequence.current;accessFlight.current=job;
+  const current=()=>live.current&&guard===generation.current&&id===authSequence.current&&document.visibilityState!=='hidden';
+  job.promise=(async()=>{
+   try{
+    const next:Index=await api.index();if(!current())return null;
+    const prior=authority.current,child=selected.current;
+    if(next.state!=='select_child'||!next.view_context||!Array.isArray(next.children)){clearSelection();authority.current=next;setIndex(next);setError('');return null;}
+    if(prior?.view_context&&prior.view_context!==next.view_context){clearSelection();authority.current=next;setIndex(next);setError('');return null;}
+    if(child&&!next.children.some(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version)){clearSelection();authority.current=next;setIndex(next);setError('');return null;}
+    authority.current=next;setIndex(next);if(!child)setError('');return next;
+   }catch(failure){
+    if(current()){
+     ++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setIndex(null);setContinuationState(null);setBusy(false);
+     if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}
+     setError('Family access could not be confirmed. Retry or sign in again.');
+    }
+    return null;
+   }finally{if(accessFlight.current===job)accessFlight.current=null;}
+  })();return job.promise;
+ },[clearSelection]);
+ // One projection lane and one merged producer follow-up per generation.
+ // Fresh lightweight access checks never supersede a same-scope read or Open.
+ const refresh=useCallback((again=false,revalidate=false):Promise<void>=>{
   if(!live.current||document.visibilityState==='hidden')return Promise.resolve();
   const guard=generation.current,existing=projection.current;
-  if(existing?.generation===guard){if(again)existing.again=true;return existing.promise;}
+  if(existing?.generation===guard){if(again)existing.again=true;if(revalidate)void checkAccess();return existing.promise;}
   const job={generation:guard,again:false,promise:Promise.resolve()};projection.current=job;
   const current=()=>live.current&&guard===generation.current&&document.visibilityState!=='hidden';
+  const releaseSelectionLoading=()=>{const owner=opening.current;if(current()&&!(owner?.generation===guard&&owner.id===openSequence.current))setBusy(false);};
   job.promise=(async()=>{
    try{
     do{
-     job.again=false;const authId=++authSequence.current;
-     const next:Index=await api.index();if(!current()||authId!==authSequence.current)return;
-     const prior=authority.current,child=selected.current;
-     if(next.state!=='select_child'||!next.view_context||!Array.isArray(next.children)){clearSelection();authority.current=next;setIndex(next);setError('');return;}
-     if(prior?.view_context&&prior.view_context!==next.view_context){clearSelection();authority.current=next;setIndex(next);setError('');return;}
-     const selectedChild=child&&next.children.find(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version);
-     if(child&&!selectedChild){clearSelection();authority.current=next;setIndex(next);setError('');return;}
-     authority.current=next;setIndex(next);setError('');
+     job.again=false;const next=await checkAccess();if(!current()||!next?.view_context)return;
+     const viewContext=next.view_context,child=selected.current,selectedChild=child&&next.children?.find(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version);
      if(!selectedChild)return;
-     const id=++readSequence.current,result:Home=await api.read({view_context:next.view_context,child_id:selectedChild.child_id});
+     const id=++readSequence.current;let result:Home;
+     try{result=await api.read({view_context:viewContext,child_id:selectedChild.child_id});}
+     catch(failure){
+      if(!current()||id!==readSequence.current)return;
+      ++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setBusy(false);
+      if((failure as {status?:number}).status===403){clearSelection();authority.current=null;setIndex(null);}
+      setError('Family details could not be confirmed. Pending capture, production or request confirmation may need reconciliation below. Retry to check access.');return;
+     }
      if(!current())return;
      if(id!==readSequence.current)continue;
-     if(result.state!=='child_space'||result.view_context!==next.view_context||result.selected_child?.child_id!==selectedChild.child_id||result.selected_child.profile_version!==selectedChild.profile_version)throw Object.assign(Error('Changed scope'),{status:403});
-     chosen.current=result;setHome(result);setError('');
-     setCaptureScope(previous=>previous?.view_context===next.view_context&&previous.child_id===selectedChild.child_id&&previous.profile_version===selectedChild.profile_version?previous:{view_context:next.view_context!,child_id:selectedChild.child_id,profile_version:selectedChild.profile_version,nickname:selectedChild.nickname});
+     if(result.state!=='child_space'||result.view_context!==viewContext||result.selected_child?.child_id!==selectedChild.child_id||result.selected_child.profile_version!==selectedChild.profile_version)throw Object.assign(Error('Changed scope'),{status:403});
+     chosen.current=result;setHome(result);setError('');releaseSelectionLoading();
+     setCaptureScope(previous=>previous!==null&&previous.view_context===viewContext&&previous.child_id===selectedChild.child_id&&previous.profile_version===selectedChild.profile_version?previous:{view_context:viewContext,child_id:selectedChild.child_id,profile_version:selectedChild.profile_version,nickname:selectedChild.nickname});
      setEntry(previous=>{if(!previous)return null;const assignment=result.ready.find(a=>a.assignment_id===previous.assignment.assignment_id&&a.revision_id===previous.assignment.revision_id);if(!assignment)return null;if(previous.receipt){const play=result.plays.find(p=>p.play_id===previous.receipt?.play_id);if(play?.status!=='confirmed'||play.last_action_sequence!==previous.receipt.checkpoint.state.sequence)return null;}return previous;});
      if(!playing.current){
-      try{const status=await continuation.status({view_context:next.view_context,child_id:selectedChild.child_id});if(current()&&id===readSequence.current)setContinuationState(status.state);}
+      try{const status=await continuation.status({view_context:viewContext,child_id:selectedChild.child_id});if(current()&&id===readSequence.current)setContinuationState(status.state);}
       catch(failure){if(!current()||id!==readSequence.current)return;if((failure as {status?:number}).status===403)throw failure;setContinuationState('unavailable');}
      }
     }while(job.again&&current());
@@ -178,10 +207,10 @@ export default function LoopFamilyHome(){
     if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}
    }}finally{
     if(projection.current===job)projection.current=null;
-    if(current())setBusy(false);
+    releaseSelectionLoading();
    }
   })();return job.promise;
- },[clearSelection]);
+ },[clearSelection,checkAccess]);
  const eventGeneration=generation.current;
  const captureUncertain=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setBusy(false);setNotice('Capture or production update awaiting confirmation. Other family details return after a fresh check.');},[eventGeneration]);
  const captureDenied=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;clearSelection();authority.current=null;setIndex(null);setError('Family access changed. Check access and explicitly choose a child again.');void refresh();},[clearSelection,refresh,eventGeneration]);
@@ -189,19 +218,19 @@ export default function LoopFamilyHome(){
  const lockQueue=useCallback((locked:boolean)=>{if(live.current&&eventGeneration===generation.current)setQueueLocked(locked);},[eventGeneration]);
  const playActivity=useCallback((active:boolean)=>{if(live.current&&eventGeneration===generation.current){setPlayBusy(active);if(active)setContinuationState(null);}},[eventGeneration]);
  const queueUncertain=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setNotice('Request change awaiting confirmation. Check its original command or pending reference below.');},[eventGeneration]);
- useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState==='hidden'){clearSelection();authority.current=null;setIndex(null);}else void refresh();};const hide=()=>{clearSelection();authority.current=null;setIndex(null);};window.addEventListener('pagehide',hide);const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;projection.current=null;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',check);};},[refresh,clearSelection]);
+ useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState==='hidden'){clearSelection();authority.current=null;setIndex(null);}else void refresh(false,true);};const hide=()=>{clearSelection();authority.current=null;setIndex(null);};window.addEventListener('pagehide',hide);const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',check);};},[refresh,clearSelection]);
  function choose(position:string){const next=authority.current,child=next?.children?.[Number(position)];clearSelection();setError('');if(position===''||!next?.view_context||!child){setBusy(false);return;}selected.current=child;setCaptureScope({view_context:next.view_context,child_id:child.child_id,profile_version:child.profile_version,nickname:child.nickname});setBusy(true);void refresh(true);}
  async function open(item:Assignment|Play,kind:'assignment'|'play'){
-  const selectedHome=chosen.current;if(!selectedHome)return;const guard=generation.current,id=++openSequence.current;setBusy(true);setEntry(null);setError('');setNotice('');
+  const selectedHome=chosen.current;if(!selectedHome)return;const guard=generation.current,id=++openSequence.current,owner={generation:guard,id};opening.current=owner;setBusy(true);setEntry(null);setError('');setNotice('');
   try{const result:Entry=await api.open({view_context:selectedHome.view_context,child_id:selectedHome.selected_child.child_id,entry_kind:kind,assignment_id:item.assignment_id,revision_id:item.revision_id,...(kind==='play'?{play_id:(item as Play).play_id}:{})});if(!live.current||guard!==generation.current||id!==openSequence.current)return;
    if(result.state==='confirmation_pending'){setNotice('Your saved progress is awaiting confirmation. Retry opening it when ready.');return;}
    if(!['introduction','resume'].includes(result.state)||result.view_context!==selectedHome.view_context||result.selected_child?.child_id!==selectedHome.selected_child.child_id||result.assignment?.assignment_id!==item.assignment_id||result.adventure?.revision_id!==item.revision_id||kind==='play'&&result.receipt?.play_id!==(item as Play).play_id)throw Error('Changed investigation');const currentHome=chosen.current;if(!currentHome||currentHome.view_context!==selectedHome.view_context||currentHome.selected_child.profile_version!==selectedHome.selected_child.profile_version||!currentHome.ready.some(a=>a.assignment_id===item.assignment_id&&a.revision_id===item.revision_id))return;setEntry(result);
   }catch(failure){if(live.current&&guard===generation.current&&id===openSequence.current){chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();}setError('That investigation could not be confirmed. Retry checking access.');}}
-  finally{if(live.current&&guard===generation.current&&id===openSequence.current)setBusy(false);}
+  finally{if(opening.current===owner){opening.current=null;if(live.current&&guard===generation.current&&id===openSequence.current)setBusy(false);}}
  }
  const childPosition=index?.children?.findIndex(c=>c.child_id===selected.current?.child_id)??-1,scopeVisible=Boolean(index?.state==='select_child'&&captureScope&&selected.current);
  return <main className="loop-family" aria-labelledby="family-title"><p className="family-label">Local synthetic preview · invented families only · SYNTHETIC TEST ONLY</p><h1 id="family-title">Your curiosity space</h1><nav aria-label="Family help"><a href="/loop-preview/setup">Child setup and test permissions</a><a href="/loop-preview/join">Sign in or recover access</a><a href="/loop-preview">Preview home</a></nav>
-  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!index&&!error&&<p role="status">Checking family access…</p>}{error&&<button type="button" onClick={()=>{setError('');void refresh();}}>Retry access</button>}
+  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!index&&!error&&<p role="status">Checking family access…</p>}{error&&<button type="button" onClick={()=>{setError('');void refresh(true,true);}}>Retry access</button>}
   {index?.state==='permission_required'&&<section><h2>Test permission needed</h2><p>Review test permissions before opening invented child information.</p><a href="/loop-preview/setup">Review test permissions</a></section>}
   {index?.state==='setup_required'&&<section><h2>Set up an invented child</h2><a href="/loop-preview/setup">Open child setup</a></section>}
   {index?.state==='setup_unavailable'&&<section><h2>Setup needs attention</h2><p>Earlier child details cannot be reattached or corrected automatically after reconsent in this TEST journey. Setup remains unavailable; no new trial or successful child-save acknowledgement is implied. Get help through test settings.</p><a href="/loop-preview/setup">Open test settings</a></section>}
@@ -214,7 +243,7 @@ export default function LoopFamilyHome(){
    <section><h3>Ready investigations</h3>{home.ready.length?home.ready.map(a=><div className="family-card" key={a.assignment_id}><p className="family-question">{a.question}</p><button type="button" onClick={()=>void open(a,'assignment')}>Open investigation introduction</button></div>):<p>Nothing ready yet.</p>}</section>
    <section><h3>Saved plays</h3>{home.plays.length?home.plays.map(p=><div className="family-card" key={p.play_id}><p className="family-question">{p.question}</p><p>{p.status==='confirmed'?`${p.trial_count} confirmed ${p.trial_count===1?'try':'tries'}`:'Progress awaiting confirmation'}</p><button type="button" onClick={()=>void open(p,'play')}>Open saved investigation</button></div>):<p>No saved plays yet.</p>}</section>
    <section><h3>Previously tried</h3>{home.previous.length?home.previous.map(a=><p key={a.assignment_id} className="family-question">{a.question}</p>):<p>Investigations appear here after a confirmed try. This does not mean completed.</p>}</section>
-   <section className="family-continuation" aria-label="Test continuation status"><h3>Continuation status</h3>{continuationState==='confirmation_pending'?<p role="status">Test continuation awaiting confirmation. It adds no usable allowance.</p>:continuationState==='recorded_active'?<p>Test continuation recorded. No payment was collected or verified.</p>:continuationState==='recorded_expired'?<p>Test continuation ended. No renewal occurs.</p>:continuationState==='none'?<p>No test continuation recorded. Contact the founder for help; no purchase or sending is available here.</p>:<p>Continuation status could not be confirmed. No purchase or paid status is claimed.</p>}<button type="button" onClick={()=>void refresh()}>Refresh continuation and family details</button></section>
+   <section className="family-continuation" aria-label="Test continuation status"><h3>Continuation status</h3>{continuationState==='confirmation_pending'?<p role="status">Test continuation awaiting confirmation. It adds no usable allowance.</p>:continuationState==='recorded_active'?<p>Test continuation recorded. No payment was collected or verified.</p>:continuationState==='recorded_expired'?<p>Test continuation ended. No renewal occurs.</p>:continuationState==='none'?<p>No test continuation recorded. Contact the founder for help; no purchase or sending is available here.</p>:<p>Continuation status could not be confirmed. No purchase or paid status is claimed.</p>}<button type="button" onClick={()=>void refresh(true,true)}>Refresh continuation and family details</button></section>
    <section><h3>Trial and allowance</h3>{home.allowances.length?home.allowances.map(a=><div key={a.period_id} className="family-card"><p>{a.policy_version==='TEST-CONTINUATION-v1'?(a.state==='expired'?'Test continuation ended':'Test continuation recorded'):(a.state==='expired'?'Trial ended':'Trial active')} · {a.allocation_scope==='household'?'Shared family allowance':'This child’s allowance'}</p><p>{date(a.trial_start)} to {date(a.trial_end)}</p>{a.remaining===0&&<p>No allowance remaining in this period. Existing requests and permitted investigations stay listed. New production eligibility needs a separate current check.</p>}<p>{a.remaining} {a.state==='expired'?'remaining in ended period':'available'} · {a.pending} pending · {a.reserved} reserved · {a.consumed} used · {a.released} released</p>{a.pending_readiness>0&&<p>{a.pending_readiness} awaiting readiness confirmation, already counted as used.</p>}{a.state==='expired'&&<><p>{a.policy_version==='TEST-CONTINUATION-v1'?'Test continuation ended — contact the founder.':'Trial ended — contact the founder.'}</p><p>Previously submitted requests keep their submission-time eligibility. Existing permitted investigations and saved progress remain available. New requests need a separate current eligibility check.</p></>}</div>):<p>Trial not activated. Opening this page does not start one.</p>}</section>
   </article>}
   <JourneyPlayPanel scope={captureScope} home={home} entry={entry} onDenied={captureDenied} onActivity={playActivity} onProgress={captureAcknowledged}/>

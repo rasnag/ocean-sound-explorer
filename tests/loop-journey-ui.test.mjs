@@ -38,7 +38,11 @@ test('development StrictMode: stable family binding survives poll/rerender; held
  assert.notEqual(process.env.NODE_ENV,'production','This check requires actual development React');const h=await journeyHarness(t),x=await prepareJourney(h),nativeFetch=globalThis.fetch,{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript');let mounts=0,cleanups=0,root,hook;
  const dom=new JSDOM('<!doctype html><div id="root"></div>',{url:h.parentOrigin+'/loop-preview/family',pretendToBeVisual:true});let hold=false,held=false,release,opens=0,holdContext=true,contextHeld=false,holdFamily=false,familyHeld=false,holdIntroduction=false,introductionHeld=false;
  const contextGate=gate(),familyGate=gate(),introductionGate=gate();
- const measured=measure(async(path,options={})=>{const response=await nativeFetch(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:h.parentCookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});if(String(path)==='/adult/journey/context'&&holdContext){contextHeld=true;await contextGate.promise;}if(String(path)==='/adult/family/read'&&holdFamily){holdFamily=false;familyHeld=true;await familyGate.promise;}if(String(path)==='/adult/family/open'&&holdIntroduction){holdIntroduction=false;introductionHeld=true;await introductionGate.promise;}if(String(path)==='/adult/journey/open'){opens++;if(hold){hold=false;held=true;await new Promise(r=>{release=r;});}}return response;});
+ const measured=measure(async(path,options={})=>{
+  // Absolute harness requests retain their own current cookie/Origin and URL.
+  if(!String(path).startsWith('/'))return nativeFetch(new URL(path,h.parentOrigin),options);
+  const response=await nativeFetch(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:h.parentCookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});if(String(path)==='/adult/journey/context'&&holdContext){contextHeld=true;await contextGate.promise;}if(String(path)==='/adult/family/read'&&holdFamily){holdFamily=false;familyHeld=true;await familyGate.promise;}if(String(path)==='/adult/family/open'&&holdIntroduction){holdIntroduction=false;introductionHeld=true;await introductionGate.promise;}if(String(path)==='/adult/journey/open'){opens++;if(hold){hold=false;held=true;await new Promise(r=>{release=r;});}}return response;
+ });
  const restore=installDOM(dom,(...args)=>measured.fetch(...args)),{wait,button,enabled,click,phase}=controls(React);
  try{
   for(const name of ['getItem','setItem','removeItem','clear'])dom.window.Storage.prototype[name]=()=>{throw Error('Private browser storage forbidden');};hook=reactLoader(ts);const {default:Home}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client');function Control(){React.useEffect(()=>{mounts++;return()=>{cleanups++;};},[]);return React.createElement(Home);}root=createRoot(document.getElementById('root'));const render=()=>React.act(async()=>root.render(React.createElement(React.StrictMode,null,React.createElement(Control))));
@@ -46,29 +50,29 @@ test('development StrictMode: stable family binding survives poll/rerender; held
   await React.act(async()=>{const select=document.getElementById('family-child');select.value='0';select.dispatchEvent(new Event('change',{bubbles:true}));});await wait(()=>contextHeld);assert(!button('Test trial: check availability'),'Control must be absent while capability response is held');
   holdContext=false;await React.act(async()=>contextGate.release());await wait(()=>enabled('Test trial: check availability'));
   await click('Test trial: check availability');await wait(()=>document.body.textContent.includes('TEST trial confirmed')&&enabled('Test trial: check availability'));await click('Test trial: check availability');await wait(()=>enabled('Test trial: check availability'));
-  // Real queue onObserved and capture onAcknowledged enter the same Home lane.
-  // No callback or successful status is fabricated by this transport.
+  // Real queue onObserved and capture onAcknowledged enter the same projection lane.
   await wait(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.startsWith('View request 1:')&&!b.disabled));
   holdFamily=true;await React.act(async()=>[...document.querySelectorAll('button')].find(b=>b.textContent.startsWith('View request 1:')).click());await wait(()=>familyHeld);
-  const secondWords='Invented additional saved-only wonder; never replace the original request.';await click('Start a wonder');await typeText(React,'#family-wonder',secondWords);await wait(()=>enabled('Review saved-only wonder'));await click('Review saved-only wonder');await click('Confirm saved-only wonder');await wait(()=>document.body.textContent.includes('Wonder saved. No investigation has been requested.'));
+  const secondWords='Invented additional saved-only wonder; never replace the original request.';await wait(()=>enabled('Start a wonder'));await click('Start a wonder');await typeText(React,'#family-wonder',secondWords);await wait(()=>enabled('Review saved-only wonder'));await click('Review saved-only wonder');await click('Confirm saved-only wonder');await wait(()=>document.body.textContent.includes('Wonder saved. No investigation has been requested.'));
   await React.act(async()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));familyGate.release();});
   await wait(()=>document.querySelector('[aria-label="Selected child space"]')?.textContent.includes(secondWords));assert.equal(measured.rows.get('/adult/wonder/save').calls,1);assert.equal(measured.rows.get('/adult/family/read').peak,1);
-  // Keep an actual unsent draft in RAM while the play's visibility gate pauses capture polling.
+  // Summary publication precedes capture's acknowledged-refresh callback/finally.
+  // Wait for the real enabled control, without changing the settling window.
+  await wait(()=>enabled('Start a wonder'));
   const draft='Invented unsent draft retained while the existing play is open.';await click('Start a wonder');await typeText(React,'#family-wonder',draft);assert.equal(document.querySelector('#family-wonder').value,draft);
   holdIntroduction=true;await click('Open investigation introduction');await wait(()=>introductionHeld);
   await React.act(async()=>{for(let i=0;i<4;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});
   await React.act(async()=>introductionGate.release());await wait(()=>document.querySelector('[aria-label="Opened investigation"]'));await wait(()=>enabled('Start or resume this TEST investigation'));await click('Start or resume this TEST investigation');await wait(()=>phase()==='ready');const playId=document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id');
   const initialOpens=opens;await render();
-  // Hold a genuine old family response while the actual player commits new progress.
-  const playFamilyGate=gate();familyHeld=false;let releasePlayFamily=playFamilyGate.release;
+  const playFamilyGate=gate();familyHeld=false;const releasePlayFamily=playFamilyGate.release;
   const originalFetch=globalThis.fetch;globalThis.fetch=async(path,options)=>{if(String(path)==='/adult/family/read'&&!familyHeld){familyHeld=true;const response=await originalFetch(path,options);await playFamilyGate.promise;return response;}return originalFetch(path,options);};
   try{
    await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>familyHeld);assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);assert.equal(opens,initialOpens);
    const count=p=>measured.rows.get(p)?.calls??0,aux=['/adult/wonder/status','/adult/production/status','/adult/queue/status'],beforeAux=aux.map(count),beforeReads=count('/adult/family/read');
    await React.act(async()=>{for(let i=0;i<12;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});
-   // Exercise the actual fifteen-second timer, not an increased settling timeout.
+   // Real fifteen-second timer; the original750x20ms settling window stays unchanged.
    await React.act(async()=>new Promise(r=>setTimeout(r,15500)));
-   assert.equal(count('/adult/family/read'),beforeReads,'Polls must join the outstanding read rather than supersede it');assert.deepEqual(aux.map(count),beforeAux,'No new auxiliary polling while the real private player is active');
+   assert.equal(count('/adult/family/read'),beforeReads,'Polls must not replace or duplicate the outstanding projection');assert.deepEqual(aux.map(count),beforeAux,'No new auxiliary automatic polling while the real private player is active');
    await React.act(async()=>document.querySelector('[data-testid="saved-start"]').click());await wait(()=>document.querySelector('[data-testid="saved-test"]'));
    for(const selector of ['[data-prediction="tips"]','[data-configuration="offset"]','[data-testid="saved-test"]']){await React.act(async()=>document.querySelector(selector).click());await wait(()=>phase()==='ready');}assert.equal(document.querySelectorAll('[data-testid="saved-trial"]').length,1);
    await React.act(async()=>releasePlayFamily());await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.body.textContent.includes('1 confirmed try'));assert.equal(document.querySelectorAll('[data-testid="saved-trial"]').length,1);assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);assert(!document.querySelector('[data-testid="saved-replay"]'));assert.equal(dom.window.location.pathname,'/loop-preview/family');assert.equal(dom.window.location.search,'');
@@ -78,22 +82,51 @@ test('development StrictMode: stable family binding survives poll/rerender; held
   hold=true;await click('Reload confirmed progress');await click('Discard page intent and reload');await wait(()=>held);await React.act(async()=>window.dispatchEvent(new Event('pagehide')));assert(!document.querySelector('[data-testid="saved-root"]'));await React.act(async()=>release());assert(!document.querySelector('[data-testid="saved-root"]'));
   await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.getElementById('family-child'));await React.act(async()=>{const select=document.getElementById('family-child');select.value='0';select.dispatchEvent(new Event('change',{bubbles:true}));});await wait(()=>document.body.textContent.includes('Invented Journey’s wonders'));await click('Open saved investigation');await wait(()=>enabled('Start or resume this TEST investigation'));await click('Start or resume this TEST investigation');await wait(()=>phase()==='ready');assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);
   hold=true;held=false;await click('Reload confirmed progress');await click('Discard page intent and reload');await wait(()=>held);await h.post('/adult/consent/withdraw',{command_id:randomUUID(),policy_version:'TEST-v1'});await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>!document.querySelector('[data-testid="saved-root"]'));await React.act(async()=>release());assert(!document.querySelector('[data-testid="saved-root"]'));assert(!document.body.textContent.includes(x.words));
- }finally{holdContext=false;contextGate.release();familyGate.release();introductionGate.release();release?.();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL HTTP load/latency, including capture and queue contribution: '+JSON.stringify(measured.summary()));restore();}
+ }finally{holdContext=false;contextGate.release();familyGate.release();introductionGate.release();release?.();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL HTTP auth/projection/auxiliary counts and latency: '+JSON.stringify(measured.summary()));restore();}
+});
+test('actual confirmed selection releases loading before optional continuation; fresh auth clears a held projection on withdrawal',async t=>{
+ assert.notEqual(process.env.NODE_ENV,'production');const h=await journeyHarness(t);await h.signup('invented-held-authority@example.invalid');
+ const native=globalThis.fetch,{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript'),dom=new JSDOM('<div id="root"></div>',{url:h.parentOrigin+'/loop-preview/family',pretendToBeVisual:true}),continuationGate=gate(),projectionGate=gate();let holdContinuation=true,continuationHeld=false,holdProjection=false,projectionHeld=false,root,hook;
+ const measured=measure(async(path,options={})=>{
+  if(!String(path).startsWith('/'))return native(new URL(path,h.parentOrigin),options);
+  const response=await native(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:h.parentCookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});
+  if(path==='/adult/continuation/status'&&holdContinuation){holdContinuation=false;continuationHeld=true;await continuationGate.promise;}
+  if(path==='/adult/family/read'&&holdProjection){holdProjection=false;projectionHeld=true;await projectionGate.promise;}
+  return response;
+ });
+ const restore=installDOM(dom,(...args)=>measured.fetch(...args)),{wait,enabled,click}=controls(React);
+ try{
+  hook=reactLoader(ts);const {default:Home}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client');root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Home)));await wait(()=>document.getElementById('family-child'));
+  await React.act(async()=>{const s=document.getElementById('family-child');s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}));});await wait(()=>continuationHeld);await wait(()=>document.querySelector('[aria-label="Selected child space"]'));await wait(()=>enabled('Start a wonder'));
+  assert(!document.body.textContent.includes('Checking the selected investigation…'),'Optional continuation must not retain selection loading');await click('Start a wonder');await typeText(React,'#family-wonder','Invented draft before current-permission withdrawal');
+  holdProjection=true;await React.act(async()=>continuationGate.release());await click('Refresh continuation and family details');await wait(()=>projectionHeld);
+  const reads=measured.rows.get('/adult/family/read').calls,authBefore=measured.rows.get('/adult/family').calls;
+  await h.post('/adult/consent/withdraw',{command_id:randomUUID(),policy_version:'TEST-v1'});
+  await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.body.textContent.includes('Test permission needed'));
+  assert(measured.rows.get('/adult/family').calls>authBefore,'Focus must perform fresh actual authorization while the projection is held');assert.equal(measured.rows.get('/adult/family/read').calls,reads);assert.equal(measured.rows.get('/adult/family').peak,1);assert.equal(measured.rows.get('/adult/family/read').peak,1);assert(!document.querySelector('[aria-label="Selected child space"]'));assert(!document.querySelector('#family-wonder'));
+  await React.act(async()=>projectionGate.release());assert(document.body.textContent.includes('Test permission needed'));assert(!document.querySelector('[aria-label="Selected child space"]'));
+ }finally{continuationGate.release();projectionGate.release();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL separate auth/projection and capture/queue load: '+JSON.stringify(measured.summary()));restore();}
 });
 test('actual late old-session denial/finally cannot clear or unlock a new actor-child generation',async t=>{
  const h=await journeyHarness(t);await h.signup('invented-old-generation@example.invalid');const oldCookie=h.parentCookie,native=globalThis.fetch,{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript'),dom=new JSDOM('<div id="root"></div>',{url:h.parentOrigin+'/loop-preview/family',pretendToBeVisual:true}),oldGate=gate(),newGate=gate();let oldHeld=false,newHeld=false,holdOld=true,holdNew=false,newReads=0,root,hook;
- const measured=measure(async(path,options={})=>{const cookie=h.parentCookie;if(path==='/adult/family/read'&&cookie===oldCookie&&holdOld){holdOld=false;oldHeld=true;await oldGate.promise;}else if(path==='/adult/family/read'&&cookie!==oldCookie){newReads++;if(holdNew){holdNew=false;newHeld=true;await newGate.promise;}}return native(h.parentOrigin+path,{...options,headers:{...options.headers,Cookie:cookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});});
+ const measured=measure(async(path,options={})=>{
+  // Harness requests are already absolute and carry their own actor credentials.
+  // Do not prefix them again or replace their Cookie/Origin with component state.
+  if(!String(path).startsWith('/'))return native(new URL(path,h.parentOrigin),options);
+  const cookie=h.parentCookie;if(path==='/adult/family/read'&&cookie===oldCookie&&holdOld){holdOld=false;oldHeld=true;await oldGate.promise;}else if(path==='/adult/family/read'&&cookie!==oldCookie){newReads++;if(holdNew){holdNew=false;newHeld=true;await newGate.promise;}}
+  return native(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:cookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});
+ });
  const restore=installDOM(dom,(...args)=>measured.fetch(...args)),{wait}=controls(React);
  try{
   hook=reactLoader(ts);const {default:Home}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client');root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(React.StrictMode,null,React.createElement(Home))));await wait(()=>document.getElementById('family-child'));
   const choose=()=>{const s=document.getElementById('family-child');s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}));};await React.act(async()=>choose());await wait(()=>oldHeld);
-  await h.post('/adult/logout',{});await React.act(async()=>window.dispatchEvent(new Event('pagehide')));assert(!document.querySelector('[aria-label="Selected child space"]'));
-  await h.signup('invented-new-generation@example.invalid');holdNew=true;await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.getElementById('family-child'));await React.act(async()=>choose());await wait(()=>newHeld);
+  await h.post('/adult/logout',{});assert(measured.rows.get(h.parentOrigin+'/adult/logout').statuses.includes(200));await React.act(async()=>window.dispatchEvent(new Event('pagehide')));assert(!document.querySelector('[aria-label="Selected child space"]'));
+  await h.signup('invented-new-generation@example.invalid');assert.notEqual(h.parentCookie,oldCookie);holdNew=true;await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.getElementById('family-child'));await React.act(async()=>choose());await wait(()=>newHeld);
   await React.act(async()=>oldGate.release());await wait(()=>measured.rows.get('/adult/family/read').statuses.includes(403));assert(document.getElementById('family-child'),'Late old denial must not clear the new actor');
-  await React.act(async()=>{for(let i=0;i<6;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});assert.equal(newReads,1,'Old finally must not release the new generation flight');
+  await React.act(async()=>{for(let i=0;i<6;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});assert.equal(newReads,1,'Old finally must not release the new generation projection');
   await React.act(async()=>newGate.release());await wait(()=>document.querySelector('[aria-label="Selected child space"]'));assert(!document.querySelector('[role="alert"]'));
   await h.post('/adult/consent/withdraw',{command_id:randomUUID(),policy_version:'TEST-v1'});await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>!document.querySelector('[aria-label="Selected child space"]'));
- }finally{oldGate.release();newGate.release();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL generation-fence HTTP counts/latency: '+JSON.stringify(measured.summary()));restore();}
+ }finally{oldGate.release();newGate.release();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL generation-fence HTTP auth/projection counts/latency: '+JSON.stringify(measured.summary()));restore();}
 });
 test('actual pending Start202 shows explicit pending copy, no mounted play, and same original command recovery',async t=>{
  // Backend producer fixture only, not empty-store/full-journey evidence.
