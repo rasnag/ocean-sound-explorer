@@ -114,7 +114,7 @@ function SavedPlayerSession({integration}: {integration?: SavedPlayerIntegration
       // the current subscription still receives its actual settled response.
       if (!openedBinding.current) {
         openedBinding.current = true;
-        void client.open(binding.playId).catch(() => {if (active && bindingLive.current) setLocalError('This play is unavailable. Return to the family home.');});
+        void (client.open as typeof client.open & ((playId: string) => ReturnType<typeof client.open>))(binding.playId).catch(() => {if (active && bindingLive.current) setLocalError('This play is unavailable. Return to the family home.');});
       }
       return () => {active = false; unsubscribe();};
     }
