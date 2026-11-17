@@ -138,7 +138,7 @@ export default function LoopFamilyHome(){
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[captureScope,setCaptureScope]=useState<WonderScope|null>(null),[captureFence,setCaptureFence]=useState(0),[continuationState,setContinuationState]=useState<string|null>(null),[queueLocked,setQueueLocked]=useState(false);
  const live=useRef(false),generation=useRef(0),authSequence=useRef(0),readSequence=useRef(0),openSequence=useRef(0);
  const authority=useRef<Index|null>(null),selected=useRef<Child|null>(null),chosen=useRef<Home|null>(null);
- const projection=useRef<{generation:number;again:boolean;promise:Promise<void>}|null>(null),playing=useRef(false);
+ const projection=useRef<{generation:number;again:boolean;focusPending:boolean;promise:Promise<void>}|null>(null),playing=useRef(false);
  const accessFlight=useRef<{generation:number;promise:Promise<Index|null>}|null>(null),opening=useRef<{generation:number;id:number}|null>(null);
  const [playBusy,setPlayBusy]=useState(false);playing.current=playBusy;
  const clearSelection=useCallback(()=>{++generation.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);setContinuationState(null);setQueueLocked(false);setPlayBusy(false);},[]);
@@ -170,17 +170,17 @@ export default function LoopFamilyHome(){
  },[clearSelection]);
  // One projection lane and one merged producer follow-up per generation.
  // Fresh lightweight access checks never supersede a same-scope read or Open.
- const refresh=useCallback((again=false,revalidate=false):Promise<void>=>{
+ const refresh=useCallback(function refresh(again=false,revalidate=false,focusRefresh=false):Promise<void>{
   if(!live.current||document.visibilityState==='hidden')return Promise.resolve();
   const guard=generation.current,existing=projection.current;
-  if(existing?.generation===guard){if(again)existing.again=true;if(revalidate)void checkAccess();return existing.promise;}
-  const job={generation:guard,again:false,promise:Promise.resolve()};projection.current=job;
+  if(existing?.generation===guard){if(again)existing.again=true;if(focusRefresh)existing.focusPending=true;if(revalidate)void checkAccess();return existing.promise;}
+  const job={generation:guard,again:false,focusPending:false,promise:Promise.resolve()};projection.current=job;let confirmed:number|null=null;
   const current=()=>live.current&&guard===generation.current&&document.visibilityState!=='hidden';
   const releaseSelectionLoading=()=>{const owner=opening.current;if(current()&&!(owner?.generation===guard&&owner.id===openSequence.current))setBusy(false);};
   job.promise=(async()=>{
    try{
     do{
-     job.again=false;const next=await checkAccess();if(!current()||!next?.view_context)return;
+     job.again=false;job.focusPending=false;confirmed=null;const next=await checkAccess();if(!current()||!next?.view_context)return;
      const viewContext=next.view_context,child=selected.current,selectedChild=child&&next.children?.find(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version);
      if(!selectedChild)return;
      const id=++readSequence.current;let result:Home;
@@ -194,7 +194,7 @@ export default function LoopFamilyHome(){
      if(!current())return;
      if(id!==readSequence.current)continue;
      if(result.state!=='child_space'||result.view_context!==viewContext||result.selected_child?.child_id!==selectedChild.child_id||result.selected_child.profile_version!==selectedChild.profile_version)throw Object.assign(Error('Changed scope'),{status:403});
-     chosen.current=result;setHome(result);setError('');releaseSelectionLoading();
+     confirmed=id;chosen.current=result;setHome(result);setError('');releaseSelectionLoading();
      setCaptureScope(previous=>previous!==null&&previous.view_context===viewContext&&previous.child_id===selectedChild.child_id&&previous.profile_version===selectedChild.profile_version?previous:{view_context:viewContext,child_id:selectedChild.child_id,profile_version:selectedChild.profile_version,nickname:selectedChild.nickname});
      setEntry(previous=>{if(!previous)return null;const assignment=result.ready.find(a=>a.assignment_id===previous.assignment.assignment_id&&a.revision_id===previous.assignment.revision_id);if(!assignment)return null;if(previous.receipt){const play=result.plays.find(p=>p.play_id===previous.receipt?.play_id);if(play?.status!=='confirmed'||play.last_action_sequence!==previous.receipt.checkpoint.state.sequence)return null;}return previous;});
      if(!playing.current){
@@ -206,7 +206,12 @@ export default function LoopFamilyHome(){
     ++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setIndex(null);setContinuationState(null);setError('Family access could not be confirmed. Retry or sign in again.');
     if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}
    }}finally{
-    if(projection.current===job)projection.current=null;
+    if(projection.current===job){
+     projection.current=null;
+     // A focus during this read/tail is one pending fresh pass, not another
+     // awaited producer loop. Timer-only checks never set this bit.
+     if(job.focusPending&&confirmed!==null&&confirmed===readSequence.current&&current())queueMicrotask(()=>{if(current())void refresh();});
+    }
     releaseSelectionLoading();
    }
   })();return job.promise;
@@ -218,7 +223,7 @@ export default function LoopFamilyHome(){
  const lockQueue=useCallback((locked:boolean)=>{if(live.current&&eventGeneration===generation.current)setQueueLocked(locked);},[eventGeneration]);
  const playActivity=useCallback((active:boolean)=>{if(live.current&&eventGeneration===generation.current){setPlayBusy(active);if(active)setContinuationState(null);}},[eventGeneration]);
  const queueUncertain=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setNotice('Request change awaiting confirmation. Check its original command or pending reference below.');},[eventGeneration]);
- useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState==='hidden'){clearSelection();authority.current=null;setIndex(null);}else void refresh(false,true);};const hide=()=>{clearSelection();authority.current=null;setIndex(null);};window.addEventListener('pagehide',hide);const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',check);};},[refresh,clearSelection]);
+ useEffect(()=>{live.current=true;void refresh();const check=(event?:Event)=>{if(document.visibilityState==='hidden'){clearSelection();authority.current=null;setIndex(null);}else void refresh(false,true,event?.type==='focus'||event?.type==='pageshow');};const hide=()=>{clearSelection();authority.current=null;setIndex(null);};window.addEventListener('pagehide',hide);const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',check);};},[refresh,clearSelection]);
  function choose(position:string){const next=authority.current,child=next?.children?.[Number(position)];clearSelection();setError('');if(position===''||!next?.view_context||!child){setBusy(false);return;}selected.current=child;setCaptureScope({view_context:next.view_context,child_id:child.child_id,profile_version:child.profile_version,nickname:child.nickname});setBusy(true);void refresh(true);}
  async function open(item:Assignment|Play,kind:'assignment'|'play'){
   const selectedHome=chosen.current;if(!selectedHome)return;const guard=generation.current,id=++openSequence.current,owner={generation:guard,id};opening.current=owner;setBusy(true);setEntry(null);setError('');setNotice('');
