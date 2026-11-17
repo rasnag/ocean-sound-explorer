@@ -1,5 +1,6 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
+import {Analytics} from '@vercel/analytics/react';
 import Home from './page';
 import MakeMoon from './MakeMoon';
 import About from './About';
@@ -29,4 +30,9 @@ const page = path === '/make-the-moon' ? <MakeMoon/>
   : path === '/loop-preview/family' && previewEnabled ? <LoopFamilyHome/>
   : path === '/loop-preview/setup' && previewEnabled ? <LoopChildSetup/>
   : <About/>;
-createRoot(document.getElementById('root')!).render(page);
+createRoot(document.getElementById('root')!).render(
+  <>
+    {page}
+    {import.meta.env.PROD && path === '/' && <Analytics/>}
+  </>,
+);
