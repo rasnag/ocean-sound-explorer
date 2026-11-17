@@ -16,6 +16,7 @@ function costBrowser(createClient){
  const ownerByLine={C1:'G1',C2:'G1',C3:'G2',C4:'G3',C5:'I1'};
  const toy={kind:'invented-scenario-rate',rate_id:'toy-rate-v1',input_micro_usd_per_token:3,output_micro_usd_per_token:7};
  let rows=[],selection=null,view=null,intent=null,pending=[],stamp='',recoveryStamp='',reading=false,writing=false,live=true,sequence=0,operation=0,timer=null;
+ let refreshAfterOperation=false;
  const controllers=new Set();
  const visible=()=>live&&document.visibilityState!=='hidden';
  const key=s=>s?JSON.stringify([s.household_id,s.request_id,s.scope_version]):'';
@@ -37,7 +38,7 @@ function costBrowser(createClient){
  function newId(){if(typeof crypto?.randomUUID!=='function')throw Error();return crypto.randomUUID();}
  function hide(){view=null;stamp='';container.replaceChildren();}
  function abort(){for(const c of controllers)c.abort();controllers.clear();reading=false;}
- function invalidate(){++sequence;abort();writing=false;++operation;hide();recovery.replaceChildren();recoveryStamp='';}
+ function invalidate(){++sequence;refreshAfterOperation=false;abort();writing=false;++operation;hide();recovery.replaceChildren();recoveryStamp='';}
  function lock(){
   const blocked=writing||!!intent||pending.length>0||!view;
   for(const e of container.querySelectorAll('input,select,button'))e.disabled=blocked;
@@ -117,7 +118,7 @@ function costBrowser(createClient){
    status.textContent=e?.status===409?'Source or version conflict. The original operation has not been retargeted. Recover its original key.':'Original outcome unavailable. Retry or recover the original command explicitly.';
    error.textContent='No saved effect is confirmed.';
   }finally{
-   if(op===operation){writing=false;recoveryStamp='';recover();lock();if(visible())void refresh();}
+   if(op===operation){writing=false;recoveryStamp='';recover();lock();void refresh(true);}
   }
  }
  function send(action,payload){
@@ -205,18 +206,34 @@ function costBrowser(createClient){
   else status.textContent=confirmed?'Saved: the exact original effect is present in fresh authorized history.':'Current authorized synthetic state. Unknown values remain unknown.';
   if(!sourceChanged)restoreFocus(focus);recover();lock();
  }
- async function refresh(){
-  if(!visible()||reading||writing)return;reading=true;const seq=sequence,selected=selection?scope(selection):null,selectedKey=key(selected);
+ async function refresh(afterOperation=false){
+  if(!visible())return;
+  if(afterOperation)refreshAfterOperation=true;
+  if(reading||writing)return;
+  const completedOperation=refreshAfterOperation;
+  refreshAfterOperation=false;
+  reading=true;
+  const seq=sequence,op=operation,selected=selection?scope(selection):null,selectedKey=key(selected);
   const current=()=>visible()&&seq===sequence&&key(selection)===selectedKey;
+  const canPublish=()=>current()&&op===operation&&!writing;
   try{
-   const list=await call('list',{});if(!current())return;setRows(list.requests);
-   if(!selected){recover();lock();return;}
-   if(!list.requests.some(s=>key(s)===selectedKey)){loseScope();return;}
+   // The acknowledged scope has an independently authorized read. Retain
+   // the fresh list check after that read and avoid the leading scan.
+   const acknowledgedScope=completedOperation&&selected&&intent?.ack&&key(intent.input)===selectedKey;
+   if(!acknowledgedScope){
+    const list=await call('list',{});if(!current())return;
+    if(selected&&!list.requests.some(s=>key(s)===selectedKey)){setRows(list.requests);loseScope();return;}
+    if(!canPublish())return;
+    setRows(list.requests);
+    if(!selected){recover();lock();return;}
+   }
    const next=await call('read',selected);if(!current())return;
-   // Read may have been held across withdrawal. Obtain fresh list authority
-   // AFTER that response, before revealing any of its private projection.
-   const fresh=await call('list',{});if(!current())return;setRows(fresh.requests);
-   if(!fresh.requests.some(s=>key(s)===selectedKey)){loseScope();return;}
+   // A held response still needs current list authority. An overtaken read
+   // may enforce denial, but only a subsequent read may publish confirmation.
+   const fresh=await call('list',{});if(!current())return;
+   if(!fresh.requests.some(s=>key(s)===selectedKey)){setRows(fresh.requests);loseScope();return;}
+   if(!canPublish())return;
+   setRows(fresh.requests);
    error.textContent='';let confirmed=false;
    if(intent&&key(intent.input)===selectedKey&&materialized(next,intent)){intent=null;confirmed=true;recoveryStamp='';}
    else if(intent?.ack&&!intent.input.command&&key(intent.input)===selectedKey&&next.status==='cost_view'&&next.version>=intent.ack.version){intent=null;recoveryStamp='';status.textContent='Acknowledgement received. Original envelope unavailable; inspect authorized history. No exact Saved confirmation is claimed.';render(next);status.textContent='Acknowledgement received. Original envelope unavailable; inspect authorized history. No exact Saved confirmation is claimed.';return;}
@@ -224,9 +241,15 @@ function costBrowser(createClient){
   }catch(e){
    if(!current())return;
    if([401,403].includes(e?.status)){denied();return;}
+   if(!canPublish())return;
    hide();recoveryStamp='';recover();lock();error.textContent='Current authorized state unavailable. Private figures and unsent controls are hidden.';
    if(e?.status===409)status.textContent='Source or scope conflict. The original command, if held, remains unchanged.';
-  }finally{if(seq===sequence)reading=false;}
+  }finally{
+   if(seq===sequence){
+    reading=false;
+    if(refreshAfterOperation)void refresh();
+   }
+  }
  }
  select.addEventListener('change',()=>{
   const next=rows.find(s=>key(s)===select.value);invalidate();pending=[];selection=next?scope(next):null;error.textContent='';status.textContent='Reading selected scope…';recover();lock();void refresh();
