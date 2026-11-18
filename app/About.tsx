@@ -10,7 +10,11 @@ export default function About(){
  return <main className="about-site">
   <nav className="about-nav" aria-label="Main navigation">
    <a className="about-wordmark" href="/" aria-label="Curiosity Loop home"><span>✦</span> Curiosity Loop</a>
-   <a href="#experiments">All games</a>
+   <div className="public-home-links">
+    <a href="#experiments">All games</a>
+    <a href="/activities/octopus-camouflage/">Activity</a>
+    <a href="/about/">About us</a>
+   </div>
   </nav>
 
   <section className="about-hero">

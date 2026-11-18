@@ -1,0 +1,65 @@
+:root {
+  color: #102641;
+  background: #fffaf0;
+  font-family: ui-rounded, 'Arial Rounded MT Bold', system-ui, sans-serif;
+  line-height: 1.65;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #0d5c78; text-underline-offset: 0.22em; }
+:focus-visible { outline: 3px solid #087d9b; outline-offset: 5px; }
+.site-header, footer { padding: 0 1.25rem; }
+nav { max-width: 70rem; min-height: 4.75rem; margin: auto; border-bottom: 1px solid #d9dfd8; display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .6rem 0; }
+.links { display: flex; flex-wrap: wrap; gap: 1rem; }
+.links a { font-weight: 650; }
+.brand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 850; text-decoration: none; color: inherit; }
+.brand span { display: grid; place-items: center; width: 1.85rem; aspect-ratio: 1; border-radius: 50%; background: #ffd45c; }
+.hero { max-width: 70rem; margin: auto; padding: clamp(3rem, 8vw, 6rem) 1.25rem; }
+.activity-hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(2rem, 6vw, 5rem); align-items: center; }
+.about-hero { max-width: 57rem; }
+.about-hero p:last-child { max-width: 37rem; }
+.eyebrow { color: #0d5c78; font-weight: 750; font-size: .86rem; }
+h1, h2 { line-height: 1.1; letter-spacing: -.035em; margin: 0 0 .8em; }
+h1 { font-size: clamp(2.65rem, 7vw, 5.6rem); margin-bottom: .32em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.15rem); }
+.hero p:not(.eyebrow) { font-size: clamp(1.05rem, 2vw, 1.3rem); }
+.button { display: inline-block; border: 0; border-radius: .75rem; background: #ffd45c; color: #102641; font: inherit; font-weight: 750; padding: .65rem 1rem; text-decoration: none; cursor: pointer; text-align: center; }
+.button:hover { background: #ffdf85; }
+.button[hidden] { display: none; }
+.text-link { display: inline-block; margin: .8rem 0 .8rem .8rem; }
+.paper-study { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; padding: .9rem; background: #fff; border: 1px solid #d9dfd8; border-radius: 1.5rem; }
+.swatch { aspect-ratio: 4 / 5; display: grid; place-items: center; border-radius: .75rem; font-size: clamp(2rem, 7vw, 5rem); }
+.sandy { background: repeating-radial-gradient(ellipse at bottom, #c9aa82 0 19px, #b99a74 20px 22px); }
+.kelp { background: repeating-linear-gradient(110deg, #164653 0 24px, #367562 25px 34px, #62957a 35px 39px); }
+.reading { max-width: 44rem; padding: 0 1.25rem 2rem; margin: auto; font-size: 1.06rem; }
+.reading h2:not(:first-child) { margin-top: 2.1rem; }
+.reading li { margin: .6rem 0; }
+.steps li { padding-left: .35rem; margin-bottom: 1rem; }
+.note { background: #eaf3ed; border-radius: .75rem; padding: .125rem 1.25rem; }
+.worksheet { max-width: 42rem; margin: 1rem auto 3rem; background: white; border: 1px solid #d9dfd8; border-radius: 1rem; padding: clamp(1.2rem, 5vw, 2.25rem); }
+.worksheet-header { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; }
+.worksheet-header h2, .worksheet-header .eyebrow { margin: 0; }
+.worksheet dt { margin-top: 1.1rem; font-weight: 750; }
+.worksheet dd { margin: .25rem 0; }
+.worksheet dd span { display: inline-block; width: 7rem; max-width: 100%; border-bottom: 1px solid; }
+.activity-pieces { display: block; width: 100%; height: auto; }
+.signature { font-weight: 700; }
+.next-step { padding: 2.5rem 1.25rem; background: #eaf3ed; text-align: center; }
+.next-step h2 { margin-bottom: .4rem; }
+footer { text-align: center; padding-block: 1.5rem; }
+@media (max-width: 45rem) {
+  .activity-hero { grid-template-columns: 1fr; }
+  .swatch { aspect-ratio: 4 / 3; }
+}
+@media screen and (max-width: 45rem) {
+  .worksheet { margin-inline: 1.25rem; }
+}
+@media print {
+  @page { margin: 16mm; }
+  :root { color: #000; background: #fff; font-size: 11pt; }
+  .site-header, .screen-content, .next-step, footer, #print-card { display: none; }
+  .worksheet { border: 0; border-radius: 0; margin: 0; padding: 0; max-width: none; break-inside: avoid; }
+  .print-pieces { break-before: page; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .activity-pieces { width: 100%; max-height: 160mm; }
+}
