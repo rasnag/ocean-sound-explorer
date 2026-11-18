@@ -4,3 +4,5 @@
 
 .public-home-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem 1rem; } 
 .public-home-links a { color: #0d5c78; font-weight: 700; text-underline-offset: .2em; } 
+
+.about-wordmark img { display: block; width: clamp(8.5rem, 27vw, 12.5rem); height: auto; }

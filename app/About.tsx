@@ -9,7 +9,7 @@ export default function About(){
  useEffect(()=>{document.title='Curiosity Loop — Experiments in childhood curiosity';},[]);
  return <main className="about-site">
   <nav className="about-nav" aria-label="Main navigation">
-   <a className="about-wordmark" href="/" aria-label="Curiosity Loop home"><span>✦</span> Curiosity Loop</a>
+   <a className="about-wordmark" href="/" aria-label="Curiosity Loop home"><img src="/curiosity-loop-logo.webp" alt="Curiosity Loop" width="960" height="172" /></a>
    <div className="public-home-links">
     <a href="/games/">All games</a>
     <a href="/activities/octopus-camouflage/">Activity</a>
@@ -51,6 +51,6 @@ export default function About(){
    </div>
   </section>
 
-  <footer className="about-footer"><a className="about-wordmark" href="/"><span>✦</span> Curiosity Loop</a><p>Small experiments. Real-world wonder.</p></footer>
+  <footer className="about-footer"><a className="about-wordmark" href="/"><img src="/curiosity-loop-logo.webp" alt="Curiosity Loop" width="960" height="172" /></a><p>Small experiments. Real-world wonder.</p></footer>
  </main>;
 }
