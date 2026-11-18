@@ -4,8 +4,16 @@
   "outputDirectory": "dist/client",
   "framework": null,
   "rewrites": [
-    { "source": "/make-the-moon", "destination": "/index.html" },
-    { "source": "/ocean-sound-explorer", "destination": "/index.html" }
+    {
+      "source": "/make-the-moon",
+      "destination": "/make-the-moon.html"
+    },
+    {
+      "source": "/ocean-sound-explorer",
+      "destination": "/ocean-sound-explorer.html"
+    }
   ],
-  "alias": ["curiosityloop.me"]
+  "alias": [
+    "curiosityloop.me"
+  ]
 }

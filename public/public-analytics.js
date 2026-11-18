@@ -1,5 +1,5 @@
 (() => {
-  const publicPages = new Set(['/', '/about', '/activities/octopus-camouflage']);
+  const publicPages = new Set(["/", "/about", "/activities/octopus-camouflage", "/games", "/angelfish", "/octopus-escape", "/shark-night", "/white-tiger", "/giant-squid-dive", "/zoo-kitchen", "/poohsticks", "/z-hunt", "/ocean-sound-explorer", "/make-the-moon"]);
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (window.location.hostname !== 'curiosityloop.me' || !publicPages.has(path)) return;
 

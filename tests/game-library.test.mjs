@@ -10,7 +10,9 @@ test('every public game has a distinct playable route and valid scripts',()=>{
   const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url)));
   for(const game of games){
     if(['ocean-sound-explorer','make-the-moon'].includes(game.slug)){
-      assert.ok(config.rewrites.some(r=>r.source==='/'+game.slug&&r.destination==='/index.html'));
+      assert.ok(config.rewrites.some(r=>r.source==='/'+game.slug&&r.destination===`/${game.slug}.html`));
+      const html=readFileSync(new URL(`../${game.slug}.html`,import.meta.url),'utf8');
+      assert.ok(html.includes(`rel="canonical" href="https://curiosityloop.me/${game.slug}"`));
       continue;
     }
     const html=readFileSync(new URL(`../public/${game.slug}/index.html`,import.meta.url),'utf8');
