@@ -1,12 +1,12 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {createSavedPlayerClient} from '../lib/loop/saved-player.mjs';
+import {createSavedPlayerClient, bindExistingPlayRequest} from '../lib/loop/saved-player.mjs';
 import {createFixedAudio, fixedLines} from '../lib/loop/fixed-audio.mjs';
 import './loop-saved-player.css';
 
 const guesses: Record<string,string> = {stable: 'Stays steady', tips: 'Tips over', not_sure: 'Not sure yet'};
 const places: Record<string,string> = {balanced: 'Block in the middle', offset: 'Block near the edge'};
 const results: Record<string,string> = {stable: 'Stayed steady', tips: 'Tipped over'};
-const uuid = (v: string | null) => v !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
+const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
 async function request(path: string, body: unknown) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
@@ -47,16 +47,77 @@ function Sound({active}: {active: boolean}) {
     <p>Synthetic test tone only; not an approved voice recording.</p>
   </section>;
 }
-export default function LoopSavedPlayer() {
-  const [client] = useState(() => createSavedPlayerClient({request}));
+export type SavedPlayerRequest = (path: string, body: unknown) => Promise<{status: number; body: unknown}>;
+export type SavedPlayerIntegration = {
+  mode: 'authenticated-existing-play';
+  playId: string;
+  bindingKey: string;
+  request: SavedPlayerRequest;
+};
+function validIntegration(value: unknown): value is SavedPlayerIntegration {
+  if (!value || typeof value !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  const keys = ['mode', 'playId', 'bindingKey', 'request'];
+  const own = Reflect.ownKeys(value);
+  if (own.length !== keys.length || own.some(key => typeof key !== 'string' || !keys.includes(key))) return false;
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) return false;
+  }
+  const candidate = value as SavedPlayerIntegration;
+  return candidate.mode === 'authenticated-existing-play' && uuid(candidate.playId)
+    && typeof candidate.bindingKey === 'string' && candidate.bindingKey.trim().length > 0
+    && candidate.bindingKey.length <= 256 && typeof candidate.request === 'function';
+}
+function BindingUnavailable() {
+  return <main className="saved-player"><p role="alert">This play binding is unavailable. Return to the family home and reopen the play.</p></main>;
+}
+/** The host supplies current server-authorized scope; this prop never grants authority. */
+export default function LoopSavedPlayer(props: {integration?: SavedPlayerIntegration} = {}) {
+  const hasIntegration = Object.prototype.hasOwnProperty.call(props, 'integration');
+  const [mode] = useState(() => hasIntegration ? 'integrated' : 'preview');
+  const modeFailed = useRef(false);
+  if ((mode === 'preview' && hasIntegration)
+    || (mode === 'integrated' && (!hasIntegration || !validIntegration(props.integration)))) modeFailed.current = true;
+  if (modeFailed.current) return <BindingUnavailable/>;
+  const integration = mode === 'integrated' ? props.integration : undefined;
+  const key = integration ? JSON.stringify([integration.bindingKey, integration.playId]) : 'developer-preview';
+  return <SavedPlayerSession key={key} integration={integration}/>;
+}
+function SavedPlayerSession({integration}: {integration?: SavedPlayerIntegration}) {
+  const [binding] = useState(() => integration ? Object.freeze({...integration}) : undefined);
+  const bindingLive = useRef(true);
+  const sameBinding = binding === undefined ? integration === undefined
+    : integration !== undefined && binding.mode === integration.mode && binding.playId === integration.playId
+      && binding.bindingKey === integration.bindingKey && binding.request === integration.request;
+  // This render-time latch only moves closed, including abandoned renders.
+  // Do not defer it to an effect and expose a stale frame. A same-key transport
+  // mutation cannot revive the old session by switching back.
+  if (!sameBinding) bindingLive.current = false;
+  const [client] = useState(() => {
+    const bound = binding ? bindExistingPlayRequest({playId: binding.playId, request: binding.request}) : request;
+    return createSavedPlayerClient({request: async (path: string, body: unknown) => {
+      if (!bindingLive.current) throw new TypeError('Play binding changed. Reopen the play.');
+      return bound(path, body);
+    }});
+  });
   const [snap, setSnap] = useState(() => client.snapshot());
   const [view, setView] = useState<'opening' | 'playing' | 'ending'>('opening');
   const [reloadChoice, setReloadChoice] = useState(false);
   const [localError, setLocalError] = useState('');
   const heading = useRef<HTMLHeadingElement>(null);
+  const openedBinding = useRef(false);
   useEffect(() => {
     let active = true;
-    const unsubscribe = client.subscribe(next => {if (active) setSnap(next);});
+    const unsubscribe = client.subscribe(next => {if (active && bindingLive.current) setSnap(next);});
+    if (binding) {
+      // StrictMode can rerun effects without replacing this client. Open once;
+      // the current subscription still receives its actual settled response.
+      if (!openedBinding.current) {
+        openedBinding.current = true;
+        void (client.open as typeof client.open & ((playId: string) => ReturnType<typeof client.open>))(binding.playId).catch(() => {if (active && bindingLive.current) setLocalError('This play is unavailable. Return to the family home.');});
+      }
+      return () => {active = false; unsubscribe();};
+    }
     const params = new URL(window.location.href).searchParams;
     const play = params.get('play');
     if (params.size > 1 || (params.size === 1 && !params.has('play')) || (play !== null && !uuid(play))) {
@@ -65,11 +126,11 @@ export default function LoopSavedPlayer() {
     return () => {active = false; unsubscribe();};
   }, [client]);
   useEffect(() => {
-    if (snap.phase !== 'ready' || !snap.play_id) return;
+    if (binding || snap.phase !== 'ready' || !snap.play_id) return;
     const url = new URL(window.location.href);
     url.search = ''; url.searchParams.set('play', snap.play_id); url.hash = '';
     window.history.replaceState(null, '', url.pathname + url.search);
-  }, [snap.phase, snap.play_id]);
+  }, [snap.phase, snap.play_id, binding]);
   useEffect(() => {heading.current?.focus();}, [view, snap.play_id, snap.phase === 'denied']);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -105,18 +166,19 @@ export default function LoopSavedPlayer() {
     }
   });
   const status = snap.phase === 'ready' ? 'Confirmed on this local server'
-    : snap.phase === 'idle' ? 'Not opened. Waiting for the local fixture.'
-      : snap.phase === 'loading' ? 'Opening the local server play…'
+    : snap.phase === 'idle' ? (binding ? 'Waiting to open this assigned play.' : 'Not opened. Waiting for the local fixture.')
+      : snap.phase === 'loading' ? (binding ? 'Opening this assigned play…' : 'Opening the local server play…')
         : snap.phase === 'pending' ? 'Saving / Pending — not confirmed. Retry the original operation.'
           : snap.phase === 'conflict' ? 'Conflict. Reload confirmed progress before continuing.'
             : snap.phase === 'denied' ? 'Access closed. Play content is unavailable.' : 'Not confirmed. Retry or reload the local server state.';
+  if (!bindingLive.current) return <BindingUnavailable/>;
   return <main className="saved-player" data-testid="saved-root" data-play-id={snap.play_id ?? ''}
     data-revision-id={adventure?.revision_id ?? ''} aria-labelledby="saved-title">
     <p className="saved-label">Synthetic · unreviewed · local-server-only</p>
     <h1 id="saved-title" ref={heading} tabIndex={-1}>{view === 'ending' ? 'Pause and look back' : 'Your idea comes first'}</h1>
     <p data-testid="saved-status" data-phase={snap.phase} role="status" aria-live="polite">{status}</p>
-    {snap.error && <p role="alert">{snap.error}</p>}{localError && <p role="alert">{localError}</p>}
-    <p>Local test only. Confirmed progress returns on refresh while this demo server keeps running. Stopping it ends access. Unconfirmed changes may be lost if you close or refresh.</p>
+    {snap.error && <p role="alert">{binding && snap.phase === 'denied' ? 'Access closed. Return to the family home to check access.' : snap.error}</p>}{localError && <p role="alert">{localError}</p>}
+    <p>{binding ? 'Local synthetic demo. Only confirmed changes are shown. Unconfirmed changes may be lost if you close or refresh.' : 'Local test only. Confirmed progress returns on refresh while this demo server keeps running. Stopping it ends access. Unconfirmed changes may be lost if you close or refresh.'}</p>
     {['pending', 'failed'].includes(snap.phase) && snap.retryable && <button type="button" data-testid="saved-retry" onClick={retryOriginal}>Retry original operation</button>}
     {snap.phase !== 'denied' && !busy && <button type="button" onClick={() => setReloadChoice(true)}>Reload confirmed progress</button>}
     {reloadChoice && <section aria-label="Reload choice"><p>Reload discards the pending page intent. A command may already have reached the server. Reload reads that same play’s current confirmed state; it never merges or creates a replay.</p>
@@ -161,17 +223,17 @@ export default function LoopSavedPlayer() {
         <h2>An idea away from the screen</h2><p>{adventure.offscreen}</p>
         <p>Resume checks this play’s current confirmed progress and access on the local server.</p>
         <button type="button" disabled={!ready} onClick={enterPlay}>Resume this play</button>
-        <p>New wonder intake and optional parent feedback are unavailable here. Nothing has been submitted or sent.</p>
+        <p>{binding ? 'Starting another wonder or sending feedback is not available inside this player. No new intake is submitted here.' : 'New wonder intake and optional parent feedback are unavailable here. Nothing has been submitted or sent.'}</p>
       </section>}
-      <button type="button" data-testid="saved-replay" disabled={!ready} onClick={() => void invoke(async () => {await client.replay(); if (client.snapshot().phase === 'ready') setView('opening');})}>Start a separate replay</button>
+      {!binding && <><button type="button" data-testid="saved-replay" disabled={!ready} onClick={() => void invoke(async () => {await client.replay(); if (client.snapshot().phase === 'ready') setView('opening');})}>Start a separate replay</button>
       <nav aria-label="Retained local plays"><h2>Other local plays</h2><p>Opening a retained play does not create a replay.</p>
         <div className="saved-buttons">{snap.history.filter(h => h.play_id !== snap.play_id).map(h => <button type="button" key={h.play_id} data-saved-play={h.play_id} disabled={!ready} onClick={() => void invoke(async () => {await client.open(h.play_id);setView('opening');})}>Play {snap.history.findIndex(item => item.play_id === h.play_id) + 1}: {h.trial_count === null ? 'confirmation pending' : `${h.trial_count} tries`} · incomplete</button>)}</div>
-      </nav>
+      </nav></>}
       <details><summary>For the grown-up: about this toy</summary><p>{adventure.limits}</p>
-        <p>This test uses one invented household. It does not verify real parents or provide production storage. Confirmation covers only this running local server; its play list and replay tracking end when it stops.</p>
-        <p>The old memory-only player and its three developer paths remain separate. This server selects one path; it is not a child score.</p></details>
+        <p>{binding ? 'This assigned play uses the current local synthetic demo store. Real-parent identity and production durability are not established.' : 'This test uses one invented household. It does not verify real parents or provide production storage. Confirmation covers only this running local server; its play list and replay tracking end when it stops.'}</p>
+        {!binding && <p>The old memory-only player and its three developer paths remain separate. This server selects one path; it is not a child score.</p>}</details>
       <Sound key={snap.play_id} active={view === 'playing' && snap.phase !== 'denied'}/>
     </>}
-    <a href="/loop-preview">Return to preview shell</a>
+    {!binding && <a href="/loop-preview">Return to preview shell</a>}
   </main>;
 }

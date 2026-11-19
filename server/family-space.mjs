@@ -12,13 +12,27 @@ const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[8
 const clone=x=>structuredClone(x),hash=x=>createHash('sha256').update(x).digest('hex'),base=state=>({status:'family_space',synthetic_only:true,policy_version:policy,state}),bounded=rows=>{if(rows.length>100)fail();return rows;},identity=r=>({assignment_id:r.assignment_id,request_id:r.request_id,revision_id:r.revision_id,source_scope_version:integer(r.source_scope_version,1),question:r.question});
 export async function createSyntheticFamilySpace(options={}){
  exact(options,['env','db','access','content','play','policyVersion'],['clock','queue','bridge']);exact(options.env,[],Reflect.ownKeys(options.env));resolveLoopConfig(options.env);const {db,access,content,play,policyVersion,clock=Date.now}=options;if(policyVersion!==policy||typeof clock!=='function')fail(400);
- const now=()=>{const n=clock();if(!Number.isSafeInteger(n)||n<0||n>8640000000000000)fail();return n;};now();const withSession=method(access,'withSession'),question=method(content,'question'),revision=method(content,'revision'),resume=method(play,'resume'),reconcile=method(play,'reconcile'),queueProject=options.queue===undefined?null:method(options.queue,'project');
+ const now=()=>{const n=clock();if(!Number.isSafeInteger(n)||n<0||n>8640000000000000)fail();return n;};now();const session=method(access,'withSession'),question=method(content,'question'),revision=method(content,'revision'),resume=method(play,'resume'),reconcile=method(play,'reconcile'),queueProject=options.queue===undefined?null:method(options.queue,'project');
+ // Facts belong only to this actual, household-locked session transaction.
+ // They are destroyed before raw resume/journal I/O and never cross a request.
+ const transactionFacts=new WeakMap();
+ const withSession=(token,work)=>session(token,async(tx,actor)=>{
+  const facts=new Map();transactionFacts.set(tx,facts);
+  try{return await work(tx,actor);}finally{facts.clear();transactionFacts.delete(tx);}
+ });
+ async function transactionFact(tx,s,kind,ids,load){
+  const facts=transactionFacts.get(tx);if(!facts)fail(503);
+  const key=JSON.stringify([kind,s.h,s.adult,s.epoch,s.context,s.selected,ids]);
+  if(facts.has(key))return clone(facts.get(key));
+  const value=await load();facts.set(key,clone(value));return value;
+ }
  const {PGlite}=await import('@electric-sql/pglite');if(!(db instanceof PGlite))fail(400);if((await db.query('SELECT version FROM schema_migrations WHERE version=8')).rows.length!==1)fail();const hasProduction=(await db.query('SELECT version FROM schema_migrations WHERE version=11')).rows.length===1;
  const hasBridge=(await db.query('SELECT version FROM schema_migrations WHERE version=16')).rows.length===1;
  if(options.bridge!==undefined&&!isSyntheticPrivateBridgeFamilyAdapter(options.bridge,db))fail(400);
  const bridgeInspect=options.bridge===undefined?null:method(options.bridge,'inspectRequest'),bridgeRevision=options.bridge===undefined?null:method(options.bridge,'readRevision');
  const bridgeScope=s=>({household_id:s.h,adult_id:s.adult,child_id:s.selected.child_id,consent_epoch:s.epoch,profile_version:s.selected.profile_version});
- async function bridgeState(tx,s,requestId){
+ async function bridgeState(tx,s,requestId){return transactionFact(tx,s,'bridge',[requestId],()=>inspectBridgeState(tx,s,requestId));}
+ async function inspectBridgeState(tx,s,requestId){
   const core=(await tx.query("SELECT revision_id FROM adventure_revisions WHERE household_id=$1 AND request_id=$2 AND payload_ref LIKE 'private-bridge:%'",[s.h,requestId])).rows[0];
   const owned=hasBridge?(await tx.query('SELECT request_id FROM private_bridge_commands WHERE household_id=$1 AND request_id=$2 UNION ALL SELECT request_id FROM private_bridge_bindings WHERE household_id=$1 AND request_id=$2 LIMIT 1',[s.h,requestId])).rows[0]:null;
   if(!core&&!owned)return {ownership:'unbridged'};
@@ -26,14 +40,17 @@ export async function createSyntheticFamilySpace(options={}){
   try{const state=await bridgeInspect(tx,bridgeScope(s),{request_id:requestId});if(state.ownership!=='bridge')fail(503);return state;}catch{fail(503);}
  }
  function requireBridgeAvailable(state){if(state.ownership==='bridge'&&state.state!=='available')fail(state.state==='pending'?503:403);}
- async function productionVisible(tx,s,requestId){if(!hasProduction)return true;const c=(await tx.query('SELECT * FROM production_commands WHERE household_id=$1 AND request_id=$2',[s.h,requestId])).rows[0];if(!c)return true;if(integer(c.consent_epoch,1)!==s.epoch)return false;const a=(await tx.query("SELECT a.command_id FROM production_acknowledgements a JOIN production_commands c USING(household_id,command_id,record_id,primary_commit_id) JOIN production_receipts r ON r.household_id=c.household_id AND r.receipt_id=c.receipt_id AND r.request_id=c.request_id JOIN wonder_requests w ON w.household_id=r.household_id AND w.request_id=r.request_id AND w.original_received_at=r.original_received_at WHERE a.household_id=$1 AND a.command_id=$2 AND a.durability_ref='production-fsync:'||c.record_id::text",[s.h,c.command_id])).rows[0];return !!a;}
+ async function productionVisible(tx,s,requestId){return transactionFact(tx,s,'production',[requestId],()=>loadProductionVisible(tx,s,requestId));}
+ async function loadProductionVisible(tx,s,requestId){if(!hasProduction)return true;const c=(await tx.query('SELECT * FROM production_commands WHERE household_id=$1 AND request_id=$2',[s.h,requestId])).rows[0];if(!c)return true;if(integer(c.consent_epoch,1)!==s.epoch)return false;const a=(await tx.query("SELECT a.command_id FROM production_acknowledgements a JOIN production_commands c USING(household_id,command_id,record_id,primary_commit_id) JOIN production_receipts r ON r.household_id=c.household_id AND r.receipt_id=c.receipt_id AND r.request_id=c.request_id JOIN wonder_requests w ON w.household_id=r.household_id AND w.request_id=r.request_id AND w.original_received_at=r.original_received_at WHERE a.household_id=$1 AND a.command_id=$2 AND a.durability_ref='production-fsync:'||c.record_id::text",[s.h,c.command_id])).rows[0];return !!a;}
  async function scope(tx,actor,command){
   await tx.query('SELECT household_id FROM households WHERE household_id=$1 FOR UPDATE',[actor.householdId]);const consent=(await tx.query('SELECT * FROM service_consents WHERE household_id=$1 ORDER BY consent_epoch DESC LIMIT 1 FOR UPDATE',[actor.householdId])).rows[0];if(!consent||consent.state!=='active'||consent.policy_version!==policy)return {denied:'permission_required'};
   const epoch=integer(consent.consent_epoch,1),profiles=bounded((await tx.query('SELECT * FROM child_setup_profiles WHERE household_id=$1 ORDER BY is_initial DESC,child_id',[actor.householdId])).rows);if(profiles.some(r=>integer(r.consent_epoch,1)!==epoch))return {denied:'setup_unavailable'};if(!profiles.some(r=>r.is_initial))return {denied:'setup_required'};const children=profiles.map(r=>({child_id:r.child_id,profile_version:integer(r.current_version,1),nickname:r.profile.nickname,is_initial:r.is_initial})),context=hash(JSON.stringify(['synthetic-family-space-v1',actor.adultId,actor.householdId,epoch,policy])),selected=command?children.find(c=>c.child_id===command.child_id):null;if(command&&(context!==command.view_context||!selected))fail(403);return {h:actor.householdId,adult:actor.adultId,epoch,context,children,selected};
  }
  function command(input,kind){if(kind==='read')exact(input,['view_context','child_id']);else{exact(input,['view_context','child_id','entry_kind','assignment_id','revision_id'],['play_id']);if(input.entry_kind==='assignment')exact(input,['view_context','child_id','entry_kind','assignment_id','revision_id']);else if(input.entry_kind==='play')exact(input,['view_context','child_id','entry_kind','assignment_id','revision_id','play_id']);else fail(400);}if(typeof input.view_context!=='string'||!/^[0-9a-f]{64}$/.test(input.view_context)||Object.keys(input).some(k=>k.endsWith('_id')&&!uuid(input[k])))fail(400);const c=clone(input);for(const k of Object.keys(c))if(k.endsWith('_id'))c[k]=c[k].toLowerCase();return c;}
- async function text(tx,s,request,version){const row=(await tx.query('SELECT * FROM request_source_scopes WHERE household_id=$1 AND request_id=$2 AND source_scope_version=$3',[s.h,request,version])).rows[0];if(!row)fail();try{const r=await question(tx,{household_id:s.h,request_id:request,source_scope_version:integer(version,1),payload_ref:row.payload_ref});exact(r,['question']);if(typeof r.question!=='string'||!r.question.trim()||r.question.length>4000)fail();return r.question;}catch{fail();}}
- async function assignment(tx,s,id,revisionId){
+ async function text(tx,s,request,version){return transactionFact(tx,s,'text',[request,version],()=>loadText(tx,s,request,version));}
+ async function loadText(tx,s,request,version){const row=(await tx.query('SELECT * FROM request_source_scopes WHERE household_id=$1 AND request_id=$2 AND source_scope_version=$3',[s.h,request,version])).rows[0];if(!row)fail();try{const r=await question(tx,{household_id:s.h,request_id:request,source_scope_version:integer(version,1),payload_ref:row.payload_ref});exact(r,['question']);if(typeof r.question!=='string'||!r.question.trim()||r.question.length>4000)fail();return r.question;}catch{fail();}}
+ async function assignment(tx,s,id,revisionId){return transactionFact(tx,s,'assignment',[id,revisionId],()=>loadAssignment(tx,s,id,revisionId));}
+ async function loadAssignment(tx,s,id,revisionId){
   const known=hasBridge?(await tx.query('SELECT request_id FROM private_bridge_bindings WHERE household_id=$1 AND child_id=$2 AND assignment_id=$3 AND revision_id=$4',[s.h,s.selected.child_id,id,revisionId])).rows[0]:null;
   const namespaced=(await tx.query("SELECT r.request_id FROM adventure_revisions r JOIN wonder_requests w USING(household_id,request_id) WHERE r.household_id=$1 AND w.child_id=$2 AND r.revision_id=$3 AND r.payload_ref LIKE 'private-bridge:%'",[s.h,s.selected.child_id,revisionId])).rows[0];
   if(known||namespaced)requireBridgeAvailable(await bridgeState(tx,s,(known??namespaced).request_id));
@@ -54,7 +71,47 @@ export async function createSyntheticFamilySpace(options={}){
  }
  const signature=p=>JSON.stringify([p.context,p.selected,p.data]);async function snapshot(token,c){return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied)fail(403);return {...s,data:await projected(tx,s)};});}
  async function index(token){return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor);return s.denied?base(s.denied):{...base('select_child'),view_context:s.context,children:s.children};});}
- async function read(token,input){const c=command(input,'read'),before=await snapshot(token,c),receipts=[];for(const b of before.data.bindings){try{receipts.push(await resume(b.scope,{play_id:b.scope.play_id,revision_id:b.scope.revision_id,consent_epoch:b.scope.consent_epoch}));}catch{fail();}}const after=await snapshot(token,c);if(signature(before)!==signature(after))fail();const plays=[],previous=new Map();for(let i=0;i<after.data.bindings.length;i++){const b=after.data.bindings[i],r=receipts[i],item={play_id:b.scope.play_id,assignment_id:b.assignment.assignment_id,revision_id:b.assignment.revision_id,source_scope_version:integer(b.assignment.source_scope_version,1),question:b.assignment.question};if(r.status!=='acknowledged'){plays.push({...item,status:'confirmation_pending'});continue;}const st=r.checkpoint?.state;if(r.play_id!==b.scope.play_id||st?.revision_id!==b.scope.revision_id||st.sequence!==integer(b.row.sequence)||JSON.stringify(r.checkpoint)!==JSON.stringify(b.row.checkpoint)||!Array.isArray(st.trials))fail();plays.push({...item,status:'confirmed',last_action_sequence:integer(st.sequence),trial_count:st.trials.length});if(st.trials.length)previous.set(b.assignment.assignment_id,identity(b.assignment));}return {...base('child_space'),view_context:after.context,children:after.children,selected_child:after.selected,saved_wonders:after.data.saved_wonders,requests:after.data.requests,ready:after.data.ready,plays,previous:[...previous.values()],allowances:after.data.allowances};}
- async function open(token,input){const c=command(input,'open'),first=await withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied)fail(403);const a=await assignment(tx,s,c.assignment_id,c.revision_id);let b;if(c.entry_kind==='play'){const rows=(await tx.query('SELECT p.*,m.binding,c.checkpoint FROM play_sessions p JOIN play_service_metadata m USING(household_id,play_id) JOIN play_checkpoints c USING(household_id,play_id) WHERE p.household_id=$1 AND p.child_id=$2 AND p.assignment_id=$3 AND p.revision_id=$4 AND p.play_id=$5',[s.h,s.selected.child_id,c.assignment_id,c.revision_id,c.play_id])).rows;if(rows.length!==1||rows[0].binding.consent_epoch!==s.epoch)fail(403);b={household_id:s.h,child_id:s.selected.child_id,assignment_id:c.assignment_id,revision_id:c.revision_id,play_id:c.play_id,consent_epoch:s.epoch};}return {s,a,b};});let receipt;if(first.b){try{receipt=await resume(first.b,{play_id:c.play_id,revision_id:c.revision_id,consent_epoch:first.s.epoch});if(receipt.status!=='acknowledged')receipt=await reconcile(first.b);}catch{fail();}}return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied||JSON.stringify(s.selected)!==JSON.stringify(first.s.selected))fail(403);const a=await assignment(tx,s,c.assignment_id,c.revision_id);if(JSON.stringify(a)!==JSON.stringify(first.a))fail();if(first.b){if(receipt.status!=='acknowledged')return base('confirmation_pending');const row=(await tx.query('SELECT p.sequence,c.checkpoint FROM play_sessions p JOIN play_checkpoints c USING(household_id,play_id) WHERE household_id=$1 AND play_id=$2',[s.h,c.play_id])).rows[0];if(!row||receipt.play_id!==c.play_id||receipt.checkpoint?.state?.revision_id!==c.revision_id||receipt.checkpoint?.state?.sequence!==integer(row.sequence)||JSON.stringify(receipt.checkpoint)!==JSON.stringify(row.checkpoint))fail();}const spec=await adventure(tx,s,a);return {...base(first.b?'resume':'introduction'),view_context:s.context,selected_child:s.selected,assignment:identity(a),adventure:spec,...(first.b?{receipt:clone(receipt)}:{})};});}
+ // Only actual sequence/checkpoint advancement may trigger a fresh projection attempt.
+ // All authority, source, booking and immutable binding fields remain exact.
+ const authoritySignature=p=>JSON.stringify([p.h,p.adult,p.epoch,p.context,p.children,p.selected]);
+ function fixedProjection(p){return JSON.stringify({...p.data,bindings:p.data.bindings.map(b=>{const {sequence,checkpoint,...immutable}=b.row;return {...b,row:immutable};})});}
+ function advanced(before,after,receipts){
+  if(authoritySignature(before)!==authoritySignature(after))fail(403);
+  if(fixedProjection(before)!==fixedProjection(after)||receipts.some(r=>r?.status!=='acknowledged'))return false;
+  let moved=false;
+  for(let i=0;i<before.data.bindings.length;i++){
+   const a=before.data.bindings[i].row,b=after.data.bindings[i].row,old=integer(a.sequence),next=integer(b.sequence);
+   if(next<old||a.checkpoint?.state?.sequence!==old||b.checkpoint?.state?.sequence!==next)return false;
+   if(next===old){if(JSON.stringify(a.checkpoint)!==JSON.stringify(b.checkpoint))return false;}
+   else moved=true;
+  }
+  return moved;
+ }
+ async function read(token,input){
+  const c=command(input,'read');let before=await snapshot(token,c);
+  for(let attempt=0;attempt<3;attempt++){
+   const receipts=[];
+   for(const b of before.data.bindings){
+    try{receipts.push(await resume(b.scope,{play_id:b.scope.play_id,revision_id:b.scope.revision_id,consent_epoch:b.scope.consent_epoch},token));}
+    catch(e){fail(e?.status===401||e?.status===403||e?.code==='denied'?403:503);}
+   }
+   const after=await snapshot(token,c);
+   if(authoritySignature(before)!==authoritySignature(after))fail(403);
+   if(signature(before)!==signature(after)){
+    if(attempt===2||!advanced(before,after,receipts))fail();
+    before=after;continue;
+   }
+   const plays=[],previous=new Map();
+   for(let i=0;i<after.data.bindings.length;i++){
+    const b=after.data.bindings[i],r=receipts[i],item={play_id:b.scope.play_id,assignment_id:b.assignment.assignment_id,revision_id:b.assignment.revision_id,source_scope_version:integer(b.assignment.source_scope_version,1),question:b.assignment.question};
+    if(r.status!=='acknowledged'){plays.push({...item,status:'confirmation_pending'});continue;}
+    const st=r.checkpoint?.state;if(r.play_id!==b.scope.play_id||st?.revision_id!==b.scope.revision_id||st.sequence!==integer(b.row.sequence)||JSON.stringify(r.checkpoint)!==JSON.stringify(b.row.checkpoint)||!Array.isArray(st.trials))fail();
+    plays.push({...item,status:'confirmed',last_action_sequence:integer(st.sequence),trial_count:st.trials.length});if(st.trials.length)previous.set(b.assignment.assignment_id,identity(b.assignment));
+   }
+   return {...base('child_space'),view_context:after.context,children:after.children,selected_child:after.selected,saved_wonders:after.data.saved_wonders,requests:after.data.requests,ready:after.data.ready,plays,previous:[...previous.values()],allowances:after.data.allowances};
+  }
+  fail();
+ }
+ async function open(token,input){const c=command(input,'open'),first=await withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied)fail(403);const a=await assignment(tx,s,c.assignment_id,c.revision_id);let b;if(c.entry_kind==='play'){const rows=(await tx.query('SELECT p.*,m.binding,c.checkpoint FROM play_sessions p JOIN play_service_metadata m USING(household_id,play_id) JOIN play_checkpoints c USING(household_id,play_id) WHERE p.household_id=$1 AND p.child_id=$2 AND p.assignment_id=$3 AND p.revision_id=$4 AND p.play_id=$5',[s.h,s.selected.child_id,c.assignment_id,c.revision_id,c.play_id])).rows;if(rows.length!==1||rows[0].binding.consent_epoch!==s.epoch)fail(403);b={household_id:s.h,child_id:s.selected.child_id,assignment_id:c.assignment_id,revision_id:c.revision_id,play_id:c.play_id,consent_epoch:s.epoch};}return {s,a,b};});let receipt;if(first.b){try{receipt=await resume(first.b,{play_id:c.play_id,revision_id:c.revision_id,consent_epoch:first.s.epoch},token);if(receipt.status!=='acknowledged')receipt=await reconcile(first.b,token);}catch{fail();}}return withSession(token,async(tx,actor)=>{const s=await scope(tx,actor,c);if(s.denied||JSON.stringify(s.selected)!==JSON.stringify(first.s.selected))fail(403);const a=await assignment(tx,s,c.assignment_id,c.revision_id);if(JSON.stringify(a)!==JSON.stringify(first.a))fail();if(first.b){if(receipt.status!=='acknowledged')return base('confirmation_pending');const row=(await tx.query('SELECT p.sequence,c.checkpoint FROM play_sessions p JOIN play_checkpoints c USING(household_id,play_id) WHERE household_id=$1 AND play_id=$2',[s.h,c.play_id])).rows[0];if(!row||receipt.play_id!==c.play_id||receipt.checkpoint?.state?.revision_id!==c.revision_id||receipt.checkpoint?.state?.sequence!==integer(row.sequence)||JSON.stringify(receipt.checkpoint)!==JSON.stringify(row.checkpoint))fail();}const spec=await adventure(tx,s,a);return {...base(first.b?'resume':'introduction'),view_context:s.context,selected_child:s.selected,assignment:identity(a),adventure:spec,...(first.b?{receipt:clone(receipt)}:{})};});}
  return Object.freeze({index,read,open});
 }

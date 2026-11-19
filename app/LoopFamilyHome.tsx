@@ -3,6 +3,8 @@ import {createFamilySpaceClient} from '../lib/loop/family-space-client.mjs';
 import {createContinuationClient} from '../lib/loop/continuation-client.mjs';
 import {createQueueClient} from '../lib/loop/queue-client.mjs';
 import LoopWonderCapture,{type WonderScope} from './LoopWonderCapture';
+import type {SavedPlayerIntegration} from './LoopSavedPlayer';
+import {createJourneyClient} from '../lib/loop/journey-client.mjs';
 import './loop-family-home.css';
 type Child={child_id:string;profile_version:number;nickname:string;is_initial:boolean};
 type Source={request_id:string;source_scope_version:number;question:string};
@@ -20,27 +22,32 @@ type QueuePending={command_id:string;request_id:string};
 type QueueStatusResponse={status:'queue_status';pending:QueuePending[];writes_closed:boolean};
 type QueueReadResponse={status:'request_status';request:QueueDetail;consent_epoch:number};
 type QueueMutationResponse={status:'acknowledged'|'retryable_unacknowledged'};
-export type QueueStatusProps={scope:WonderScope|null;fence:number;visible:boolean;enabled:boolean;requests:Request[];onDenied:()=>void;onAcknowledged:()=>Promise<void>;onUncertain:()=>void;onLock:(locked:boolean)=>void;onObserved?:()=>Promise<void>};
+export type QueueStatusProps={scope:WonderScope|null;fence:number;visible:boolean;enabled:boolean;requests:Request[];onDenied:()=>void;onAcknowledged:()=>Promise<void>;onUncertain:()=>void;onLock:(locked:boolean)=>void;onObserved?:()=>Promise<void>;polling?:boolean};
 const transport=(...args:Parameters<typeof fetch>)=>globalThis.fetch(...args);
 const api=createFamilySpaceClient(transport),continuation=createContinuationClient(transport),queue=createQueueClient(transport);
 const date=(value:string)=>new Date(value).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'});
 const queueLabels:Record<string,string>={received:'Received',clarification:'Awaiting clarification',fit_review:'Fit review',alternative_pending:'Alternative awaiting your agreement',agreed_scope:'Scope agreed; founder acceptance still needed',accepted:'Accepted; investigation not delivered',declined:'Declined',cancelled:'Cancelled'};
 const selectQueue=(s:WonderScope)=>({view_context:s.view_context,child_id:s.child_id,profile_version:s.profile_version});
 // The separate LoopRequestStatus.tsx entry exports this same implementation.
-export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied,onAcknowledged,onUncertain,onLock,onObserved}:QueueStatusProps){
+export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied,onAcknowledged,onUncertain,onLock,onObserved,polling=true}:QueueStatusProps){
  const [detail,setDetail]=useState<QueueDetail|null>(null),[epoch,setEpoch]=useState<number|null>(null),[pending,setPending]=useState<QueuePending[]>([]),[closed,setClosed]=useState(true),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[conflict,setConflict]=useState(false),[online,setOnline]=useState(true);
  const [answer,setAnswer]=useState(''),[question,setQuestion]=useState(''),[context,setContext]=useState(''),[reason,setReason]=useState(''),[editing,setEditing]=useState(false);
  const live=useRef(false),generation=useRef(0),statusSequence=useRef(0),readSequence=useRef(0),flight=useRef(false),readFlight=useRef(false),pollFlight=useRef(false),controllers=useRef(new Set<AbortController>()),reader=useRef<AbortController|null>(null),intent=useRef<QueueCommand|null>(null),target=useRef<string|null>(null),current=useRef(scope),shown=useRef(visible),active=useRef(enabled),editingRef=useRef(false),heading=useRef<HTMLHeadingElement>(null);
+ const statusFlight=useRef<{guard:number;promise:Promise<boolean>}|null>(null),pollingRef=useRef(polling);pollingRef.current=polling;
  const identity=JSON.stringify([fence,scope?.view_context,scope?.child_id,scope?.profile_version]),activeIdentity=useRef(identity);current.current=scope;shown.current=visible;active.current=enabled;editingRef.current=editing||!!answer||!!reason;
  const abort=useCallback(()=>{for(const c of controllers.current)c.abort();controllers.current.clear();reader.current=null;},[]);
  const clearPrivate=useCallback(()=>{setDetail(null);setEpoch(null);setAnswer('');setQuestion('');setContext('');setReason('');setEditing(false);},[]);
  useLayoutEffect(()=>{activeIdentity.current=identity;++generation.current;++statusSequence.current;++readSequence.current;abort();flight.current=false;readFlight.current=false;pollFlight.current=false;intent.current=null;target.current=null;clearPrivate();setPending([]);setClosed(true);setReady(false);setBusy(false);setMessage('');setConflict(false);onLock(false);},[identity,abort,clearPrivate,onLock]);
  useLayoutEffect(()=>{if(!enabled){++readSequence.current;reader.current?.abort();reader.current=null;readFlight.current=false;clearPrivate();if(!flight.current)setBusy(false);}},[enabled,clearPrivate]);
- const refresh=useCallback(async()=>{
-  const s=current.current;if(!s||!shown.current||flight.current||readFlight.current)return false;const guard=generation.current,id=++statusSequence.current,c=new AbortController();controllers.current.add(c);
-  try{const r=await queue.familyStatus({selection:selectQueue(s)},{signal:c.signal}) as QueueStatusResponse;if(!live.current||guard!==generation.current||id!==statusSequence.current||!shown.current)return false;setPending(r.pending);setClosed(r.writes_closed);setReady(true);onLock(r.writes_closed||!!intent.current);if(r.writes_closed){++readSequence.current;reader.current?.abort();clearPrivate();setMessage(previous=>intent.current?previous:'Confirmation pending or recovery needed. No queue update is confirmed here. Reconcile the existing reference; do not create replacement work.');}return !r.writes_closed;}
-  catch(e){if(!live.current||guard!==generation.current||id!==statusSequence.current)return false;clearPrivate();setReady(false);setPending([]);setClosed(true);if((e as {status?:number}).status===403){intent.current=null;target.current=null;onLock(false);onDenied();}else setMessage(previous=>intent.current?previous:'Request status is unknown. Check current access and pending confirmations.');return false;}
-  finally{controllers.current.delete(c);}
+ const refresh=useCallback(()=>{
+  const s=current.current;if(!s||!shown.current||flight.current||readFlight.current)return Promise.resolve(false);
+  const guard=generation.current;if(statusFlight.current?.guard===guard)return statusFlight.current.promise;
+  const job={guard,promise:Promise.resolve(false)},id=++statusSequence.current,c=new AbortController();statusFlight.current=job;controllers.current.add(c);
+  job.promise=(async()=>{
+   try{const r=await queue.familyStatus({selection:selectQueue(s)},{signal:c.signal}) as QueueStatusResponse;if(!live.current||guard!==generation.current||id!==statusSequence.current||!shown.current)return false;setPending(r.pending);setClosed(r.writes_closed);setReady(true);onLock(r.writes_closed||!!intent.current);if(r.writes_closed){++readSequence.current;reader.current?.abort();clearPrivate();setMessage(previous=>intent.current?previous:'Confirmation pending or recovery needed. No queue update is confirmed here. Reconcile the existing reference; do not create replacement work.');}return !r.writes_closed;}
+   catch(e){if(!live.current||guard!==generation.current||id!==statusSequence.current)return false;clearPrivate();setReady(false);setPending([]);setClosed(true);if((e as {status?:number}).status===403){intent.current=null;target.current=null;onLock(false);onDenied();}else setMessage(previous=>intent.current?previous:'Request status is unknown. Check current access and pending confirmations.');return false;}
+   finally{controllers.current.delete(c);if(statusFlight.current===job)statusFlight.current=null;}
+  })();return job.promise;
  },[clearPrivate,onDenied,onLock]);
  const read=useCallback(async(requestId:string)=>{
   const s=current.current;if(!s||!shown.current||flight.current||intent.current)return;const guard=generation.current,id=++readSequence.current,c=new AbortController();reader.current?.abort();reader.current=c;controllers.current.add(c);readFlight.current=true;target.current=requestId;clearPrivate();setBusy(true);setMessage('Checking current request status…');
@@ -50,8 +57,8 @@ export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied
  },[clearPrivate,onDenied,onObserved]);
  useEffect(()=>{if(detail&&!busy&&visible)heading.current?.focus();},[detail,busy,visible]);
  useEffect(()=>{live.current=true;const connect=()=>{setOnline(navigator.onLine);if(!navigator.onLine){++generation.current;++statusSequence.current;++readSequence.current;abort();flight.current=false;readFlight.current=false;clearPrivate();setBusy(false);setReady(false);setMessage('Offline. Keep this page open. Any pending change is not confirmed.');}};connect();window.addEventListener('online',connect);window.addEventListener('offline',connect);const warn=(e:BeforeUnloadEvent)=>{if(intent.current){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>{live.current=false;++generation.current;abort();window.removeEventListener('online',connect);window.removeEventListener('offline',connect);window.removeEventListener('beforeunload',warn);};},[abort,clearPrivate]);
- useEffect(()=>{if(visible)void refresh();else{++generation.current;++statusSequence.current;++readSequence.current;abort();flight.current=false;readFlight.current=false;clearPrivate();setReady(false);setBusy(false);}},[visible,identity,refresh,abort,clearPrivate]);
- useEffect(()=>{const check=async()=>{if(document.visibilityState==='hidden'||!shown.current||flight.current||readFlight.current||pollFlight.current)return;pollFlight.current=true;const guard=generation.current;try{const ok=await refresh();if(ok&&live.current&&guard===generation.current&&target.current&&!intent.current&&active.current&&!editingRef.current)await read(target.current);}finally{if(guard===generation.current)pollFlight.current=false;}};const trigger=()=>void check();window.addEventListener('focus',trigger);window.addEventListener('pageshow',trigger);const timer=setInterval(trigger,15000);return()=>{clearInterval(timer);window.removeEventListener('focus',trigger);window.removeEventListener('pageshow',trigger);};},[refresh,read]);
+ useEffect(()=>{if(visible){if(polling)void refresh();}else{++generation.current;++statusSequence.current;++readSequence.current;abort();flight.current=false;readFlight.current=false;clearPrivate();setReady(false);setBusy(false);}},[visible,identity,polling,refresh,abort,clearPrivate]);
+ useEffect(()=>{const check=async()=>{if(document.visibilityState==='hidden'||!shown.current||!pollingRef.current||flight.current||readFlight.current||pollFlight.current)return;pollFlight.current=true;const guard=generation.current;try{const ok=await refresh();if(ok&&live.current&&guard===generation.current&&target.current&&!intent.current&&active.current&&!editingRef.current)await read(target.current);}finally{if(guard===generation.current)pollFlight.current=false;}};const trigger=()=>void check();window.addEventListener('focus',trigger);window.addEventListener('pageshow',trigger);const timer=setInterval(trigger,15000);return()=>{clearInterval(timer);window.removeEventListener('focus',trigger);window.removeEventListener('pageshow',trigger);};},[refresh,read]);
  async function perform(command:QueueCommand|null,key?:string){
   const s=current.current;if(!s||!shown.current||flight.current||!online)return;const guard=generation.current,c=new AbortController();abort();controllers.current.add(c);++statusSequence.current;++readSequence.current;readFlight.current=false;flight.current=true;setBusy(true);setConflict(false);clearPrivate();onLock(true);onUncertain();setMessage('Confirmation pending. This change is not confirmed saved or cancelled.');
   try{const r=(command?await queue.familyCommand({selection:selectQueue(s),command},{signal:c.signal}):await queue.familyReconcile({selection:selectQueue(s),command_id:key!},{signal:c.signal})) as QueueMutationResponse;if(!live.current||guard!==generation.current||!shown.current)return;
@@ -83,68 +90,183 @@ export function LoopRequestStatus({scope,fence,visible,enabled,requests,onDenied
   </div>}
  </section>;
 }
+const journey=createJourneyClient(transport);
+// Optional real journey leaf: older nonjourney family screens never import it.
+const LoopSavedPlayer=React.lazy(()=>import('./LoopSavedPlayer'));
+export function JourneyPlayPanel({scope,home,entry,onDenied,onActivity,onProgress,onWork}:{scope:WonderScope|null;home:Home|null;entry:Entry|null;onDenied:()=>void;onActivity?:(active:boolean)=>void;onProgress?:()=>Promise<void>;onWork?:(active:boolean)=>void}){
+ const [available,setAvailable]=useState(false),[message,setMessage]=useState(''),[working,setWorking]=useState(false);
+ type Active={integration:SavedPlayerIntegration;lease:ReturnType<typeof journey.bind>;assignment:Assignment;scopeKey:string};
+ const [active,setActive]=useState<Active|null>(null),activeRef=useRef<Active|null>(null),intent=useRef<{key:string;command_id:string}|null>(null);
+ const live=useRef(false),version=useRef(0),checkSequence=useRef(0),denied=useRef(onDenied),progress=useRef(onProgress),work=useRef(onWork),currentKey=useRef('');denied.current=onDenied;progress.current=onProgress;work.current=onWork;
+ useEffect(()=>{onActivity?.(working||active!==null);return()=>onActivity?.(false);},[working,active,onActivity]);
+ const key=JSON.stringify([scope?.view_context,scope?.child_id,scope?.profile_version]);currentKey.current=key;
+ const close=useCallback(()=>{++version.current;activeRef.current?.lease.close();activeRef.current=null;setActive(null);setWorking(false);setMessage('');},[]);
+ useLayoutEffect(()=>{close();setAvailable(false);setMessage('');intent.current=null;},[key,close]);
+ useEffect(()=>{live.current=true;const hide=()=>{close();setAvailable(false);setMessage('Private play cleared. Recheck access and explicitly reopen it.');};const visibility=()=>{if(document.visibilityState==='hidden')hide();};window.addEventListener('pagehide',hide);document.addEventListener('visibilitychange',visibility);return()=>{live.current=false;close();window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',visibility);};},[close]);
+ useEffect(()=>{
+  const sequence=++checkSequence.current,guard=version.current,c=new AbortController();
+  if(!scope||!home||document.visibilityState==='hidden'){setAvailable(false);close();return;}
+  if(activeRef.current&&!home.ready.some(a=>a.assignment_id===activeRef.current?.assignment.assignment_id&&a.revision_id===activeRef.current?.assignment.revision_id)){setAvailable(false);close();return;}
+  // Live player requests retain their own pre/post context and raw owning guards.
+  // Do not add another capability request for each healthy family checkpoint poll.
+  if(activeRef.current||working)return;
+  void journey.context({view_context:scope.view_context,child_id:scope.child_id},{signal:c.signal}).then(result=>{if(c.signal.aborted||!live.current||sequence!==checkSequence.current||currentKey.current!==key||guard!==version.current||document.visibilityState==='hidden')return;if(result.profile_version!==scope.profile_version)throw Object.assign(Error('Changed profile'),{status:403});setAvailable(true);}).catch((e:unknown)=>{if(c.signal.aborted||!live.current||sequence!==checkSequence.current||currentKey.current!==key||guard!==version.current)return;setAvailable(false);close();if((e as {status?:number}).status===403)denied.current();});
+  return()=>c.abort();
+ },[home,key,scope?.view_context,scope?.child_id,scope?.profile_version,working,close]);
+ async function trial(){if(!scope||working)return;const guard=version.current,notify=onWork;notify?.(true);setWorking(true);try{const result=await journey.trial({view_context:scope.view_context,child_id:scope.child_id});if(!live.current||guard!==version.current)return;setMessage('TEST trial confirmed: '+result.state+' · '+result.allowance+' uses · '+date(result.trial_start)+' to '+date(result.trial_end)+'. No reset or extension.');}catch(e){if(live.current&&guard===version.current){setMessage('TEST trial could not be confirmed.');if((e as {status?:number}).status===403){close();denied.current();}}}finally{notify?.(false);if(live.current&&guard===version.current)setWorking(false);}}
+ async function start(){
+  if(!scope||!entry||working||!available)return;const assignment=entry.assignment,target=JSON.stringify([key,assignment.assignment_id,assignment.revision_id]);
+  if(!intent.current||intent.current.key!==target)intent.current={key:target,command_id:crypto.randomUUID()};
+  const guard=version.current,notify=onWork;notify?.(true);setWorking(true);setMessage('Checking the original TEST Start…');
+  try{
+   const result=await journey.start({view_context:scope.view_context,child_id:scope.child_id,assignment_id:assignment.assignment_id,revision_id:assignment.revision_id,command_id:intent.current.command_id});
+   if(!live.current||guard!==version.current||currentKey.current!==key||document.visibilityState==='hidden')return;
+   if(result.status!=='journey_started'){setMessage('Start pending. Retry this same Start; no second play is created.');return;}
+   activeRef.current?.lease.close();const bindingVersion=version.current;
+   const current=()=>live.current&&version.current===bindingVersion&&currentKey.current===key&&document.visibilityState!=='hidden';
+   const lease=journey.bind({view_context:scope.view_context,child_id:scope.child_id,assignment_id:assignment.assignment_id,revision_id:assignment.revision_id,play_id:result.play_id},{profileVersion:scope.profile_version,current,onDenied:()=>{if(current()){close();denied.current();}}});
+   const request:SavedPlayerIntegration['request']=async(path,body)=>{const notify=current()?work.current:undefined;notify?.(true);try{const reply=await lease.request(path,body);if(current()&&reply.status===200&&(reply.body.status==='acknowledged'||path==='/saved/open'))void progress.current?.().catch(()=>{});return reply;}finally{notify?.(false);}};
+   const value={lease,assignment,scopeKey:key,integration:{mode:'authenticated-existing-play' as const,playId:result.play_id,bindingKey:crypto.randomUUID(),request}};
+   activeRef.current=value;setActive(value);setMessage('Original assigned TEST play confirmed.');
+  }catch(e){if(live.current&&guard===version.current){setMessage('Start not confirmed. Retry the original Start.');if((e as {status?:number}).status===403){close();denied.current();}}}
+  finally{notify?.(false);if(live.current&&guard===version.current)setWorking(false);}
+ }
+ return <section aria-label="Protected TEST journey">{available&&<><p>TEST trial already starts after the first successful child setup. Eight uses / 24 hours is an invented test fixture, not an offer.</p><button type="button" disabled={working} onClick={()=>void trial()}>Test trial: check availability</button>{entry&&!active&&<button type="button" disabled={working} onClick={()=>void start()}>Start or resume this TEST investigation</button>}</>}{message&&<p role="status">{message}</p>}{active&&active.scopeKey===key&&<section aria-label="Current protected play"><h2>Original question</h2><p className="family-question">{active.assignment.question}</p><p>Fixed deterministic balance/tips toy. An unrelated question remains a mismatch; this is not real AI or a validated science answer.</p><button type="button" onClick={close}>Close private play</button><React.Suspense fallback={<p role="status">Loading the confirmed private player…</p>}><LoopSavedPlayer integration={active.integration}/></React.Suspense></section>}</section>;
+}
 export default function LoopFamilyHome(){
  const [index,setIndex]=useState<Index|null>(null),[home,setHome]=useState<Home|null>(null),[entry,setEntry]=useState<Entry|null>(null);
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[captureScope,setCaptureScope]=useState<WonderScope|null>(null),[captureFence,setCaptureFence]=useState(0),[continuationState,setContinuationState]=useState<string|null>(null),[queueLocked,setQueueLocked]=useState(false);
  const live=useRef(false),generation=useRef(0),authSequence=useRef(0),readSequence=useRef(0),openSequence=useRef(0);
  const authority=useRef<Index|null>(null),selected=useRef<Child|null>(null),chosen=useRef<Home|null>(null);
- const clearSelection=useCallback(()=>{++generation.current;++readSequence.current;++openSequence.current;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);setContinuationState(null);setQueueLocked(false);},[]);
- const read=useCallback(async(next:Index,child:Child)=>{
-  ++openSequence.current;
-  const guard=generation.current,id=++readSequence.current;setContinuationState(null);
-  try{const result:Home=await api.read({view_context:next.view_context,child_id:child.child_id});
-   if(!live.current||guard!==generation.current||id!==readSequence.current||selected.current?.child_id!==child.child_id)return;
-   if(result.state!=='child_space'||result.view_context!==next.view_context||result.selected_child?.child_id!==child.child_id||result.selected_child.profile_version!==child.profile_version)throw Error('Changed scope');
-   chosen.current=result;setHome(result);setError('');
-   setEntry(previous=>{if(!previous)return null;const assignment=result.ready.find(a=>a.assignment_id===previous.assignment.assignment_id&&a.revision_id===previous.assignment.revision_id);if(!assignment)return null;if(previous.receipt){const play=result.plays.find(p=>p.play_id===previous.receipt?.play_id);if(play?.status!=='confirmed'||play.last_action_sequence!==previous.receipt.checkpoint.state.sequence)return null;}return previous;});
-   void continuation.status({view_context:next.view_context,child_id:child.child_id}).then(status=>{if(live.current&&guard===generation.current&&id===readSequence.current&&selected.current?.child_id===child.child_id&&selected.current.profile_version===child.profile_version&&authority.current?.view_context===next.view_context)setContinuationState(status.state);}).catch((failure:unknown)=>{if(!live.current||guard!==generation.current||id!==readSequence.current)return;if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();setError('Family access changed. Retry access and choose a child again.');}else setContinuationState('unavailable');});
-  }catch(failure){if(live.current&&guard===generation.current&&id===readSequence.current){chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setError('Family details could not be confirmed. Pending capture, production or request confirmation may need reconciliation below. Retry to check access.');if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();}}}
-  finally{if(live.current&&guard===generation.current&&id===readSequence.current)setBusy(false);}
+ const projection=useRef<{generation:number;again:boolean;direct:boolean;focusPending:boolean;promise:Promise<void>}|null>(null),playing=useRef(false);
+ const continuationFlight=useRef<object|null>(null),workCount=useRef(0),deferredFocus=useRef(false);
+ const accessFlight=useRef<{generation:number;promise:Promise<Index|null>}|null>(null),opening=useRef<{generation:number;id:number}|null>(null);
+ const [playBusy,setPlayBusy]=useState(false);playing.current=playBusy;
+ const clearSelection=useCallback(()=>{++generation.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;continuationFlight.current=null;workCount.current=0;deferredFocus.current=false;selected.current=null;chosen.current=null;setHome(null);setBusy(false);setEntry(null);setNotice('');setCaptureScope(null);setCaptureFence(n=>n+1);setContinuationState(null);setQueueLocked(false);setPlayBusy(false);},[]);
+ // Access checks can finish while an older projection response is held.
+ // Only outstanding work is shared: no completed authorization is cached.
+ const checkAccess=useCallback(():Promise<Index|null>=>{
+  if(!live.current||document.visibilityState==='hidden')return Promise.resolve(null);
+  const guard=generation.current,priorFlight=accessFlight.current;
+  if(priorFlight?.generation===guard)return priorFlight.promise;
+  const job={generation:guard,promise:Promise.resolve<Index|null>(null)},id=++authSequence.current;accessFlight.current=job;
+  const current=()=>live.current&&guard===generation.current&&id===authSequence.current&&document.visibilityState!=='hidden';
+  job.promise=(async()=>{
+   try{
+    const next:Index=await api.index();if(!current())return null;
+    const prior=authority.current,child=selected.current;
+    if(next.state!=='select_child'||!next.view_context||!Array.isArray(next.children)){clearSelection();authority.current=next;setIndex(next);setError('');return null;}
+    if(prior?.view_context&&prior.view_context!==next.view_context){clearSelection();authority.current=next;setIndex(next);setError('');return null;}
+    if(child&&!next.children.some(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version)){clearSelection();authority.current=next;setIndex(next);setError('');return null;}
+    authority.current=next;setIndex(next);if(!child)setError('');return next;
+   }catch(failure){
+    if(current()){
+     ++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setIndex(null);setContinuationState(null);setBusy(false);
+     if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}
+     setError('Family access could not be confirmed. Retry or sign in again.');
+    }
+    return null;
+   }finally{if(accessFlight.current===job)accessFlight.current=null;}
+  })();return job.promise;
  },[clearSelection]);
- const refresh=useCallback(async()=>{
-  ++openSequence.current;const id=++authSequence.current,guard=generation.current;
-  try{const next:Index=await api.index();if(!live.current||id!==authSequence.current||guard!==generation.current)return;
-   const prior=authority.current,child=selected.current;
-   if(next.state!=='select_child'||!next.view_context||!Array.isArray(next.children)){clearSelection();authority.current=next;setIndex(next);setError('');setBusy(false);return;}
-   if(prior?.view_context&&prior.view_context!==next.view_context){clearSelection();authority.current=next;setIndex(next);setBusy(false);setError('');return;}
-   const current=child&&next.children.find(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version);
-   if(child&&!current)clearSelection();authority.current=next;setIndex(next);setError('');
-   if(current){setCaptureScope({view_context:next.view_context,child_id:current.child_id,profile_version:current.profile_version,nickname:current.nickname});await read(next,current);}else setBusy(false);
-  }catch(failure){if(live.current&&id===authSequence.current&&guard===generation.current){if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}else{++generation.current;++readSequence.current;++openSequence.current;}chosen.current=null;setHome(null);setEntry(null);setIndex(null);setContinuationState(null);setBusy(false);setError('Family access could not be confirmed. Retry or sign in again.');}}
- },[clearSelection,read]);
- const captureUncertain=useCallback(()=>{++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setBusy(false);setNotice('Capture or production update awaiting confirmation. Other family details return after a fresh check.');},[]);
- const captureDenied=useCallback(()=>{clearSelection();authority.current=null;setIndex(null);setError('Family access changed. Check access and explicitly choose a child again.');void refresh();},[clearSelection,refresh]);
- const captureAcknowledged=useCallback(async()=>{setNotice('');const next=authority.current,child=selected.current;if(next&&child)await read(next,child);},[read]);
- const lockQueue=useCallback((locked:boolean)=>setQueueLocked(locked),[]);
- const queueUncertain=useCallback(()=>{++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setNotice('Request change awaiting confirmation. Check its original command or pending reference below.');},[]);
- useEffect(()=>{live.current=true;void refresh();const check=()=>{if(document.visibilityState!=='hidden')void refresh();};const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);document.removeEventListener('visibilitychange',check);};},[refresh]);
- function choose(position:string){const next=authority.current,child=next?.children?.[Number(position)];clearSelection();setError('');if(position===''||!next?.view_context||!child){setBusy(false);return;}selected.current=child;setCaptureScope({view_context:next.view_context,child_id:child.child_id,profile_version:child.profile_version,nickname:child.nickname});setBusy(true);void read(next,child);}
+ // One projection lane and one merged producer follow-up per generation.
+ // Fresh lightweight access checks never supersede a same-scope read or Open.
+ const refresh=useCallback(function refresh(again=false,revalidate=false,focusRefresh=false,direct=false):Promise<void>{
+  if(!live.current||document.visibilityState==='hidden')return Promise.resolve();
+  const guard=generation.current,existing=projection.current;
+  const occupied=()=>{const owner=opening.current;return workCount.current>0||owner?.generation===guard&&owner.id===openSequence.current;};
+  if(existing?.generation===guard){if(again||direct)existing.again=true;if(direct)existing.direct=true;if(focusRefresh)existing.focusPending=true;if(revalidate)void checkAccess();return existing.promise;}
+  if(!again&&!direct&&occupied()){if(focusRefresh)deferredFocus.current=true;if(revalidate)void checkAccess();return Promise.resolve();}
+  const job={generation:guard,again:false,direct,focusPending:deferredFocus.current,promise:Promise.resolve()};projection.current=job;let confirmed:number|null=null,required=again;
+  const current=()=>live.current&&guard===generation.current&&document.visibilityState!=='hidden';
+  const releaseSelectionLoading=()=>{const owner=opening.current;if(current()&&!(owner?.generation===guard&&owner.id===openSequence.current))setBusy(false);};
+  job.promise=(async()=>{
+   try{
+    do{
+     const directRead=job.direct,urgent=required||job.again||directRead;required=false;job.again=false;job.direct=false;confirmed=null;
+     // A selected descriptor is input only: protected read rechecks real authority.
+     const next=directRead?authority.current:await checkAccess();if(!current()||!next?.view_context)return;
+     const viewContext=next.view_context,child=selected.current,selectedChild=child&&next.children?.find(c=>c.child_id===child.child_id&&c.profile_version===child.profile_version);
+     if(!selectedChild)return;
+     if(!urgent&&!job.again&&!job.direct&&occupied()){if(job.focusPending||focusRefresh)deferredFocus.current=true;job.focusPending=false;return;}
+     job.focusPending=false;deferredFocus.current=false;
+     const id=++readSequence.current;let result:Home;
+     try{result=await api.read({view_context:viewContext,child_id:selectedChild.child_id});}
+     catch(failure){
+      if(!current()||id!==readSequence.current)return;
+      ++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setBusy(false);
+      if((failure as {status?:number}).status===403){clearSelection();authority.current=null;setIndex(null);}
+      setError('Family details could not be confirmed. Pending capture, production or request confirmation may need reconciliation below. Retry to check access.');return;
+     }
+     if(!current())return;
+     if(id!==readSequence.current)continue;
+     if(result.state!=='child_space'||result.view_context!==viewContext||result.selected_child?.child_id!==selectedChild.child_id||result.selected_child.profile_version!==selectedChild.profile_version)throw Object.assign(Error('Changed scope'),{status:403});
+     confirmed=id;chosen.current=result;setHome(result);setError('');releaseSelectionLoading();
+     setCaptureScope(previous=>previous!==null&&previous.view_context===viewContext&&previous.child_id===selectedChild.child_id&&previous.profile_version===selectedChild.profile_version?previous:{view_context:viewContext,child_id:selectedChild.child_id,profile_version:selectedChild.profile_version,nickname:selectedChild.nickname});
+     setEntry(previous=>{if(!previous)return null;const assignment=result.ready.find(a=>a.assignment_id===previous.assignment.assignment_id&&a.revision_id===previous.assignment.revision_id);if(!assignment)return null;if(previous.receipt){const play=result.plays.find(p=>p.play_id===previous.receipt?.play_id);if(play?.status!=='confirmed'||play.last_action_sequence!==previous.receipt.checkpoint.state.sequence)return null;}return previous;});
+     if(directRead)setContinuationState(null);
+     // Optional status never extends a producer's authoritative-read promise.
+     if(!directRead&&!job.again&&!playing.current&&!occupied()&&!continuationFlight.current){
+      const tail={};continuationFlight.current=tail;setContinuationState(null);
+      const selectedCurrent=()=>current()&&id===readSequence.current&&chosen.current===result;
+      void continuation.status({view_context:viewContext,child_id:selectedChild.child_id}).then(status=>{if(selectedCurrent()&&!playing.current)setContinuationState(status.state);}).catch(failure=>{
+       if(!selectedCurrent())return;
+       if((failure as {status?:number}).status===403){clearSelection();authority.current=null;setIndex(null);setError('Family access could not be confirmed. Retry or sign in again.');}
+       else if(!playing.current)setContinuationState('unavailable');
+      }).finally(()=>{if(continuationFlight.current===tail)continuationFlight.current=null;});
+     }
+    }while(job.again&&current());
+   }catch(failure){if(current()){
+    ++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setIndex(null);setContinuationState(null);setError('Family access could not be confirmed. Retry or sign in again.');
+    if((failure as {status?:number}).status===403){clearSelection();authority.current=null;}
+   }}finally{
+    if(projection.current===job){
+     projection.current=null;
+     // A focus during this read/tail is one pending fresh pass, not another
+     // awaited producer loop. Timer-only checks never set this bit.
+     if(job.focusPending&&confirmed!==null&&confirmed===readSequence.current&&current())queueMicrotask(()=>{if(current())void refresh(false,false,true);});
+    }
+    releaseSelectionLoading();
+   }
+  })();return job.promise;
+ },[clearSelection,checkAccess]);
+ const eventGeneration=generation.current;
+ const captureUncertain=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setBusy(false);setNotice('Capture or production update awaiting confirmation. Other family details return after a fresh check.');},[eventGeneration]);
+ const captureDenied=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;clearSelection();authority.current=null;setIndex(null);setError('Family access changed. Check access and explicitly choose a child again.');void refresh();},[clearSelection,refresh,eventGeneration]);
+ const captureAcknowledged=useCallback(async()=>{if(!live.current||eventGeneration!==generation.current)return;setNotice('');await refresh(true,false,false,true);},[refresh,eventGeneration]);
+ const lockQueue=useCallback((locked:boolean)=>{if(live.current&&eventGeneration===generation.current)setQueueLocked(locked);},[eventGeneration]);
+ const playActivity=useCallback((active:boolean)=>{if(live.current&&eventGeneration===generation.current){setPlayBusy(active);if(active)setContinuationState(null);}},[eventGeneration]);
+ const playWork=useCallback((active:boolean)=>{if(live.current&&eventGeneration===generation.current)workCount.current=Math.max(0,workCount.current+(active?1:-1));},[eventGeneration]);
+ const queueUncertain=useCallback(()=>{if(!live.current||eventGeneration!==generation.current)return;++readSequence.current;++openSequence.current;chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);setNotice('Request change awaiting confirmation. Check its original command or pending reference below.');},[eventGeneration]);
+ useEffect(()=>{live.current=true;void refresh();const check=(event?:Event)=>{if(document.visibilityState==='hidden'){clearSelection();authority.current=null;setIndex(null);}else void refresh(false,true,event?.type==='focus'||event?.type==='pageshow');};const hide=()=>{clearSelection();authority.current=null;setIndex(null);};window.addEventListener('pagehide',hide);const timer=setInterval(check,15000);window.addEventListener('focus',check);window.addEventListener('pageshow',check);document.addEventListener('visibilitychange',check);return()=>{live.current=false;++generation.current;++authSequence.current;++readSequence.current;++openSequence.current;projection.current=null;accessFlight.current=null;opening.current=null;continuationFlight.current=null;workCount.current=0;deferredFocus.current=false;authority.current=null;selected.current=null;chosen.current=null;clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('pageshow',check);window.removeEventListener('pagehide',hide);document.removeEventListener('visibilitychange',check);};},[refresh,clearSelection]);
+ function choose(position:string){const next=authority.current,child=next?.children?.[Number(position)];clearSelection();setError('');if(position===''||!next?.view_context||!child){setBusy(false);return;}selected.current=child;setCaptureScope({view_context:next.view_context,child_id:child.child_id,profile_version:child.profile_version,nickname:child.nickname});setBusy(true);void refresh(true);}
  async function open(item:Assignment|Play,kind:'assignment'|'play'){
-  const selectedHome=chosen.current;if(!selectedHome)return;const guard=generation.current,id=++openSequence.current;setBusy(true);setEntry(null);setError('');setNotice('');
+  const selectedHome=chosen.current;if(!selectedHome)return;const guard=generation.current,id=++openSequence.current,owner={generation:guard,id};opening.current=owner;setBusy(true);setEntry(null);setError('');setNotice('');
   try{const result:Entry=await api.open({view_context:selectedHome.view_context,child_id:selectedHome.selected_child.child_id,entry_kind:kind,assignment_id:item.assignment_id,revision_id:item.revision_id,...(kind==='play'?{play_id:(item as Play).play_id}:{})});if(!live.current||guard!==generation.current||id!==openSequence.current)return;
    if(result.state==='confirmation_pending'){setNotice('Your saved progress is awaiting confirmation. Retry opening it when ready.');return;}
-   if(!['introduction','resume'].includes(result.state)||result.view_context!==selectedHome.view_context||result.selected_child?.child_id!==selectedHome.selected_child.child_id||result.assignment?.assignment_id!==item.assignment_id||result.adventure?.revision_id!==item.revision_id||kind==='play'&&result.receipt?.play_id!==(item as Play).play_id)throw Error('Changed investigation');setEntry(result);
+   if(!['introduction','resume'].includes(result.state)||result.view_context!==selectedHome.view_context||result.selected_child?.child_id!==selectedHome.selected_child.child_id||result.assignment?.assignment_id!==item.assignment_id||result.adventure?.revision_id!==item.revision_id||kind==='play'&&result.receipt?.play_id!==(item as Play).play_id)throw Error('Changed investigation');const currentHome=chosen.current;if(!currentHome||currentHome.view_context!==selectedHome.view_context||currentHome.selected_child.profile_version!==selectedHome.selected_child.profile_version||!currentHome.ready.some(a=>a.assignment_id===item.assignment_id&&a.revision_id===item.revision_id))return;setEntry(result);
   }catch(failure){if(live.current&&guard===generation.current&&id===openSequence.current){chosen.current=null;setHome(null);setEntry(null);setContinuationState(null);if((failure as {status?:number}).status===403){authority.current=null;setIndex(null);clearSelection();}setError('That investigation could not be confirmed. Retry checking access.');}}
-  finally{if(live.current&&guard===generation.current&&id===openSequence.current)setBusy(false);}
+  finally{if(opening.current===owner){opening.current=null;if(live.current&&guard===generation.current&&id===openSequence.current)setBusy(false);}}
  }
  const childPosition=index?.children?.findIndex(c=>c.child_id===selected.current?.child_id)??-1,scopeVisible=Boolean(index?.state==='select_child'&&captureScope&&selected.current);
  return <main className="loop-family" aria-labelledby="family-title"><p className="family-label">Local synthetic preview · invented families only · SYNTHETIC TEST ONLY</p><h1 id="family-title">Your curiosity space</h1><nav aria-label="Family help"><a href="/loop-preview/setup">Child setup and test permissions</a><a href="/loop-preview/join">Sign in or recover access</a><a href="/loop-preview">Preview home</a></nav>
-  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!index&&!error&&<p role="status">Checking family access…</p>}{error&&<button type="button" onClick={()=>{setError('');void refresh();}}>Retry access</button>}
-  {index?.state==='permission_required'&&<section><h2>Test permission needed</h2><p>Review test permissions before opening invented child information.</p><a href="/loop-preview/setup">Review test permissions</a></section>}
+  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!index&&!error&&<p role="status">Checking family access…</p>}{error&&<button type="button" onClick={()=>{setError('');void refresh(true,true);}}>Retry access</button>}
+  {index?.state==='permission_required'&&<section><h2>Test permission needed</h2><p>Current test permission is required to check request confirmations.</p><button type="button" onClick={()=>void checkAccess()}>Check request confirmations</button><a href="/loop-preview/setup">Review test permissions</a></section>}
   {index?.state==='setup_required'&&<section><h2>Set up an invented child</h2><a href="/loop-preview/setup">Open child setup</a></section>}
-  {index?.state==='setup_unavailable'&&<section><h2>Setup needs attention</h2><p>Earlier child details cannot be reattached automatically. Get help through test settings.</p><a href="/loop-preview/setup">Open test settings</a></section>}
+  {index?.state==='setup_unavailable'&&<section><h2>Setup needs attention</h2><p>Earlier child details cannot be reattached or corrected automatically after reconsent in this TEST journey. Setup remains unavailable; no new trial or successful child-save acknowledgement is implied. Get help through test settings.</p><a href="/loop-preview/setup">Open test settings</a></section>}
   {index?.state==='select_child'&&<section aria-label="Choose a child"><label htmlFor="family-child">Whose curiosity?</label><select id="family-child" value={childPosition<0?'':String(childPosition)} onChange={e=>choose(e.target.value)}><option value="">Choose a child</option>{index.children?.map((c,i)=><option key={c.child_id} value={i}>{c.nickname}</option>)}</select></section>}{busy&&<p role="status">Checking the selected investigation…</p>}
-  <LoopWonderCapture scope={captureScope} fence={captureFence} visible={scopeVisible&&!queueLocked} onDenied={captureDenied} onAcknowledged={captureAcknowledged} onUncertain={captureUncertain}/>
-  <LoopRequestStatus scope={captureScope} fence={captureFence} visible={scopeVisible} enabled={Boolean(home)} requests={home?.requests??[]} onDenied={captureDenied} onAcknowledged={captureAcknowledged} onUncertain={queueUncertain} onLock={lockQueue} onObserved={captureAcknowledged}/>
+  <LoopWonderCapture scope={captureScope} fence={captureFence} visible={scopeVisible&&!queueLocked&&!busy&&!playBusy} onDenied={captureDenied} onAcknowledged={captureAcknowledged} onUncertain={captureUncertain}/>
+  <LoopRequestStatus scope={captureScope} fence={captureFence} visible={scopeVisible} enabled={Boolean(home)} requests={home?.requests??[]} onDenied={captureDenied} onAcknowledged={captureAcknowledged} onUncertain={queueUncertain} onLock={lockQueue} onObserved={captureAcknowledged} polling={!busy&&!playBusy}/>
   {home&&<article aria-label="Selected child space"><h2>{home.selected_child.nickname}’s wonders</h2><p>Explore together. These are ideas and tries, never scores.</p>
    <section><h3>Saved wonders</h3><p>Saved questions have no production deadline.</p>{home.saved_wonders.length?home.saved_wonders.map(w=><p className="family-question" key={w.request_id}>{w.question}</p>):<p>No saved questions yet. Start with a wonder above.</p>}</section>
    <section><h3>Investigation requests</h3><p>Viewing a request does not change or cancel it. Use Manage an investigation request for an explicit change.</p>{home.requests.length?home.requests.map(r=><div className="family-card" key={r.request_id}><p className="family-question">{r.question}</p><p>{r.state==='readiness_pending'?'Readiness awaiting confirmation':r.state==='readiness_unavailable'?'Readiness unavailable':r.state==='readiness_withdrawn'?'Readiness withdrawn':r.state==='ready'?'Ready; notification not attempted':r.queue_state?queueLabels[r.queue_state]:({received:'Received',accepted:'Accepted',ready:'Ready',closed:'Closed'} as Record<string,string>)[r.state]??'Needs attention'}{r.overdue?' · Overdue':''}</p><p>Received <time dateTime={r.received_at}>{date(r.received_at)}</time>. Original due time: <time dateTime={r.due_at}>{date(r.due_at)}</time>.</p>{r.revised_estimate&&<p>Separate revised estimate: <time dateTime={r.revised_estimate}>{date(r.revised_estimate)}</time>.</p>}{r.overdue&&<p>The original deadline has passed. Check test support for an update; this page does not restart the clock.</p>}</div>):<p>No confirmed investigations listed. Check pending production confirmations above before starting another request.</p>}</section>
    <section><h3>Ready investigations</h3>{home.ready.length?home.ready.map(a=><div className="family-card" key={a.assignment_id}><p className="family-question">{a.question}</p><button type="button" onClick={()=>void open(a,'assignment')}>Open investigation introduction</button></div>):<p>Nothing ready yet.</p>}</section>
    <section><h3>Saved plays</h3>{home.plays.length?home.plays.map(p=><div className="family-card" key={p.play_id}><p className="family-question">{p.question}</p><p>{p.status==='confirmed'?`${p.trial_count} confirmed ${p.trial_count===1?'try':'tries'}`:'Progress awaiting confirmation'}</p><button type="button" onClick={()=>void open(p,'play')}>Open saved investigation</button></div>):<p>No saved plays yet.</p>}</section>
    <section><h3>Previously tried</h3>{home.previous.length?home.previous.map(a=><p key={a.assignment_id} className="family-question">{a.question}</p>):<p>Investigations appear here after a confirmed try. This does not mean completed.</p>}</section>
-   <section className="family-continuation" aria-label="Test continuation status"><h3>Continuation status</h3>{continuationState==='confirmation_pending'?<p role="status">Test continuation awaiting confirmation. It adds no usable allowance.</p>:continuationState==='recorded_active'?<p>Test continuation recorded. No payment was collected or verified.</p>:continuationState==='recorded_expired'?<p>Test continuation ended. No renewal occurs.</p>:continuationState==='none'?<p>No test continuation recorded. Contact the founder for help; no purchase or sending is available here.</p>:<p>Continuation status could not be confirmed. No purchase or paid status is claimed.</p>}<button type="button" onClick={()=>void refresh()}>Refresh continuation and family details</button></section>
+   <section className="family-continuation" aria-label="Test continuation status"><h3>Continuation status</h3>{continuationState==='confirmation_pending'?<p role="status">Test continuation awaiting confirmation. It adds no usable allowance.</p>:continuationState==='recorded_active'?<p>Test continuation recorded. No payment was collected or verified.</p>:continuationState==='recorded_expired'?<p>Test continuation ended. No renewal occurs.</p>:continuationState==='none'?<p>No test continuation recorded. Contact the founder for help; no purchase or sending is available here.</p>:<p>Continuation status could not be confirmed. No purchase or paid status is claimed.</p>}<button type="button" onClick={()=>void refresh(true,true)}>Refresh continuation and family details</button></section>
    <section><h3>Trial and allowance</h3>{home.allowances.length?home.allowances.map(a=><div key={a.period_id} className="family-card"><p>{a.policy_version==='TEST-CONTINUATION-v1'?(a.state==='expired'?'Test continuation ended':'Test continuation recorded'):(a.state==='expired'?'Trial ended':'Trial active')} · {a.allocation_scope==='household'?'Shared family allowance':'This child’s allowance'}</p><p>{date(a.trial_start)} to {date(a.trial_end)}</p>{a.remaining===0&&<p>No allowance remaining in this period. Existing requests and permitted investigations stay listed. New production eligibility needs a separate current check.</p>}<p>{a.remaining} {a.state==='expired'?'remaining in ended period':'available'} · {a.pending} pending · {a.reserved} reserved · {a.consumed} used · {a.released} released</p>{a.pending_readiness>0&&<p>{a.pending_readiness} awaiting readiness confirmation, already counted as used.</p>}{a.state==='expired'&&<><p>{a.policy_version==='TEST-CONTINUATION-v1'?'Test continuation ended — contact the founder.':'Trial ended — contact the founder.'}</p><p>Previously submitted requests keep their submission-time eligibility. Existing permitted investigations and saved progress remain available. New requests need a separate current eligibility check.</p></>}</div>):<p>Trial not activated. Opening this page does not start one.</p>}</section>
   </article>}
+  <JourneyPlayPanel scope={captureScope} home={home} entry={entry} onDenied={captureDenied} onActivity={playActivity} onProgress={captureAcknowledged} onWork={playWork}/>
   {home&&entry&&<section className="family-entry" aria-label="Opened investigation"><h2>{entry.receipt?'Saved investigation':'Investigation introduction'}</h2><p className="family-question">{entry.assignment.question}</p><p>{entry.adventure.opening}</p><p>{entry.adventure.limits}</p><p>Grown-up: read together and ask what your child thinks will happen.</p>{entry.receipt&&<><h3>Confirmed tries</h3>{entry.receipt.checkpoint.state.trials.length?entry.receipt.checkpoint.state.trials.map((t,i)=><p key={i}>Try {i+1}: predicted {t.prediction}, placed {t.configuration}, result {t.outcome}.</p>):<p>No confirmed tests in this play yet.</p>}</>}<p>This local view opens the exact introduction or confirmed saved record. It does not start a new play.</p><button type="button" onClick={()=>setEntry(null)}>Close investigation view</button></section>}
  </main>;
 }

@@ -341,13 +341,14 @@ async function build(input){
    return f;
   }catch(e){if(e?.code==='journal_unavailable')throw e;fail('recovery_quarantined');}
  }
- async function history(tx,h){
+ async function history(tx,h,journalEvidence){
   const rows=await query(tx,'SELECT c.*,a.command_id AS ack,a.record_id AS ack_record,a.primary_commit_id AS ack_commit FROM cost_slice_commands c LEFT JOIN cost_slice_acknowledgements a USING(household_id,command_id) WHERE c.household_id=$1 ORDER BY c.request_id,c.aggregate_version',[h]);
   const markers=await query(tx,'SELECT * FROM cost_slice_absences WHERE household_id=$1 ORDER BY request_id,command_id',[h]);
   const independent=await records(h),seen=new Set(),versions=new Map(),retired=new Map();
   if(!Array.isArray(independent))fail('recovery_quarantined');
+  const commandsById=new Map(rows.map(row=>[row.command_id,row]));
   for(const r of independent){
-   const row=rows.find(x=>x.command_id===r.command_id);
+   const row=commandsById.get(r.command_id);
    if(!row||seen.has(r.command_id)||!same(row.sealed_fact,r))fail('recovery_quarantined');seen.add(r.command_id);
   }
   for(const m of markers){
@@ -382,6 +383,7 @@ async function build(input){
   for(const request_id of versions.keys()){
    try{ledger(out,{household_id:h,request_id,scope_version:1},[]);}catch{fail('recovery_quarantined');}
   }
+  if(journalEvidence)journalEvidence.present=seen.has(journalEvidence.commandId);
   return out;
  }
  function ledger(rows,s,source_attempts){
@@ -452,14 +454,17 @@ async function build(input){
   b=await source(token,s);
   const outcome=await authority(token,s,async(tx,a)=>{
    await globalKey(tx,a,s,row.command_id);
-   const rows=await history(tx,a.h),item=rows.find(x=>x.row.command_id===row.command_id);owns(item?.row,a,s);
+   const journalEvidence={commandId:row.command_id,present:false};
+   const rows=await history(tx,a.h,journalEvidence),item=rows.find(x=>x.row.command_id===row.command_id);owns(item?.row,a,s);
    if(item.row.ack)return result(item.row);
    const current=await pinSource(tx,s,a,b);
    if(changed(item,rows,current.metadata.anchors)||!same(item.f.effect.metadata,current.metadata)){
     await retire(tx,item);return result(row,'cost_command_fenced');
    }
    if(appendFailed)return result(row,'retryable_unacknowledged');
-   if(!(await records(a.h)).some(r=>same(r,item.row.sealed_fact)))fail('recovery_quarantined');
+   // This transaction's post-append history already read the independent log
+   // and matched each recorded envelope to its exact primary row.
+   if(!journalEvidence.present)fail('recovery_quarantined');
    validateEffect(rows,s,item.f.command.command,item.f.effect);
    const e=item.f.effect;
    if(e.attempt)await tx.query('INSERT INTO cost_slice_attempts(household_id,request_id,attempt_id,command_id) VALUES($1,$2,$3,$4)',[a.h,s.request_id,e.attempt.attempt_id,row.command_id]);
@@ -529,7 +534,12 @@ async function build(input){
  async function command(token,input){
   const v=scope(snapshot(input),['command']),s=copy({household_id:v.household_id,request_id:v.request_id,scope_version:v.scope_version}),c=parseCommand(v.command),envelope={...s,command:c};
   const prior=await authority(token,s,async(tx,a)=>{
-   await refuseRetired(tx,a,s,c.command_id);const rows=await history(tx,a.h),old=rows.find(x=>x.row.command_id===c.command_id);
+   await refuseRetired(tx,a,s,c.command_id);
+   // Only replay needs verified history here. A new key still undergoes full
+   // history and key validation in the owning transaction before any write.
+   const existing=await first(tx,'SELECT command_id FROM cost_slice_commands WHERE household_id=$1 AND command_id=$2',[a.h,c.command_id]);
+   if(!existing)return null;
+   const rows=await history(tx,a.h),old=rows.find(x=>x.row.command_id===c.command_id);
    if(!old)return null;owns(old.row,a,s);
    // Bind to recorded actor/epoch, never a replacement session token.
    if(old.row.canonical_digest!==digest(a.h,old.row.actor_id,dbint(old.row.consent_epoch,1),envelope))fail('conflict');return old.row;

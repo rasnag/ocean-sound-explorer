@@ -1,0 +1,145 @@
+// AUTHORED, NOT RUN BY THE AUTHOR. Development React + actual protected HTTP composition.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire,registerHooks} from 'node:module';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {randomUUID} from 'node:crypto';
+import {journeyHarness,prepareJourney} from './loop-journey-composition.test.mjs';
+import {privateBridgeFixture,readyBridgeSource} from './private-bridge-fixture.mjs';
+import {createSyntheticJourneyPlay} from '../server/journey-play.mjs';
+import {createSyntheticPlayJournal} from '../server/play-journal.mjs';
+import {createJourneyClient,validateJourneyContext,validateJourneyStart,validateJourneyTrial} from '../lib/loop/journey-client.mjs';
+const require=createRequire(new URL('../package.json',import.meta.url));
+function reactLoader(ts){return registerHooks({resolve(specifier,context,next){if(['./LoopWonderCapture','./LoopSavedPlayer'].includes(specifier)&&context.parentURL?.includes('/app/'))return {url:new URL(specifier+'.tsx',context.parentURL).href,shortCircuit:true};return next(specifier,context);},load(url,context,next){if(url.endsWith('.css'))return {format:'module',source:'',shortCircuit:true};if(url.endsWith('.tsx'))return {format:'module',source:ts.transpileModule(require('node:fs').readFileSync(new URL(url),'utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText,shortCircuit:true};return next(url,context);}});}
+function installDOM(dom,fetcher){const prior=new Map();for(const n of ['window','document','navigator','HTMLElement','Node','Event','MouseEvent','IS_REACT_ACT_ENVIRONMENT','fetch','Audio']){prior.set(n,Object.getOwnPropertyDescriptor(globalThis,n));Object.defineProperty(globalThis,n,{configurable:true,writable:true,value:n==='IS_REACT_ACT_ENVIRONMENT'?true:n==='fetch'?fetcher:dom.window[n]});}for(const name of ['pause','load'])Object.defineProperty(dom.window.HTMLMediaElement.prototype,name,{configurable:true,value(){}});Object.defineProperty(dom.window.HTMLMediaElement.prototype,'play',{configurable:true,value(){return Promise.resolve();}});return()=>{for(const [n,d]of prior){if(d)Object.defineProperty(globalThis,n,d);else delete globalThis[n];}dom.window.close();};}
+function controls(React){const wait=async fn=>{for(let i=0;i<750;i++){await React.act(async()=>new Promise(r=>setTimeout(r,20)));if(fn())return;}throw Error('Actual journey UI did not settle');};const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent===text);const enabled=text=>Boolean(button(text)&&!button(text).disabled);const click=async text=>{const b=button(text);assert(b&&!b.disabled,text);await React.act(async()=>b.click());};return {wait,button,enabled,click,phase:()=>document.querySelector('[data-testid="saved-status"]')?.getAttribute('data-phase')};}
+function gate(){let release;const promise=new Promise(r=>{release=r;});return {promise,release};}
+function measure(fetcher){const rows=new Map();return {rows,async fetch(path,options){const key=String(path),row=rows.get(key)??{calls:0,active:0,peak:0,elapsed_ms:[],statuses:[]};rows.set(key,row);row.calls++;row.active++;row.peak=Math.max(row.peak,row.active);const at=performance.now();try{const r=await fetcher(path,options);row.statuses.push(r.status);return r;}finally{row.active--;row.elapsed_ms.push(Math.round(performance.now()-at));}},summary(){return Object.fromEntries([...rows].map(([path,r])=>[path,{calls:r.calls,peak:r.peak,active:r.active,elapsed_ms:r.elapsed_ms,statuses:r.statuses}]));}};}
+async function typeText(React,selector,value){await React.act(async()=>{const field=document.querySelector(selector);assert(field,selector);Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set.call(field,value);field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));});}
+test('journey client strict context/trial/Start schemas and existing-play mapper',async t=>{
+ const h=await journeyHarness(t),x=await prepareJourney(h),selected={view_context:x.selection.view_context,child_id:x.selection.child_id},fetcher=(path,options={})=>fetch(h.parentOrigin+path,{...options,headers:{...options.headers,Cookie:h.parentCookie,Origin:h.parentOrigin,Connection:'close'}}),client=createJourneyClient(fetcher);
+ const context=await client.context(selected),trial=await client.trial(selected),start=await client.start({...x.binding,command_id:randomUUID()});assert.throws(()=>validateJourneyContext({...context,extra:true},selected));assert.throws(()=>validateJourneyTrial({...trial,allowance:9}));assert.throws(()=>validateJourneyStart({...start,play_id:null},x.binding));
+ let live=true,denied=0,calls=[];const transport=createJourneyClient(async(path,options)=>{calls.push({path,body:JSON.parse(options.body)});return fetcher(path,options);}),lease=transport.bind({...x.binding,play_id:start.play_id},{profileVersion:context.profile_version,current:()=>live,onDenied:()=>denied++});assert.equal((await lease.request('/saved/open',{play_id:start.play_id})).status,200);const actual=calls.find(c=>c.path==='/adult/journey/open');assert.deepEqual(Object.keys(actual.body).sort(),['view_context','child_id','assignment_id','revision_id','play_id'].sort());assert(!calls.some(c=>c.path.startsWith('/saved/')));await assert.rejects(()=>lease.request('/saved/open',{play_id:null}));await assert.rejects(()=>lease.request('/saved/replay',{play_id:start.play_id,command_id:randomUUID()}));live=false;assert.equal((await lease.request('/saved/open',{play_id:start.play_id})).status,403);assert.equal(denied,1);
+});
+test('actual client cancellation reaches both current-context boundaries and a retired lease never reopens',async t=>{
+ const h=await journeyHarness(t),x=await prepareJourney(h),native=globalThis.fetch,start=await h.post('/adult/journey/start',{...x.binding,command_id:randomUUID()}),binding={...x.binding,play_id:start.play_id};
+ for(const boundary of [1,2]){
+  const held=gate(),arrived=gate();let contexts=0,signal,denials=0,opens=0;
+  const client=createJourneyClient(async(path,options)=>{const response=await native(h.parentOrigin+path,{...options,headers:{...options.headers,Cookie:h.parentCookie,Origin:h.parentOrigin,Connection:'close'}});if(path==='/adult/journey/open')opens++;if(path==='/adult/journey/context'&&++contexts===boundary){signal=options.signal;arrived.release();await held.promise;}return response;});
+  const lease=client.bind(binding,{profileVersion:x.selection.profile_version,current:()=>true,onDenied:()=>denials++}),pending=lease.request('/saved/open',{play_id:start.play_id});
+  try{await arrived.promise;assert(signal);assert.equal(signal.aborted,false);lease.close();assert.equal(signal.aborted,true);held.release();assert.equal((await pending).status,403);assert.equal(opens,boundary===1?0:1);assert.equal(denials,0,'Explicit retirement must not signal a new host generation');const before=contexts;assert.equal((await lease.request('/saved/open',{play_id:start.play_id})).status,403);assert.equal(contexts,before);}
+  finally{lease.close();held.release();await pending.catch(()=>{});}
+ }
+ const client=createJourneyClient((path,options)=>native(h.parentOrigin+path,{...options,headers:{...options.headers,Cookie:h.parentCookie,Origin:h.parentOrigin,Connection:'close'}})),fresh=client.bind(binding,{profileVersion:x.selection.profile_version,current:()=>true,onDenied:()=>assert.fail('Fresh current session should remain valid')});assert.equal((await fresh.request('/saved/open',{play_id:start.play_id})).status,200);fresh.close();
+});
+test('development StrictMode: stable family binding survives poll/rerender; held private replies close on hide/denial',async t=>{
+ assert.notEqual(process.env.NODE_ENV,'production','This check requires actual development React');const h=await journeyHarness(t),x=await prepareJourney(h),nativeFetch=globalThis.fetch,{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript');let mounts=0,cleanups=0,root,hook;
+ const dom=new JSDOM('<!doctype html><div id="root"></div>',{url:h.parentOrigin+'/loop-preview/family',pretendToBeVisual:true});let hold=false,held=false,release,opens=0,holdContext=true,contextHeld=false,holdFamily=false,familyHeld=false,holdIntroduction=false,introductionHeld=false;
+ const contextGate=gate(),familyGate=gate(),introductionGate=gate();
+ const measured=measure(async(path,options={})=>{
+  // Absolute harness requests retain their own current cookie/Origin and URL.
+  if(!String(path).startsWith('/'))return nativeFetch(new URL(path,h.parentOrigin),options);
+  const response=await nativeFetch(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:h.parentCookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});if(String(path)==='/adult/journey/context'&&holdContext){contextHeld=true;await contextGate.promise;}if(String(path)==='/adult/family/read'&&holdFamily){holdFamily=false;familyHeld=true;await familyGate.promise;}if(String(path)==='/adult/family/open'&&holdIntroduction){holdIntroduction=false;introductionHeld=true;await introductionGate.promise;}if(String(path)==='/adult/journey/open'){opens++;if(hold){hold=false;held=true;await new Promise(r=>{release=r;});}}return response;
+ });
+ const restore=installDOM(dom,(...args)=>measured.fetch(...args)),{wait,button,enabled,click,phase}=controls(React);
+ try{
+  for(const name of ['getItem','setItem','removeItem','clear'])dom.window.Storage.prototype[name]=()=>{throw Error('Private browser storage forbidden');};hook=reactLoader(ts);const {default:Home}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client');function Control(){React.useEffect(()=>{mounts++;return()=>{cleanups++;};},[]);return React.createElement(Home);}root=createRoot(document.getElementById('root'));const render=()=>React.act(async()=>root.render(React.createElement(React.StrictMode,null,React.createElement(Control))));
+  await render();await wait(()=>document.getElementById('family-child'));assert.equal(mounts,2);assert.equal(cleanups,1);
+  await React.act(async()=>{const select=document.getElementById('family-child');select.value='0';select.dispatchEvent(new Event('change',{bubbles:true}));});await wait(()=>contextHeld);assert(!button('Test trial: check availability'),'Control must be absent while capability response is held');
+  holdContext=false;await React.act(async()=>contextGate.release());await wait(()=>enabled('Test trial: check availability'));
+  await click('Test trial: check availability');await wait(()=>document.body.textContent.includes('TEST trial confirmed')&&enabled('Test trial: check availability'));await click('Test trial: check availability');await wait(()=>enabled('Test trial: check availability'));
+  // Real queue onObserved and capture onAcknowledged enter the same projection lane.
+  await wait(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.startsWith('View request 1:')&&!b.disabled));
+  holdFamily=true;await React.act(async()=>[...document.querySelectorAll('button')].find(b=>b.textContent.startsWith('View request 1:')).click());await wait(()=>familyHeld);
+  const secondWords='Invented additional saved-only wonder; never replace the original request.';await wait(()=>enabled('Start a wonder'));await click('Start a wonder');await typeText(React,'#family-wonder',secondWords);await wait(()=>enabled('Review saved-only wonder'));await click('Review saved-only wonder');await click('Confirm saved-only wonder');await wait(()=>document.body.textContent.includes('Wonder saved. No investigation has been requested.'));
+  await React.act(async()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));familyGate.release();});
+  await wait(()=>document.querySelector('[aria-label="Selected child space"]')?.textContent.includes(secondWords));assert.equal(measured.rows.get('/adult/wonder/save').calls,1);assert.equal(measured.rows.get('/adult/family/read').peak,1);
+  // Summary publication precedes capture's acknowledged-refresh callback/finally.
+  // Wait for the real enabled control, without changing the settling window.
+  await wait(()=>enabled('Start a wonder'));
+  const draft='Invented unsent draft retained while the existing play is open.';await click('Start a wonder');await typeText(React,'#family-wonder',draft);assert.equal(document.querySelector('#family-wonder').value,draft);
+  holdIntroduction=true;await click('Open investigation introduction');await wait(()=>introductionHeld);
+  await React.act(async()=>{for(let i=0;i<4;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});
+  await React.act(async()=>introductionGate.release());await wait(()=>document.querySelector('[aria-label="Opened investigation"]'));await wait(()=>enabled('Start or resume this TEST investigation'));await click('Start or resume this TEST investigation');await wait(()=>phase()==='ready');const playId=document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id');
+  const initialOpens=opens;await render();
+  const playFamilyGate=gate();familyHeld=false;const releasePlayFamily=playFamilyGate.release;
+  const originalFetch=globalThis.fetch;globalThis.fetch=async(path,options)=>{if(String(path)==='/adult/family/read'&&!familyHeld){familyHeld=true;const response=await originalFetch(path,options);await playFamilyGate.promise;return response;}return originalFetch(path,options);};
+  try{
+   await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>familyHeld);assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);assert.equal(opens,initialOpens);
+   const count=p=>measured.rows.get(p)?.calls??0,aux=['/adult/wonder/status','/adult/production/status','/adult/queue/status'],beforeAux=aux.map(count),beforeReads=count('/adult/family/read');
+   await React.act(async()=>{for(let i=0;i<12;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});
+   // Real fifteen-second timer; the original750x20ms settling window stays unchanged.
+   await React.act(async()=>new Promise(r=>setTimeout(r,15500)));
+   assert.equal(count('/adult/family/read'),beforeReads,'Polls must not replace or duplicate the outstanding projection');assert.deepEqual(aux.map(count),beforeAux,'No new auxiliary automatic polling while the real private player is active');
+   await React.act(async()=>document.querySelector('[data-testid="saved-start"]').click());await wait(()=>document.querySelector('[data-testid="saved-test"]'));
+   for(const selector of ['[data-prediction="tips"]','[data-configuration="offset"]','[data-testid="saved-test"]']){await React.act(async()=>document.querySelector(selector).click());await wait(()=>phase()==='ready');}assert.equal(document.querySelectorAll('[data-testid="saved-trial"]').length,1);
+   await React.act(async()=>releasePlayFamily());await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.body.textContent.includes('1 confirmed try'));assert.equal(document.querySelectorAll('[data-testid="saved-trial"]').length,1);assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);assert(!document.querySelector('[data-testid="saved-replay"]'));assert.equal(dom.window.location.pathname,'/loop-preview/family');assert.equal(dom.window.location.search,'');
+  }finally{releasePlayFamily();globalThis.fetch=originalFetch;}
+  await click('Close private play');await wait(()=>document.querySelector('#family-wonder'));assert.equal(document.querySelector('#family-wonder').value,draft,'Pausing capture must not discard the unsent draft');
+  await click('Open saved investigation');await wait(()=>enabled('Start or resume this TEST investigation'));await click('Start or resume this TEST investigation');await wait(()=>phase()==='ready');assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);
+  hold=true;await click('Reload confirmed progress');await click('Discard page intent and reload');await wait(()=>held);await React.act(async()=>window.dispatchEvent(new Event('pagehide')));assert(!document.querySelector('[data-testid="saved-root"]'));await React.act(async()=>release());assert(!document.querySelector('[data-testid="saved-root"]'));
+  await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.getElementById('family-child'));await React.act(async()=>{const select=document.getElementById('family-child');select.value='0';select.dispatchEvent(new Event('change',{bubbles:true}));});await wait(()=>document.body.textContent.includes('Invented Journey’s wonders'));await click('Open saved investigation');await wait(()=>enabled('Start or resume this TEST investigation'));await click('Start or resume this TEST investigation');await wait(()=>phase()==='ready');assert.equal(document.querySelector('[data-testid="saved-root"]').getAttribute('data-play-id'),playId);
+  hold=true;held=false;await click('Reload confirmed progress');await click('Discard page intent and reload');await wait(()=>held);await h.post('/adult/consent/withdraw',{command_id:randomUUID(),policy_version:'TEST-v1'});await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>!document.querySelector('[data-testid="saved-root"]'));await React.act(async()=>release());assert(!document.querySelector('[data-testid="saved-root"]'));assert(!document.body.textContent.includes(x.words));
+ }finally{holdContext=false;contextGate.release();familyGate.release();introductionGate.release();release?.();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL HTTP auth/projection/auxiliary counts and latency: '+JSON.stringify(measured.summary()));restore();}
+});
+test('actual confirmed selection releases loading before optional continuation; fresh auth clears a held projection on withdrawal',async t=>{
+ assert.notEqual(process.env.NODE_ENV,'production');const h=await journeyHarness(t);await h.signup('invented-held-authority@example.invalid');
+ const native=globalThis.fetch,{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript'),dom=new JSDOM('<div id="root"></div>',{url:h.parentOrigin+'/loop-preview/family',pretendToBeVisual:true}),continuationGate=gate(),projectionGate=gate();let holdContinuation=true,continuationHeld=false,holdProjection=false,projectionHeld=false,root,hook;
+ const measured=measure(async(path,options={})=>{
+  if(!String(path).startsWith('/'))return native(new URL(path,h.parentOrigin),options);
+  const response=await native(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:h.parentCookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});
+  if(path==='/adult/continuation/status'&&holdContinuation){holdContinuation=false;continuationHeld=true;await continuationGate.promise;}
+  if(path==='/adult/family/read'&&holdProjection){holdProjection=false;projectionHeld=true;await projectionGate.promise;}
+  return response;
+ });
+ const restore=installDOM(dom,(...args)=>measured.fetch(...args)),{wait,enabled,click}=controls(React);
+ try{
+  hook=reactLoader(ts);const {default:Home}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client');root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Home)));await wait(()=>document.getElementById('family-child'));
+  await React.act(async()=>{const s=document.getElementById('family-child');s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}));});await wait(()=>continuationHeld);await wait(()=>document.querySelector('[aria-label="Selected child space"]'));await wait(()=>enabled('Start a wonder'));
+  assert(!document.body.textContent.includes('Checking the selected investigation…'),'Optional continuation must not retain selection loading');await click('Start a wonder');await typeText(React,'#family-wonder','Invented draft before current-permission withdrawal');
+  holdProjection=true;await React.act(async()=>continuationGate.release());await click('Refresh continuation and family details');await wait(()=>projectionHeld);
+  const reads=measured.rows.get('/adult/family/read').calls,authBefore=measured.rows.get('/adult/family').calls;
+  await h.post('/adult/consent/withdraw',{command_id:randomUUID(),policy_version:'TEST-v1'});
+  await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.body.textContent.includes('Test permission needed'));
+  assert(measured.rows.get('/adult/family').calls>authBefore,'Focus must perform fresh actual authorization while the projection is held');assert.equal(measured.rows.get('/adult/family/read').calls,reads);assert.equal(measured.rows.get('/adult/family').peak,1);assert.equal(measured.rows.get('/adult/family/read').peak,1);assert(!document.querySelector('[aria-label="Selected child space"]'));assert(!document.querySelector('#family-wonder'));
+  await React.act(async()=>projectionGate.release());assert(document.body.textContent.includes('Test permission needed'));assert(!document.querySelector('[aria-label="Selected child space"]'));
+ }finally{continuationGate.release();projectionGate.release();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL separate auth/projection and capture/queue load: '+JSON.stringify(measured.summary()));restore();}
+});
+test('actual late old-session denial/finally cannot clear or unlock a new actor-child generation',async t=>{
+ const h=await journeyHarness(t);await h.signup('invented-old-generation@example.invalid');const oldCookie=h.parentCookie,native=globalThis.fetch,{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript'),dom=new JSDOM('<div id="root"></div>',{url:h.parentOrigin+'/loop-preview/family',pretendToBeVisual:true}),oldGate=gate(),newGate=gate();let oldHeld=false,newHeld=false,holdOld=true,holdNew=false,newReads=0,root,hook;
+ const measured=measure(async(path,options={})=>{
+  // Harness requests are already absolute and carry their own actor credentials.
+  // Do not prefix them again or replace their Cookie/Origin with component state.
+  if(!String(path).startsWith('/'))return native(new URL(path,h.parentOrigin),options);
+  const cookie=h.parentCookie;if(path==='/adult/family/read'&&cookie===oldCookie&&holdOld){holdOld=false;oldHeld=true;await oldGate.promise;}else if(path==='/adult/family/read'&&cookie!==oldCookie){newReads++;if(holdNew){holdNew=false;newHeld=true;await newGate.promise;}}
+  return native(new URL(path,h.parentOrigin),{...options,headers:{...options.headers,Cookie:cookie,...(options.method==='POST'?{Origin:h.parentOrigin}:{}),Connection:'close'}});
+ });
+ const restore=installDOM(dom,(...args)=>measured.fetch(...args)),{wait}=controls(React);
+ try{
+  hook=reactLoader(ts);const {default:Home}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client');root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(React.StrictMode,null,React.createElement(Home))));await wait(()=>document.getElementById('family-child'));
+  const choose=()=>{const s=document.getElementById('family-child');s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}));};await React.act(async()=>choose());await wait(()=>oldHeld);
+  await h.post('/adult/logout',{});assert(measured.rows.get(h.parentOrigin+'/adult/logout').statuses.includes(200));await React.act(async()=>window.dispatchEvent(new Event('pagehide')));assert(!document.querySelector('[aria-label="Selected child space"]'));
+  await h.signup('invented-new-generation@example.invalid');assert.notEqual(h.parentCookie,oldCookie);holdNew=true;await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>document.getElementById('family-child'));await React.act(async()=>choose());await wait(()=>newHeld);
+  await React.act(async()=>oldGate.release());await wait(()=>measured.rows.get('/adult/family/read').statuses.includes(403));assert(document.getElementById('family-child'),'Late old denial must not clear the new actor');
+  await React.act(async()=>{for(let i=0;i<6;i++){window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));}});assert.equal(newReads,1,'Old finally must not release the new generation projection');
+  await React.act(async()=>newGate.release());await wait(()=>document.querySelector('[aria-label="Selected child space"]'));assert(!document.querySelector('[role="alert"]'));
+  await h.post('/adult/consent/withdraw',{command_id:randomUUID(),policy_version:'TEST-v1'});await React.act(async()=>window.dispatchEvent(new Event('focus')));await wait(()=>!document.querySelector('[aria-label="Selected child space"]'));
+ }finally{oldGate.release();newGate.release();if(root)await React.act(async()=>root.unmount());hook?.deregister();t.diagnostic('ACTUAL generation-fence HTTP auth/projection counts/latency: '+JSON.stringify(measured.summary()));restore();}
+});
+test('actual pending Start202 shows explicit pending copy, no mounted play, and same original command recovery',async t=>{
+ // Backend producer fixture only, not empty-store/full-journey evidence.
+ const f=await privateBridgeFixture(t),x=await readyBridgeSource(f),env={LOOP_ENV:'local-synthetic'},directory=await mkdtemp(join(tmpdir(),'journey-pending-ui-'));let outage=true;
+ const journal=await createSyntheticPlayJournal({env,directory,testHooks:{beforeAppend:()=>{if(outage)throw Error('Invented actual Start journal outage');}}});f.cleanup(async()=>{await journal.close();await rm(directory,{recursive:true,force:true});});
+ const journey=await createSyntheticJourneyPlay({env,db:f.db,access:f.access,bridge:f.bridge.familyAdapter,journal,clock:f.clock});await f.bridge.makeReady(f.founderToken,x.command);
+ const server=await f.openFamilyServer({journey:{context:journey.context,start:journey.start,open:journey.open,action:journey.action,trial:()=>{throw Error('Trial not used in this backend control');}}}),selection=f.selection(),home=await f.family.read(f.adult.sessionToken,{view_context:selection.view_context,child_id:selection.child_id}),entry=await f.family.open(f.adult.sessionToken,{view_context:selection.view_context,child_id:selection.child_id,entry_kind:'assignment',assignment_id:x.command.command.source?home.ready[0].assignment_id:null,revision_id:x.snapshot.revision_id});
+ const native=globalThis.fetch,calls=[],{JSDOM}=require('jsdom'),React=require('react'),ts=require('typescript'),dom=new JSDOM('<div id="root"></div>',{url:server.origin+'/loop-preview/family',pretendToBeVisual:true});
+ const restore=installDOM(dom,async(path,options={})=>{const r=await native(new URL(path,server.origin),{...options,headers:{...options.headers,Cookie:'loop_adult_session='+f.adult.sessionToken,Origin:server.origin,Connection:'close'}});if(path==='/adult/journey/start')calls.push({body:JSON.parse(options.body),status:r.status});return r;});let root,hook;
+ try{
+  hook=reactLoader(ts);const {JourneyPlayPanel}=await import('../app/LoopFamilyHome.tsx'),{createRoot}=require('react-dom/client'),{wait,enabled,click,phase}=controls(React);root=createRoot(document.getElementById('root'));
+  await React.act(async()=>root.render(React.createElement(React.StrictMode,null,React.createElement(JourneyPlayPanel,{scope:{...selection,nickname:f.children[0].profile.nickname},home,entry,onDenied:()=>assert.fail('Current real session should remain valid')}))));
+  await wait(()=>enabled('Start or resume this TEST investigation'));await click('Start or resume this TEST investigation');await wait(()=>document.body.textContent.includes('Start pending. Retry this same Start; no second play is created.')&&enabled('Start or resume this TEST investigation'));assert.equal(calls[0].status,202);assert(!document.querySelector('[data-testid="saved-root"]'));
+  outage=false;await click('Start or resume this TEST investigation');await wait(()=>phase()==='ready');assert.equal(calls[1].status,200);assert.deepEqual(calls[1].body,calls[0].body);assert.equal(Number((await f.db.query('SELECT count(*) n FROM play_start_commands')).rows[0].n),1);
+ }finally{if(root)await React.act(async()=>root.unmount());hook?.deregister();restore();}
+});
